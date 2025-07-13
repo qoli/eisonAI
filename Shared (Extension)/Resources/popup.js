@@ -243,11 +243,14 @@ async function handleArticleTextResponse(response) {
   summaryContainer.innerHTML = "總結中...";
   document.querySelector("#currentHOST").innerHTML = response.title;
 
+  let assistantText = "";
+
   try {
     // 準備 GPT 訊息
     await setupGPT(); // 確保 API 金鑰等已載入
     let userText = APP_PromptText + "<" + response.body + ">";
     setupSystemMessage();
+    pushAssistantMessage(assistantText)
     pushUserMessage(userText);
     
     // 建立一個假的 element 來接收打字機效果的文字

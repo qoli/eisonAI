@@ -75,7 +75,7 @@ function getMaxTimestampElem() {
   return maxTimestampDiv;
 }
 
-function puashAssistantMessage(text) {
+function pushAssistantMessage(text) {
   if (text.length <= 0) {
     return;
   }
@@ -132,7 +132,7 @@ async function callGPTSummary(inputText) {
 
     let userText = APP_PromptText + "<" + inputText + ">";
     setupSystemMessage();
-    puashAssistantMessage(assistantText);
+    pushAssistantMessage(assistantText);
     pushUserMessage(userText);
 
     await apiPostMessage(responseElem, function () {
@@ -366,7 +366,7 @@ async function apiPostMessage(
 
       if (dataDone) {
         console.log("#dataDone", dataDone);
-        puashAssistantMessage(lastReplyMessage);
+        pushAssistantMessage(lastReplyMessage);
 
         // 在适当的时候调用回调函数
         if (callback && typeof callback === "function") {
