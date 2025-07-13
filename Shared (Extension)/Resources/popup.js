@@ -15,6 +15,8 @@ function addMessageListener() {
   ) {
     console.log("Popup: Message received", request);
 
+    // This listener is now only for messages actively pushed from other scripts,
+    // not for handling responses to requests made from this script.
     if (request.command === "debugTextResponse") {
       document.querySelector("#ReadabilityText").innerHTML = request.body;
     }
@@ -55,9 +57,20 @@ function addClickListeners() {
 }
 
 //
-function sendRunSummaryMessage() {
-  sendMessageToContent("runSummary");
+async function sendRunSummaryMessage() {
+  const summaryContainer = document.querySelector("#summary-container");
+  summaryContainer.innerHTML = "讀取文章內容中...";
   uiFocus(document.getElementById("SendRunSummaryMessage"), 400);
+
+  try {
+    console.log("[Eison-Popup] Sending 'getArticleText' command...");
+    const response = await browser.runtime.sendMessage({ command: "getArticleText" });
+    console.log("[Eison-Popup] Received response for 'getArticleText'", response);
+    handleArticleTextResponse(response);
+  } catch (e) {
+    console.error("[Eison-Popup] Error sending 'getArticleText' command:", e);
+    summaryContainer.innerHTML = `<p class="error">通訊錯誤：${e.message}</p>`;
+  }
 }
 
 function getHostFromUrl(url) {
@@ -219,3 +232,39 @@ mainApp();
 setTimeout(() => {
   delayCall();
 }, 250);
+
+async function handleArticleTextResponse(response) {
+  const summaryContainer = document.querySelector("#summary-container");
+  if (response.error) {
+    summaryContainer.innerHTML = `<p class="error">無法讀取文章：${response.error}</p>`;
+    return;
+  }
+
+  summaryContainer.innerHTML = "總結中...";
+  document.querySelector("#currentHOST").innerHTML = response.title;
+
+  try {
+    // 準備 GPT 訊息
+    await setupGPT(); // 確保 API 金鑰等已載入
+    let userText = APP_PromptText + "<" + response.body + ">";
+    setupSystemMessage();
+    pushUserMessage(userText);
+    
+    // 建立一個假的 element 來接收打字機效果的文字
+    let tempReceiver = { innerText: "" };
+
+    // 呼叫 API
+    await apiPostMessage(tempReceiver, async () => {
+      // API 完成後的回呼
+      const markdown = tempReceiver.innerText;
+      const html = marked.parse(markdown);
+      summaryContainer.innerHTML = html;
+      
+      // 清理
+      messagesGroup = [];
+    });
+
+  } catch (error) {
+    summaryContainer.innerHTML = `<p class="error">總結失敗：${error.message}</p>`;
+  }
+}

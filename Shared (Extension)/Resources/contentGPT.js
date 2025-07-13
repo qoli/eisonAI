@@ -520,15 +520,17 @@ function uiFocus(responseElem, delayMS) {
 }
 
 function toggleClass(element, className) {
-  if (element.classList.contains(className)) {
-    element.classList.remove(className);
-  } else {
-    element.classList.add(className);
+  if (element && element.classList) {
+    if (element.classList.contains(className)) {
+      element.classList.remove(className);
+    } else {
+      element.classList.add(className);
+    }
   }
 }
 
 function removeClass(element, className) {
-  if (element.classList.contains(className)) {
+  if (element && element.classList && element.classList.contains(className)) {
     element.classList.remove(className);
   }
 }

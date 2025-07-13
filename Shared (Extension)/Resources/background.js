@@ -1,23 +1,29 @@
-// background.js
-
-// 監聽來自 content scripts 或 popup 的訊息
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // 檢查訊息來源
-  if (sender.tab) {
-    // 訊息來自 content script (因為 sender 包含 tab 屬性)
-    // 我們將它轉發給 popup
-    console.log(`Background: Received from content script, forwarding to popup:`, message);
-    browser.runtime.sendMessage(message).catch(e => console.error("Error sending to popup:", e));
-  } else {
-    // 訊息來自 popup (sender 沒有 tab 屬性)
-    // 我們將它轉發給當前活動的分頁
-    console.log(`Background: Received from popup, forwarding to active tab:`, message);
+  // 監聽來自 popup 的請求
+  if (message.command && !sender.tab) {
+    console.log(`[Eison-Background] Forwarding command '${message.command}' from popup to content script.`);
+    
+    // 轉發訊息到當前的 tab
     browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
       if (tabs[0] && tabs[0].id) {
-        browser.tabs.sendMessage(tabs[0].id, message).catch(e => console.error("Error sending to content script:", e));
+        // 發送訊息給 content script，並等待它的回應 (sendResponse)
+        browser.tabs.sendMessage(tabs[0].id, message)
+          .then(response => {
+            // 收到了 content script 的回應，現在把它回傳給 popup
+            console.log(`[Eison-Background] Received response from content script, sending back to popup.`, response);
+            sendResponse(response);
+          })
+          .catch(e => {
+            console.error("[Eison-Background] Error forwarding message to content script or receiving response:", e);
+            sendResponse({ error: e.message });
+          });
+      } else {
+        console.error("[Eison-Background] No active tab found.");
+        sendResponse({ error: "No active tab found." });
       }
     });
+
+    // 返回 true 是至關重要的，因為我們是異步地發送回應
+    return true;
   }
-  // 返回 true 表示我們將異步發送響應
-  return true;
 });
