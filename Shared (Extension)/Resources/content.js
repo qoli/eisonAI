@@ -3,6 +3,22 @@ let lastURL = "";
 let APP_MODE = "";
 
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  console.log("Content: Message received", request);
+
+  if (request.command === "getDebugText") {
+    let article = new Readability(document.cloneNode(true), {}).parse();
+    sendResponse({
+      command: "debugTextResponse",
+      body: article.textContent,
+    });
+    return true; //  Indicates that the response is sent asynchronously.
+  }
+
+  // You can add other commands here using if/else if
+  // For example:
+  // if (request.command === "runSummary") { ... }
+
+  // Fallback for old string-based requests for now
   switch (request) {
     case "runSummary":
       runSummary();
@@ -12,14 +28,11 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
       ReadabilityBarMode();
       sendResponse({ callback: "setMode-ok" });
       break;
-    case "getDebugText":
-      getDebugText();
-      sendResponse({ callback: "coreContentText-ok" });
-      break;
     default:
       // Handle unexpected requests if needed
       break;
   }
+  return true;
 });
 
 if (document.readyState !== "loading") {
@@ -32,15 +45,6 @@ if (document.readyState !== "loading") {
 
 function sendMessage(obj) {
   browser.runtime.sendMessage(obj);
-}
-
-function getDebugText() {
-  let article = new Readability(document.cloneNode(true), {}).parse();
-
-  sendMessage({
-    message: "debugText",
-    body: article.textContent,
-  });
 }
 
 // ready ...

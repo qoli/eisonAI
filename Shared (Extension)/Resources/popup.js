@@ -1,13 +1,10 @@
 function sendMessageToContent(message) {
-  browser.tabs.query({ active: true }).then(function (currentTabs) {
-    if (currentTabs[0].id >= 0) {
-      browser.tabs.sendMessage(currentTabs[0].id, message);
-    }
-  });
+  console.log("Popup: Sending message to background:", message);
+  browser.runtime.sendMessage(message).catch(e => console.error("Error sending message from popup:", e));
 }
 
 function getDebugText() {
-  sendMessageToContent("getDebugText");
+  sendMessageToContent({ command: "getDebugText" });
 }
 
 function addMessageListener() {
@@ -16,12 +13,10 @@ function addMessageListener() {
     sender,
     sendResponse
   ) {
-    console.log("MessageListener", request);
+    console.log("Popup: Message received", request);
 
-    if (request.message) {
-      if (request.message == "debugText") {
-        document.querySelector("#ReadabilityText").innerHTML = request.body;
-      }
+    if (request.command === "debugTextResponse") {
+      document.querySelector("#ReadabilityText").innerHTML = request.body;
     }
   });
 }
