@@ -145,7 +145,10 @@ async function callGPTSummary(inputText) {
     });
   } catch (error) {
     console.error("GPT Summary - Error:", error);
-    typeSentence("API 調用錯誤：" + error.message + "\n請檢查 API 設定或重試", responseElem);
+    typeSentence(
+      "API 調用錯誤：" + error.message + "\n請檢查 API 設定或重試",
+      responseElem
+    );
     showID("ReadabilityErrorResend", "flex");
   } finally {
     if (!responseElem.innerText) {
@@ -182,40 +185,41 @@ async function apiPostMessage(
 
   lastReplyMessage = ""; //reset LastMessage
 
-  toggleClass(responseElem, "ReadabilityMessageTyping");
+  // toggleClass(responseElem, "ReadabilityMessageTyping");
 
   try {
-    hideID("ReadabilityErrorResend");
-
     // Handle different API endpoints
     let fetchURL = `${appAPIUrl}/chat/completions`;
     let headers = {
       Authorization: "Bearer " + appAPIKey,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
     };
     let requestBody = {};
 
     // Check if using Gemini API
-    if (appAPIUrl.includes('generativelanguage.googleapis.com')) {
+    if (appAPIUrl.includes("generativelanguage.googleapis.com")) {
       // Adjust for Gemini API format
       fetchURL = `${appAPIUrl}/models/${appAPIModel}:streamGenerateContent`;
       headers = {
         "Content-Type": "application/json",
-        "x-goog-api-key": appAPIKey
+        "x-goog-api-key": appAPIKey,
       };
 
       // Convert message format for Gemini
       // Filter out system messages and map roles
       let geminiContents = messagesGroup
-        .filter(msg => msg.role !== 'system') // Remove system message
-        .map(msg => ({
-          role: msg.role === 'assistant' ? 'model' : msg.role, // Convert assistant to model
-          parts: [{ text: msg.content }]
+        .filter((msg) => msg.role !== "system") // Remove system message
+        .map((msg) => ({
+          role: msg.role === "assistant" ? "model" : msg.role, // Convert assistant to model
+          parts: [{ text: msg.content }],
         }));
 
       // Gemini requires the conversation history to end with a 'user' role message.
       // If the last message is 'model', remove it.
-      if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === 'model') {
+      if (
+        geminiContents.length > 0 &&
+        geminiContents[geminiContents.length - 1].role === "model"
+      ) {
         geminiContents.pop(); // Remove the last message if it's from the model
       }
 
@@ -223,30 +227,37 @@ async function apiPostMessage(
       if (geminiContents.length === 0) {
         // Add a test user message if contents are empty
         geminiContents.push({
-          role: 'user',
-          parts: [{ text: 'Hello' }]
+          role: "user",
+          parts: [{ text: "Hello" }],
         });
         console.log("Added test message to empty Gemini contents");
       }
 
       // Ensure the last message is from the user (Gemini requirement)
-      if (geminiContents.length > 0 && geminiContents[geminiContents.length - 1].role === 'model') {
+      if (
+        geminiContents.length > 0 &&
+        geminiContents[geminiContents.length - 1].role === "model"
+      ) {
         // Add a dummy user message if the last message is from the model
         geminiContents.push({
-          role: 'user',
-          parts: [{ text: 'Please continue' }]
+          role: "user",
+          parts: [{ text: "Please continue" }],
         });
-        console.log("Added continuation prompt since last message was from model");
+        console.log(
+          "Added continuation prompt since last message was from model"
+        );
       }
 
       requestBody = {
         contents: geminiContents,
-        tools: [{
-          google_search: {}
-        }],
+        tools: [
+          {
+            google_search: {},
+          },
+        ],
         generationConfig: {
-          temperature: 0.5
-        }
+          temperature: 0.5,
+        },
       };
     } else {
       // Standard OpenAI/compatible API format
@@ -258,8 +269,8 @@ async function apiPostMessage(
       };
 
       // Add plugins if using OpenRouter
-      if (appAPIUrl.startsWith('https://openrouter.ai')) {
-        requestBody.plugins = [{ "id": "web" }];
+      if (appAPIUrl.startsWith("https://openrouter.ai")) {
+        requestBody.plugins = [{ id: "web" }];
       }
     }
 
@@ -278,7 +289,7 @@ async function apiPostMessage(
       return;
     }
 
-    let geminiBuffer = ''; // Buffer for accumulating Gemini response data
+    let geminiBuffer = ""; // Buffer for accumulating Gemini response data
 
     while (true) {
       // eslint-disable-next-line no-await-in-loop
@@ -287,7 +298,7 @@ async function apiPostMessage(
       let dataDone = false;
 
       // Handle different API formats differently
-      if (appAPIUrl.includes('generativelanguage.googleapis.com')) {
+      if (appAPIUrl.includes("generativelanguage.googleapis.com")) {
         // Gemini streaming format handling
         geminiBuffer += value;
 
@@ -297,11 +308,15 @@ async function apiPostMessage(
           const jsonObjects = extractJsonObjects(geminiBuffer);
 
           for (const jsonData of jsonObjects) {
-            if (jsonData.candidates && jsonData.candidates[0] && jsonData.candidates[0].content) {
+            if (
+              jsonData.candidates &&
+              jsonData.candidates[0] &&
+              jsonData.candidates[0].content
+            ) {
               const content = jsonData.candidates[0].content;
 
               if (content.parts && content.parts.length > 0) {
-                content.parts.forEach(part => {
+                content.parts.forEach((part) => {
                   if (part.text) {
                     typeSentence(part.text, responseElem);
                   }
@@ -316,7 +331,7 @@ async function apiPostMessage(
 
           // Clean buffer after processing
           if (jsonObjects.length > 0) {
-            const lastJsonEndPos = geminiBuffer.lastIndexOf('}') + 1;
+            const lastJsonEndPos = geminiBuffer.lastIndexOf("}") + 1;
             geminiBuffer = geminiBuffer.substring(lastJsonEndPos);
           }
         } catch (error) {
@@ -329,16 +344,20 @@ async function apiPostMessage(
         arr.forEach((data) => {
           if (data.length === 0) return; // ignore empty message
           if (data.startsWith(":")) return; // ignore sse comment message
-          if (data.startsWith("id")) return; // 
+          if (data.startsWith("id")) return; //
 
           if (!data.startsWith("data")) {
             try {
               let errorJSON = JSON.parse(data);
-              typeSentence("\nError: " + (errorJSON.error?.message || JSON.stringify(errorJSON)), responseElem);
+              typeSentence(
+                "\nError: " +
+                  (errorJSON.error?.message || JSON.stringify(errorJSON)),
+                responseElem
+              );
 
               showID("ReadabilityErrorResend", "flex");
               return;
-            } catch (error) { }
+            } catch (error) {}
           }
 
           if (data === "data: [DONE]") {
@@ -388,8 +407,8 @@ async function apiPostMessage(
           let endPos = startPos;
 
           for (let i = startPos; i < str.length; i++) {
-            if (str[i] === '{') openBraces++;
-            else if (str[i] === '}') openBraces--;
+            if (str[i] === "{") openBraces++;
+            else if (str[i] === "}") openBraces--;
 
             if (openBraces === 0) {
               endPos = i + 1;
@@ -496,7 +515,7 @@ function hideLoading() {
 function hideID(idName) {
   try {
     document.querySelector("#" + idName).style.display = "none";
-  } catch (error) { }
+  } catch (error) {}
 }
 
 function showID(idName, display) {
@@ -505,7 +524,7 @@ function showID(idName, display) {
   }
   try {
     document.querySelector("#" + idName).style.display = display;
-  } catch (error) { }
+  } catch (error) {}
 }
 
 function uiFocus(responseElem, delayMS) {

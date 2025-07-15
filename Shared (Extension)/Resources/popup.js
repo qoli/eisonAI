@@ -1,6 +1,8 @@
 function sendMessageToContent(message) {
   console.log("Popup: Sending message to background:", message);
-  browser.runtime.sendMessage(message).catch(e => console.error("Error sending message from popup:", e));
+  browser.runtime
+    .sendMessage(message)
+    .catch((e) => console.error("Error sending message from popup:", e));
 }
 
 function getDebugText() {
@@ -56,23 +58,6 @@ function addClickListeners() {
   });
 }
 
-//
-async function sendRunSummaryMessage() {
-  const summaryContainer = document.querySelector("#summary-container");
-  summaryContainer.innerHTML = "讀取文章內容中...";
-  uiFocus(document.getElementById("SendRunSummaryMessage"), 400);
-
-  try {
-    console.log("[Eison-Popup] Sending 'getArticleText' command...");
-    const response = await browser.runtime.sendMessage({ command: "getArticleText" });
-    console.log("[Eison-Popup] Received response for 'getArticleText'", response);
-    handleArticleTextResponse(response);
-  } catch (e) {
-    console.error("[Eison-Popup] Error sending 'getArticleText' command:", e);
-    summaryContainer.innerHTML = `<p class="error">通訊錯誤：${e.message}</p>`;
-  }
-}
-
 function getHostFromUrl(url) {
   const parsedUrl = new URL(url);
   return parsedUrl.host;
@@ -103,20 +88,6 @@ function setupButtonBarActions() {
       toggleArea(id);
     });
   });
-}
-
-function toggleArea(id) {
-  const correspondingElement = document.querySelector("#" + id);
-
-  if (correspondingElement) {
-    if (correspondingElement.classList.contains("areaSlideVisible")) {
-      correspondingElement.classList.remove("areaSlideVisible");
-      correspondingElement.classList.add("areaSlideHidden");
-    } else {
-      correspondingElement.classList.remove("areaSlideHidden");
-      correspondingElement.classList.add("areaSlideVisible");
-    }
-  }
 }
 
 function setupSettingsLink() {
@@ -173,6 +144,29 @@ function setupStatus() {
   })();
 }
 
+function toggleArea(id) {
+  const correspondingElement = document.querySelector("#" + id);
+
+  if (correspondingElement) {
+    if (correspondingElement.classList.contains("areaSlideVisible")) {
+      correspondingElement.classList.remove("areaSlideVisible");
+      correspondingElement.classList.add("areaSlideHidden");
+    } else {
+      correspondingElement.classList.remove("areaSlideHidden");
+      correspondingElement.classList.add("areaSlideVisible");
+    }
+  }
+}
+
+function showArea(id) {
+  const correspondingElement = document.querySelector("#" + id);
+
+  if (!correspondingElement.classList.contains("areaSlideVisible")) {
+    correspondingElement.classList.remove("areaSlideHidden");
+    correspondingElement.classList.add("areaSlideVisible");
+  }
+}
+
 function mainApp() {
   setupButtonBarActions();
   addClickListeners();
@@ -185,7 +179,7 @@ function mainApp() {
 }
 
 // async ...
-function delayCall() {
+function delayRun() {
   (async () => {
     let currentTabs = await browser.tabs.query({ active: true });
 
@@ -230,44 +224,71 @@ function isMacOS() {
 mainApp();
 
 setTimeout(() => {
-  delayCall();
+  delayRun();
 }, 250);
 
-async function handleArticleTextResponse(response) {
-  const summaryContainer = document.querySelector("#summary-container");
-  if (response.error) {
-    summaryContainer.innerHTML = `<p class="error">無法讀取文章：${response.error}</p>`;
-    return;
-  }
+/// Pre-處理總結內容
+async function sendRunSummaryMessage() {
+  resetGPT();
 
-  summaryContainer.innerHTML = "總結中...";
-  document.querySelector("#currentHOST").innerHTML = response.title;
+  showArea("SummaryContent");
 
-  let assistantText = "";
+  summaryStatusText("讀取中");
 
   try {
-    // 準備 GPT 訊息
-    await setupGPT(); // 確保 API 金鑰等已載入
-    let userText = APP_PromptText + "<" + response.body + ">";
-    setupSystemMessage();
-    pushAssistantMessage(assistantText)
-    pushUserMessage(userText);
-    
-    // 建立一個假的 element 來接收打字機效果的文字
-    let tempReceiver = { innerText: "" };
-
-    // 呼叫 API
-    await apiPostMessage(tempReceiver, async () => {
-      // API 完成後的回呼
-      const markdown = tempReceiver.innerText;
-      const html = marked.parse(markdown);
-      summaryContainer.innerHTML = html;
-      
-      // 清理
-      messagesGroup = [];
+    const response = await browser.runtime.sendMessage({
+      command: "getArticleText",
     });
 
+    console.log(response);
+
+    handleArticleTextResponse(response);
+  } catch (e) {
+    console.error("[Eison-Popup] Error sending 'getArticleText' command:", e);
+
+    summaryStatusText("通信錯誤");
+  }
+}
+
+/// 處理總結內容
+async function handleArticleTextResponse(response) {
+  summaryStatusText("總結中");
+
+  var assistantText = "";
+
+  try {
+    let userText = APP_PromptText + "<" + response.body + ">";
+
+    await setupGPT(); // 確保 API 金鑰等已載入
+
+    setupSystemMessage();
+    pushAssistantMessage(assistantText);
+    pushUserMessage(userText);
+
+    let responseReceiver = document.getElementById("response");
+
+    // 呼叫 API
+    await apiPostMessage(responseReceiver, async () => {
+      setupSummary();
+    });
   } catch (error) {
     summaryContainer.innerHTML = `<p class="error">總結失敗：${error.message}</p>`;
   }
+}
+
+function summaryStatusText(msg) {
+  let text = document.getElementById("response");
+  text.innerHTML = msg;
+}
+
+function statusText(msg) {
+  let text = document.getElementById("StatusText");
+  text.innerHTML = msg;
+}
+
+function resetGPT() {
+  messagesGroup = [];
+  document.querySelector("#response").innerHTML = "";
+  document.querySelector("#receiptTitle").innerHTML = "";
+  document.querySelector("#receipt").innerHTML = "";
 }

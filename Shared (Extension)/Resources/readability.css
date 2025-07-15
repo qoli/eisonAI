@@ -221,19 +221,17 @@
   font-style: normal;
   text-align: left;
   color: #444;
-  white-space: pre-line;
   margin: 0;
   padding: 0;
-
   font-size: 14px;
-  line-height: 26px;
+  line-height: 22px;
   display: flex;
+  white-space: normal;
 }
 
 #receiptTitle {
   font-weight: bolder;
   white-space: normal;
-  margin-bottom: 1em;
 }
 
 #ReadabilityBox p {
