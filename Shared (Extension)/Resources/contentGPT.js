@@ -462,18 +462,6 @@ function typeSentence(sentence, elementReference) {
   return;
 }
 
-function setupSummary() {
-  let resultText = document.getElementById("response").innerHTML;
-
-  document.getElementById("response").innerHTML = "";
-  document.getElementById("receiptTitle").innerHTML = removeBR(
-    extractSummary(resultText)
-  );
-  document.getElementById("receipt").innerHTML = formatMarkdown(
-    marked.parse(postProcessText(excludeSummary(resultText)))
-  );
-}
-
 function removeBR(text) {
   return text.trim().replaceAll("<br>", "");
 }
@@ -601,7 +589,7 @@ async function loadData(key, defaultValue) {
     return data;
   } catch (error) {
     console.log(error);
-    return "";
+    return defaultValue;
   }
 }
 

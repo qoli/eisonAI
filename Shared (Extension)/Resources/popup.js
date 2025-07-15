@@ -178,14 +178,21 @@ function mainApp() {
   setupStatus();
 }
 
+async function getTabURL() {
+  let currentTabs = await browser.tabs.query({ active: true });
+
+  return currentTabs[0].url;
+}
+
 // async ...
 function delayRun() {
   (async () => {
-    let currentTabs = await browser.tabs.query({ active: true });
+    let currentTabURL = await getTabURL();
 
-    document.querySelector("#currentHOST").innerHTML = getHostFromUrl(
-      currentTabs[0].url
-    );
+    document.querySelector("#currentHOST").innerHTML =
+      getHostFromUrl(currentTabURL);
+
+    reloadReceiptData();
   })();
 }
 
@@ -226,6 +233,24 @@ mainApp();
 setTimeout(() => {
   delayRun();
 }, 250);
+
+async function reloadReceiptData() {
+  let tabURL = await loadData("ReceiptURL", "");
+
+  if (tabURL != (await getTabURL())) {
+    return;
+  }
+
+  let receiptTitleText = await loadData("ReceiptTitleText", "");
+  let receiptText = await loadData("ReceiptText", "");
+
+  if (receiptText != "") {
+    showArea("SummaryContent");
+
+    document.getElementById("receiptTitle").innerHTML = receiptTitleText;
+    document.getElementById("receipt").innerHTML = receiptText;
+  }
+}
 
 /// Pre-處理總結內容
 async function sendRunSummaryMessage() {
@@ -269,10 +294,10 @@ async function handleArticleTextResponse(response) {
 
     // 呼叫 API
     await apiPostMessage(responseReceiver, async () => {
-      setupSummary();
+      await setupSummary();
     });
   } catch (error) {
-    summaryContainer.innerHTML = `<p class="error">總結失敗：${error.message}</p>`;
+    summaryStatusText("總結失敗：${error.message}");
   }
 }
 
@@ -291,4 +316,21 @@ function resetGPT() {
   document.querySelector("#response").innerHTML = "";
   document.querySelector("#receiptTitle").innerHTML = "";
   document.querySelector("#receipt").innerHTML = "";
+}
+
+async function setupSummary() {
+  let resultText = document.getElementById("response").innerHTML;
+
+  let receiptTitleText = removeBR(extractSummary(resultText));
+  let receiptText = formatMarkdown(
+    marked.parse(postProcessText(excludeSummary(resultText)))
+  );
+
+  document.getElementById("response").innerHTML = "";
+  document.getElementById("receiptTitle").innerHTML = receiptTitleText;
+  document.getElementById("receipt").innerHTML = receiptText;
+
+  await saveData("ReceiptTitleText", receiptTitleText);
+  await saveData("ReceiptText", receiptText);
+  await saveData("ReceiptURL", await getTabURL());
 }

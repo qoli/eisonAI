@@ -281,7 +281,7 @@ h5 {
   display: inline-flex;
   box-sizing: border-box;
   width: 100%;
-  
+
   border: none;
   border: #e0e0e0 solid 1px;
 }
@@ -399,8 +399,4 @@ body:not(.macos) {
     background-color: #151617 !important;
     border: 2px solid rgba(0, 0, 0, 0) !important;
   }
-}
-
-#summary-container {
-  
 }
