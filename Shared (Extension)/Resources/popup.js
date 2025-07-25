@@ -297,7 +297,7 @@ async function handleArticleTextResponse(response) {
       await setupSummary();
     });
   } catch (error) {
-    summaryStatusText("總結失敗：${error.message}");
+    summaryStatusText("總結失敗：" + error.message);
   }
 }
 

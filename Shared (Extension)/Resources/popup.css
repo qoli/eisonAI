@@ -400,3 +400,22 @@ body:not(.macos) {
     border: 2px solid rgba(0, 0, 0, 0) !important;
   }
 }
+
+/* Shimmer effect for text */
+.text-shimmer {
+  background: linear-gradient(90deg, #ccc 0%, #fff 50%, #ccc 100%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 2.5s infinite linear;
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
