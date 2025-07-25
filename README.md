@@ -177,13 +177,7 @@ newSafari 是一個相似的 Safari 網頁內容擷取與總結工具，提供�
 ## 許可證
 
 本項目基於 MIT 許可證開源 - 查看 [LICENSE](LICENSE) 文件了解更多信息。
-## 更新紀錄
 
-### v1.0.0 (2025-07-25)
 
-- ✨ feat(popup): 開啟時自動觸發摘要
-  - 若無現有摘要，彈窗開啟時會自動開始總結
-  - 改善使用者體驗，無需手動點擊
-- ⚡️ perf(popup): 降低初始載入延遲
-- ✨ feat(popup): 新增分享摘要功能
-  - 使用 Web Share API 將標題、摘要和原始網址分享出去
+## 更新日誌
+https://qoli.notion.site/060ffe20405c4e978c206e4e440c286b
