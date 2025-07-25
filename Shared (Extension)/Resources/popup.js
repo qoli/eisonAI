@@ -184,18 +184,6 @@ async function getTabURL() {
   return currentTabs[0].url;
 }
 
-// async ...
-function delayRun() {
-  (async () => {
-    let currentTabURL = await getTabURL();
-
-    document.querySelector("#currentHOST").innerHTML =
-      getHostFromUrl(currentTabURL);
-
-    reloadReceiptData();
-  })();
-}
-
 function setStatus(className) {
   let icon = document.getElementById("StatusIcon");
 
@@ -232,7 +220,26 @@ mainApp();
 
 setTimeout(() => {
   delayRun();
-}, 250);
+}, 50);
+
+// main enter ...
+function delayRun() {
+  (async () => {
+    let currentTabURL = await getTabURL();
+
+    document.querySelector("#currentHOST").innerHTML =
+      getHostFromUrl(currentTabURL);
+
+    reloadReceiptData();
+
+    if (document.getElementById("receipt").innerHTML == "") {
+      summaryStatusText("即將總結...");
+      setTimeout(() => {
+        sendRunSummaryMessage();
+      }, 200);
+    }
+  })();
+}
 
 async function reloadReceiptData() {
   let tabURL = await loadData("ReceiptURL", "");
