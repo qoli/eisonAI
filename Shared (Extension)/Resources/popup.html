@@ -148,7 +148,12 @@
 
       <!-- Summary content -->
       <div id="SummaryContent" class="areaSlideHidden">
-        <h4>Summary</h4>
+        <div class="flexBetween">
+          <h4>Summary</h4>
+          <h4 id="shareButton" class="text-link text-underline clickListen" data-function="shareContent">
+            分享
+          </h4>
+        </div>
 
         <div class="viewBlock pathBorder">
           <div id="response" class="text-shimmer"></div>
@@ -219,7 +224,7 @@
               </svg>
             </div>
 
-            <span id="AISummaryButton" >AI Summary</span>
+            <span id="AISummaryButton">AI Summary</span>
           </div>
         </div>
       </div>
@@ -295,7 +300,9 @@
           />
         </svg>
 
-        <span id="VersionText"> <a href="http://github.com/qoli/eisonAI">github.com/qoli/eisonAI</a> </span>
+        <span id="VersionText">
+          <a href="http://github.com/qoli/eisonAI">github.com/qoli/eisonAI</a>
+        </span>
       </div>
     </div>
 

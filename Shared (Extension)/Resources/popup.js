@@ -167,6 +167,26 @@ function showArea(id) {
   }
 }
 
+async function shareContent() {
+  try {
+    const title = document.getElementById("receiptTitle").innerText;
+    const text = document.getElementById("receipt").innerText;
+    const url = await getTabURL();
+
+    if (navigator.share) {
+      await navigator.share({
+        text: title + "\n\r" + text + url,
+      });
+      console.log("Content shared successfully");
+    } else {
+      console.log("Web Share API not supported in this browser.");
+      // Fallback behavior can be implemented here
+    }
+  } catch (error) {
+    console.error("Error sharing:", error);
+  }
+}
+
 function mainApp() {
   setupButtonBarActions();
   addClickListeners();
@@ -176,6 +196,8 @@ function mainApp() {
   addMessageListener();
   setupSettingsLink();
   setupStatus();
+
+  hideID("shareButton")
 }
 
 async function getTabURL() {
@@ -222,7 +244,7 @@ setTimeout(() => {
   delayRun();
 }, 50);
 
-// main enter ...
+// delay enter ...
 function delayRun() {
   (async () => {
     let currentTabURL = await getTabURL();
@@ -236,7 +258,7 @@ function delayRun() {
       summaryStatusText("即將總結...");
       setTimeout(() => {
         sendRunSummaryMessage();
-      }, 200);
+      }, 500);
     }
   })();
 }
@@ -340,4 +362,6 @@ async function setupSummary() {
   await saveData("ReceiptTitleText", receiptTitleText);
   await saveData("ReceiptText", receiptText);
   await saveData("ReceiptURL", await getTabURL());
+
+  showID("shareButton")
 }

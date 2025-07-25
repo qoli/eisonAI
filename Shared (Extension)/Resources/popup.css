@@ -78,6 +78,13 @@ h5 {
   align-items: center;
 }
 
+.flexBetween {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
 .contentLeft {
   display: flex;
   justify-content: flex-start;
@@ -418,4 +425,17 @@ body:not(.macos) {
   100% {
     background-position: -200% 0;
   }
+}
+
+.text-wrap {
+  white-space: normal !important;
+  word-break: break-all !important;
+}
+
+.text-underline {
+  text-decoration: underline;
+}
+
+.text-link {
+  color: #0a83fc;
 }
