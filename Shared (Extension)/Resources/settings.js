@@ -102,8 +102,7 @@ function checkAPI() {
 
     messagesGroup = [];
 
-    // setupSystemMessage();
-    pushAssistantMessage("Ping");
+    pushUserMessage("Ping")
 
     document.getElementById("SaveAPI").disabled = true;
     document.getElementById("CheckAPI").disabled = true;
