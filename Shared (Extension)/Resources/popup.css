@@ -422,6 +422,9 @@ body:not(.macos) {
 @media (prefers-color-scheme: dark) {
   .text-shimmer {
     background: linear-gradient(90deg, #444 0%, #666 50%, #444 100%);
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
   }
 }
 
