@@ -410,12 +410,19 @@ body:not(.macos) {
 
 /* Shimmer effect for text */
 .text-shimmer {
+  color: transparent !important;
   background: linear-gradient(90deg, #ccc 0%, #fff 50%, #ccc 100%);
   background-size: 200% 100%;
   background-clip: text;
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  -webkit-text-fill-color: transparent !important;
   animation: text-shimmer 2.5s infinite linear;
+}
+
+@media (prefers-color-scheme: dark) {
+  .text-shimmer {
+    background: linear-gradient(90deg, #444 0%, #666 50%, #444 100%);
+  }
 }
 
 @keyframes text-shimmer {
