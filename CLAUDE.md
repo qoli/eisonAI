@@ -4,42 +4,135 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EisonAI is a Safari browser extension that uses Large Language Models (LLMs) to summarize web page content. It's built as a native application for macOS and iOS that contains a Safari Web Extension.
+EisonAI is a Safari browser extension that uses Large Language Models (LLMs) to summarize web page content. It's built as a native macOS and iOS application that wraps a Safari Web Extension.
 
-- **Frontend:** The extension's UI is built with HTML, CSS, and JavaScript.
-- **Backend:** The core logic is in JavaScript, split into content scripts, background scripts, and popup/settings scripts.
-- **Native Wrapper:** The Xcode project (`eisonAI.xcodeproj`) wraps the web extension for distribution on the App Store.
+## Architecture
 
-## Key Files and Directories
+### Safari Extension Components
 
-- `Shared (App)/`: Contains the core web extension assets and JavaScript files.
-  - `Base.lproj/Main.html`: The main HTML file for the popup interface.
-  - `Resources/`: Holds JavaScript (`Script.js`) and CSS (`Style.css`).
-  - `ViewController.swift`: The main view controller for the native app wrapper.
-- `macOS (App)/` & `iOS (App)/`: Platform-specific code and configurations.
-- `eisonAI.xcodeproj/`: The Xcode project file.
+1. **Content Scripts** (`Shared (Extension)/Resources/`)
+   - `content.js`: Injected into web pages, coordinates content extraction
+   - `contentReadability.js`: Mozilla Readability library for extracting article content
+   - `contentGPT.js`: Handles LLM API communication (OpenAI-compatible and Google Gemini)
+   - `contentMarked.js`: Markdown rendering library
 
-## Common Development Tasks
+2. **Background Script** (`background.js`)
+   - Message broker between popup and content scripts
+   - Maintains persistent communication channels
 
-### Running the Project
+3. **Popup Interface** (`popup.js`, `popup.html`, `popup.css`)
+   - Main user interface for summarization
+   - Handles chat interactions with LLM
+   - Manages cached summaries
+   - Auto-triggers summarization when no cache exists
 
-To develop and run the project, you need to use Xcode.
+4. **Settings Page** (`settings.js`, `settings.html`)
+   - API configuration (URL, key, model)
+   - System and user prompt customization
+   - API connection testing
+   - Display mode configuration
 
-1.  **Install dependencies:**
-    ```bash
-    bundle install
-    ```
-2.  **Open the project in Xcode:**
-    ```bash
-    open eisonAI.xcodeproj
-    ```
-3.  **Run the app:**
-    - Select the desired target (e.g., "eisonAI (macOS)") and a simulator or connected device.
-    - Click the "Run" button in Xcode.
+### Native App Wrapper
 
-### Modifying the Web Extension
+- **Xcode Project**: `eisonAI.xcodeproj`
+- **Targets**: iOS, macOS, eisonAI Extension (iOS), eisonAI Extension (macOS)
+- **Main App**: `Shared (App)/ViewController.swift` - native wrapper UI
+- **Extension Handler**: `Shared (Extension)/SafariWebExtensionHandler.swift`
 
-- The primary logic for the Safari extension is located in `Shared (App)/Resources/`.
-- `Script.js` likely contains the main application logic (content extraction, API calls, UI updates).
-- `Style.css` contains the styling for the popup.
-- After making changes to the JavaScript or CSS files, you will need to re-run the application from Xcode to see the changes in Safari.
+## Development Commands
+
+### Build and Run
+
+```bash
+# Install Ruby dependencies for deployment
+bundle install
+
+# Open in Xcode for development
+open eisonAI.xcodeproj
+
+# Build for macOS (via fastlane)
+bundle exec fastlane mac
+
+# Deploy to TestFlight (both iOS and macOS)
+bundle exec fastlane all
+
+# Increment app version (1.0 -> 1.1)
+bundle exec fastlane bump_version
+```
+
+### Version Management
+
+The project uses automated build number management for pre-release testing:
+
+- **Build Number**: Automatically incremented on each test release via `increment_build_number`
+- **Version Number**: Remains fixed during pre-release phase (currently 1.0)
+- **Unified Versioning**: iOS and macOS share the same version and build numbers
+- **Changelog**: Automatically generated for test releases
+
+Commands:
+- `fastlane all`: Increment build number + deploy test version
+- `fastlane bump_version`: Increment version number (only when ready for official release)
+
+Version information is stored in the Xcode project's build settings:
+- `CURRENT_PROJECT_VERSION`: Build number (auto-incremented: 1, 2, 3...)
+- `MARKETING_VERSION`: App version (fixed at 1.0 for pre-release)
+
+### Xcode Build
+
+In Xcode:
+1. Select target: "iOS" or "macOS"
+2. Select destination (simulator or device)
+3. Click Run (⌘R)
+
+To test the Safari extension:
+1. Build and run the app
+2. Open Safari → Settings → Extensions
+3. Enable "eisonAI"
+
+## Key Development Patterns
+
+### Message Passing Architecture
+
+All communication between extension components uses browser.runtime messages:
+- Popup ↔ Background ↔ Content Script
+- Commands flow through background.js as the message broker
+
+### API Integration
+
+The extension supports two API types:
+- OpenAI-compatible endpoints (e.g., `https://example.com/v1`)
+- Google Gemini API
+
+API configuration is stored in `browser.storage.local` with keys: APIURL, APIKEY, APIMODEL
+
+### Content Extraction
+
+Uses Mozilla's Readability.js to:
+1. Parse DOM and extract article content
+2. Remove ads and navigation elements
+3. Return clean text for summarization
+
+### Caching Strategy
+
+Summaries are cached locally by URL to avoid redundant API calls. Cache is checked on popup open.
+
+## Platform-Specific Considerations
+
+### macOS vs iOS
+
+The extension detects platform via user agent and applies appropriate CSS:
+- macOS: Desktop-optimized layout
+- iOS: Touch-friendly interface with larger tap targets
+
+### Safari Extension Manifest
+
+Located at `Shared (Extension)/Resources/manifest.json`
+- Uses Manifest V3 format
+- Requires permissions: activeTab, nativeMessaging, storage
+- Content scripts injected on all URLs
+
+## Security Notes
+
+- API keys stored in browser.storage.local (device-only)
+- HTTPS required for API endpoints
+- Content Security Policy enforced via manifest
