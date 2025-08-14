@@ -281,53 +281,112 @@ async function reloadReceiptData() {
   }
 }
 
-/// Pre-處理總結內容
+/// 請求總結 - 新架構
 async function sendRunSummaryMessage() {
-  resetGPT();
-
   showArea("SummaryContent");
-
-  summaryStatusText("讀取中");
+  summaryStatusText("請求中...");
 
   try {
     const response = await browser.runtime.sendMessage({
-      command: "getArticleText",
+      command: "runSummary"
     });
 
-    console.log(response);
-
-    handleArticleTextResponse(response);
+    console.log("[Eison-Popup] Summary response:", response);
+    
+    if (response.error) {
+      summaryStatusText("錯誤：" + response.error);
+      return;
+    }
+    
+    if (response.cached) {
+      // Display cached result immediately
+      displaySummaryResult(response.titleText, response.summaryText);
+      return;
+    }
+    
+    if (response.status === 'started') {
+      summaryStatusText(response.message || "處理中...");
+      // Start polling for status updates
+      pollSummaryStatus();
+    }
+    
   } catch (e) {
-    console.error("[Eison-Popup] Error sending 'getArticleText' command:", e);
-
+    console.error("[Eison-Popup] Error requesting summary:", e);
     summaryStatusText("通信錯誤");
   }
 }
 
-/// 處理總結內容
-async function handleArticleTextResponse(response) {
-  summaryStatusText("總結中");
+// Poll for summary status updates
+async function pollSummaryStatus() {
+  const pollInterval = 1000; // Poll every second
+  const maxPolls = 120; // Max 2 minutes
+  let pollCount = 0;
+  
+  const poll = async () => {
+    try {
+      pollCount++;
+      
+      // Check if we've exceeded max polling time
+      if (pollCount > maxPolls) {
+        summaryStatusText("處理超時");
+        return;
+      }
+      
+      // Get current summary status
+      const statusResponse = await browser.runtime.sendMessage({
+        command: "getSummaryStatus"
+      });
+      
+      console.log("[Eison-Popup] Status poll:", statusResponse);
+      
+      switch (statusResponse.status) {
+        case 'extracting':
+          summaryStatusText("提取內容中...");
+          setTimeout(poll, pollInterval);
+          break;
+          
+        case 'summarizing':
+          summaryStatusText("總結中...");
+          setTimeout(poll, pollInterval);
+          break;
+          
+        case 'completed':
+          // Summary is complete, reload the cached result
+          await reloadReceiptData();
+          break;
+          
+        case 'error':
+          summaryStatusText("總結失敗");
+          break;
+          
+        default:
+          if (statusResponse.isRunning) {
+            summaryStatusText("處理中...");
+            setTimeout(poll, pollInterval);
+          } else {
+            // Might be completed, try to reload
+            await reloadReceiptData();
+          }
+      }
+      
+    } catch (error) {
+      console.error("[Eison-Popup] Error polling status:", error);
+      summaryStatusText("狀態查詢錯誤");
+    }
+  };
+  
+  // Start polling
+  setTimeout(poll, pollInterval);
+}
 
-  var assistantText = "";
-
-  try {
-    let userText = APP_PromptText + "<" + response.body + ">";
-
-    await setupGPT(); // 確保 API 金鑰等已載入
-
-    setupSystemMessage();
-    pushAssistantMessage(assistantText);
-    pushUserMessage(userText);
-
-    let responseReceiver = document.getElementById("response");
-
-    // 呼叫 API
-    await apiPostMessage(responseReceiver, async () => {
-      await setupSummary();
-    });
-  } catch (error) {
-    summaryStatusText("總結失敗：" + error.message);
-  }
+// Display summary result
+function displaySummaryResult(titleText, summaryText) {
+  document.getElementById("response").innerHTML = "";
+  document.getElementById("receiptTitle").innerHTML = titleText;
+  document.getElementById("receipt").innerHTML = summaryText;
+  showID("shareButton");
+  
+  console.log("[Eison-Popup] Summary result displayed");
 }
 
 function summaryStatusText(msg) {
@@ -341,27 +400,8 @@ function statusText(msg) {
 }
 
 function resetGPT() {
-  messagesGroup = [];
+  // Keep this for compatibility, but it's no longer used in new architecture
   document.querySelector("#response").innerHTML = "";
   document.querySelector("#receiptTitle").innerHTML = "";
   document.querySelector("#receipt").innerHTML = "";
-}
-
-async function setupSummary() {
-  let resultText = document.getElementById("response").innerHTML;
-
-  let receiptTitleText = removeBR(extractSummary(resultText));
-  let receiptText = formatMarkdown(
-    marked.parse(postProcessText(excludeSummary(resultText)))
-  );
-
-  document.getElementById("response").innerHTML = "";
-  document.getElementById("receiptTitle").innerHTML = receiptTitleText;
-  document.getElementById("receipt").innerHTML = receiptText;
-
-  await saveData("ReceiptTitleText", receiptTitleText);
-  await saveData("ReceiptText", receiptText);
-  await saveData("ReceiptURL", await getTabURL());
-
-  showID("shareButton")
 }
