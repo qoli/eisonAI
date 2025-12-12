@@ -106,6 +106,7 @@ function setupStatus() {
   (async () => {
     let apiURL = await loadData("APIURL", "");
     let apiKey = await loadData("APIKEY", "");
+    let apiModel = await loadData("APIMODEL", "gpt-3.5-turbo");
 
     let bool = await setupGPT();
     if (bool) {
@@ -128,7 +129,7 @@ function setupStatus() {
 
         if (response.ok) {
           setStatus("normal");
-          text.innerHTML = "通過測試";
+          text.innerHTML = apiModel;
         } else {
           const { status, statusText } = response;
           setStatus("error");
@@ -281,6 +282,9 @@ async function reloadReceiptData() {
 
     // Ensure status reflects completion when cached data is shown
     summaryStatusText("總結完畢");
+
+    displaySummaryResult(receiptTitleText, receiptText)
+
   }
 }
 
@@ -295,24 +299,24 @@ async function sendRunSummaryMessage() {
     });
 
     console.log("[Eison-Popup] Summary response:", response);
-    
+
     if (response.error) {
       summaryStatusText("錯誤：" + response.error);
       return;
     }
-    
+
     if (response.cached) {
       // Display cached result immediately
       displaySummaryResult(response.titleText, response.summaryText);
       return;
     }
-    
+
     if (response.status === 'started') {
       summaryStatusText(response.message || "處理中...");
       // Start polling for status updates
       pollSummaryStatus();
     }
-    
+
   } catch (e) {
     console.error("[Eison-Popup] Error requesting summary:", e);
     summaryStatusText("通信錯誤");
@@ -324,44 +328,44 @@ async function pollSummaryStatus() {
   const pollInterval = 1000; // Poll every second
   const maxPolls = 120; // Max 2 minutes
   let pollCount = 0;
-  
+
   const poll = async () => {
     try {
       pollCount++;
-      
+
       // Check if we've exceeded max polling time
       if (pollCount > maxPolls) {
         summaryStatusText("處理超時");
         return;
       }
-      
+
       // Get current summary status
       const statusResponse = await browser.runtime.sendMessage({
         command: "getSummaryStatus"
       });
-      
+
       console.log("[Eison-Popup] Status poll:", statusResponse);
-      
+
       switch (statusResponse.status) {
         case 'extracting':
           summaryStatusText("提取內容中...");
           setTimeout(poll, pollInterval);
           break;
-          
+
         case 'summarizing':
           summaryStatusText("總結中...");
           setTimeout(poll, pollInterval);
           break;
-          
+
         case 'completed':
           // Summary is complete, reload the cached result
           await reloadReceiptData();
           break;
-          
+
         case 'error':
           summaryStatusText("總結失敗");
           break;
-          
+
         default:
           if (statusResponse.isRunning) {
             summaryStatusText("處理中...");
@@ -371,13 +375,13 @@ async function pollSummaryStatus() {
             await reloadReceiptData();
           }
       }
-      
+
     } catch (error) {
       console.error("[Eison-Popup] Error polling status:", error);
       summaryStatusText("狀態查詢錯誤");
     }
   };
-  
+
   // Start polling
   setTimeout(poll, pollInterval);
 }
@@ -388,7 +392,7 @@ function displaySummaryResult(titleText, summaryText) {
   document.getElementById("receiptTitle").innerHTML = titleText;
   document.getElementById("receipt").innerHTML = summaryText;
   showID("shareButton");
-  
+
   console.log("[Eison-Popup] Summary result displayed");
 }
 
