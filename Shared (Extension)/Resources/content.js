@@ -114,9 +114,8 @@ async function handleSummaryComplete(resultText, articleTitle) {
 
     // Process the result text similar to original setupSummary
     let receiptTitleText = removeBR(extractSummary(resultText));
-    let receiptText = formatMarkdown(
-      marked.parse(postProcessText(excludeSummary(resultText)))
-    );
+
+    let receiptText = excludeSummary(resultText)
 
     // Send completion message to background
     browser.runtime.sendMessage({

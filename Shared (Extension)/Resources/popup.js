@@ -28,6 +28,24 @@ function addMessageListener() {
       summaryStatusText("總結中...");
       renderStreamingSummary(request.text || "");
     }
+
+    if (request.command === "summaryStatusUpdate") {
+      if (request.status === "completed") {
+        showArea("SummaryContent");
+        summaryStatusText("總結完畢");
+
+        if (request.titleText && request.summaryText) {
+          displaySummaryResult(request.titleText, request.summaryText);
+        } else {
+          reloadReceiptData();
+        }
+      }
+
+      if (request.status === "error") {
+        const errorMsg = request.error ? `總結失敗：${request.error}` : "總結失敗";
+        summaryStatusText(errorMsg);
+      }
+    }
   });
 }
 
@@ -306,14 +324,13 @@ async function sendRunSummaryMessage() {
 
     console.log("[Eison-Popup] Summary response:", response);
 
-    if (response.error) {
-      summaryStatusText("錯誤：" + response.error);
+    if (response.cached) {
+      displaySummaryResult(response.titleText, response.summaryText);
       return;
     }
 
-    if (response.cached) {
-      // Display cached result immediately
-      displaySummaryResult(response.titleText, response.summaryText);
+    if (response.error) {
+      summaryStatusText("錯誤：" + response.error);
       return;
     }
 
