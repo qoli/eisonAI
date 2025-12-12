@@ -457,7 +457,12 @@ function typeSentence(sentence, elementReference) {
   if (sentence === undefined) return;
 
   lastReplyMessage += sentence;
-  elementReference.innerText = lastReplyMessage;
+  if (elementReference) {
+    elementReference.innerText = lastReplyMessage;
+    if (typeof elementReference.onToken === "function") {
+      elementReference.onToken(lastReplyMessage);
+    }
+  }
 
   return;
 }

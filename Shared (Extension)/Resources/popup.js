@@ -22,6 +22,12 @@ function addMessageListener() {
     if (request.command === "debugTextResponse") {
       document.querySelector("#ReadabilityText").innerHTML = request.body;
     }
+
+    if (request.command === "summaryStream") {
+      showArea("SummaryContent");
+      summaryStatusText("總結中...");
+      renderStreamingSummary(request.text || "");
+    }
   });
 }
 
@@ -313,6 +319,7 @@ async function sendRunSummaryMessage() {
 
     if (response.status === 'started') {
       summaryStatusText(response.message || "處理中...");
+      renderStreamingSummary("");
       // Start polling for status updates
       pollSummaryStatus();
     }
@@ -394,6 +401,12 @@ function displaySummaryResult(titleText, summaryText) {
   showID("shareButton");
 
   console.log("[Eison-Popup] Summary result displayed");
+}
+
+// Render streaming summary text while LLM is working
+function renderStreamingSummary(text) {
+  document.getElementById("receiptTitle").innerText = "摘要生成中...";
+  document.getElementById("receipt").innerText = text;
 }
 
 function summaryStatusText(msg) {

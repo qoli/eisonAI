@@ -45,6 +45,22 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleSummaryError(message, sender.tab.id);
     return;
   }
+
+  // Handle streaming updates from content script
+  if (message.command === 'summaryStream' && sender.tab) {
+    // Keep status up-to-date while streaming
+    if (summaryState.tabId === sender.tab.id) {
+      summaryState.status = 'summarizing';
+    }
+
+    // Forward stream updates to any listening UI (e.g., popup)
+    browser.runtime.sendMessage({
+      command: 'summaryStream',
+      text: message.text || '',
+      tabId: sender.tab.id
+    });
+    return;
+  }
   
   // Forward other commands to content script (legacy support)
   if (message.command && !sender.tab) {

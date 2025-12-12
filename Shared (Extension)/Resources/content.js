@@ -76,6 +76,22 @@ async function processSummaryRequest(articleText, articleTitle) {
       innerText: "",
       innerHTML: ""
     };
+
+    // Stream partial output back to background/popup
+    let lastStreamAt = 0;
+    responseCollector.onToken = (text) => {
+      const now = Date.now();
+      const STREAM_INTERVAL = 250;
+      if (now - lastStreamAt < STREAM_INTERVAL) {
+        return;
+      }
+      lastStreamAt = now;
+
+      browser.runtime.sendMessage({
+        command: "summaryStream",
+        text
+      });
+    };
     
     // Call LLM API
     await apiPostMessage(responseCollector, () => {
