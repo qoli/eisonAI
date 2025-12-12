@@ -301,8 +301,8 @@ async function reloadReceiptData() {
   if (receiptText != "") {
     showArea("SummaryContent");
 
-    document.getElementById("receiptTitle").innerHTML = receiptTitleText;
-    document.getElementById("receipt").innerHTML = receiptText;
+    document.getElementById("receiptTitle").innerText = receiptTitleText;
+    document.getElementById("receipt").innerText = receiptText;
 
     // Ensure status reflects completion when cached data is shown
     summaryStatusText("總結完畢");
@@ -413,8 +413,8 @@ async function pollSummaryStatus() {
 // Display summary result
 function displaySummaryResult(titleText, summaryText) {
   summaryStatusText("");
-  document.getElementById("receiptTitle").innerHTML = titleText;
-  document.getElementById("receipt").innerHTML = summaryText;
+  document.getElementById("receiptTitle").innerText = titleText;
+  document.getElementById("receipt").innerText = summaryText;
   showID("shareButton");
 
   console.log("[Eison-Popup] Summary result displayed");

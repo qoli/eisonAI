@@ -3,43 +3,132 @@ let summaryState = {
   isRunning: false,
   tabId: null,
   url: null,
-  status: 'idle' // idle, extracting, summarizing, completed, error
+  status: 'idle', // idle, extracting, summarizing, completed, error
+  lastUpdated: 0
 };
+
+let statusTimeoutHandle = null;
+
+function scheduleStateTimeout(status) {
+  if (statusTimeoutHandle) {
+    clearTimeout(statusTimeoutHandle);
+    statusTimeoutHandle = null;
+  }
+
+  const timeoutByStatus = {
+    extracting: 30_000, // extraction should be quick
+    summarizing: 3 * 60_000 // allow longer for LLM
+  };
+
+  const delay = timeoutByStatus[status];
+  if (!delay) {
+    return;
+  }
+
+  statusTimeoutHandle = setTimeout(() => {
+    // Only reset if we are still in the same status when the timer fires
+    if (summaryState.status === status) {
+      resetSummaryState(`state timed out in '${status}' after ${delay}ms`);
+    }
+  }, delay);
+}
+
+function setSummaryStatus(status) {
+  summaryState.status = status;
+  summaryState.lastUpdated = Date.now();
+  scheduleStateTimeout(status);
+}
+
+function resetSummaryState(reason) {
+  if (reason) {
+    console.warn(`[Eison-Background] Resetting summary state: ${reason}`);
+  }
+  if (statusTimeoutHandle) {
+    clearTimeout(statusTimeoutHandle);
+    statusTimeoutHandle = null;
+  }
+  summaryState.isRunning = false;
+  summaryState.tabId = null;
+  summaryState.url = null;
+  setSummaryStatus('idle');
+}
+
+async function ensureRunningStateIsCurrent() {
+  if (!summaryState.isRunning || !summaryState.tabId) {
+    return;
+  }
+
+  try {
+    const tab = await browser.tabs.get(summaryState.tabId);
+
+    if (!tab || !tab.id) {
+      resetSummaryState('tracked tab missing');
+      return;
+    }
+
+    if (summaryState.url && tab.url !== summaryState.url) {
+      resetSummaryState('tab navigated while summarizing');
+    }
+  } catch (error) {
+    console.warn('[Eison-Background] Unable to validate running summary state, clearing it.', error);
+    resetSummaryState('state validation failed');
+  }
+}
+
+browser.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === summaryState.tabId) {
+    resetSummaryState('tab closed');
+  }
+});
+
+browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (!summaryState.isRunning) {
+    return;
+  }
+
+  if (tabId === summaryState.tabId && changeInfo.url && changeInfo.url !== summaryState.url) {
+    resetSummaryState('tab navigated during summary');
+  }
+});
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log(`[Eison-Background] Received message:`, message, 'from sender:', sender);
-  
+
   // Handle summary request from popup
   if (message.command === 'runSummary' && !sender.tab) {
     console.log(`[Eison-Background] Starting summary process...`);
     runSummaryProcess(sendResponse);
     return true; // Indicates async response
   }
-  
+
   // Handle summary status request from popup
   if (message.command === 'getSummaryStatus' && !sender.tab) {
-    sendResponse({
-      command: 'summaryStatusResponse',
-      status: summaryState.status,
-      isRunning: summaryState.isRunning
-    });
-    return;
+    ensureRunningStateIsCurrent()
+      .catch((error) => console.warn('[Eison-Background] Status validation failed:', error))
+      .finally(() => {
+        sendResponse({
+          command: 'summaryStatusResponse',
+          status: summaryState.status,
+          isRunning: summaryState.isRunning
+        });
+      });
+    return true; // Indicates async response
   }
-  
+
   // Handle content extraction response from content script
   if (message.command === 'articleTextResponse' && sender.tab) {
     console.log(`[Eison-Background] Received article text, starting LLM processing...`);
     handleArticleExtracted(message, sender.tab.id);
     return;
   }
-  
+
   // Handle LLM response from content script
   if (message.command === 'summaryComplete' && sender.tab) {
     console.log(`[Eison-Background] Summary completed, saving results...`);
     handleSummaryComplete(message, sender.tab.id);
     return;
   }
-  
+
   // Handle LLM error from content script
   if (message.command === 'summaryError' && sender.tab) {
     console.log(`[Eison-Background] Summary failed:`, message.error);
@@ -52,7 +141,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Keep status up-to-date while streaming (even if service worker restarted)
     summaryState.tabId = sender.tab.id;
     summaryState.isRunning = true;
-    summaryState.status = 'summarizing';
+    setSummaryStatus('summarizing');
 
     // Forward stream updates to any listening UI (e.g., popup)
     browser.runtime.sendMessage({
@@ -62,11 +151,11 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return;
   }
-  
+
   // Forward other commands to content script (legacy support)
   if (message.command && !sender.tab) {
     console.log(`[Eison-Background] Forwarding command '${message.command}' from popup to content script.`);
-    
+
     browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
       if (tabs[0] && tabs[0].id) {
         browser.tabs.sendMessage(tabs[0].id, message)
@@ -90,33 +179,35 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // Start the summary process
 async function runSummaryProcess(sendResponse) {
   try {
+    await ensureRunningStateIsCurrent();
+
     // Check if already running
     if (summaryState.isRunning) {
-      sendResponse({ 
-        command: 'summaryResponse', 
-        error: '總結進行中，請稍候...' 
+      sendResponse({
+        command: 'summaryResponse',
+        error: '總結進行中，請稍候...'
       });
       return;
     }
-    
+
     // Set state
     summaryState.isRunning = true;
-    summaryState.status = 'extracting';
-    
+    setSummaryStatus('extracting');
+
     // Get current tab
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     if (!tabs[0]) {
       throw new Error('No active tab found');
     }
-    
+
     summaryState.tabId = tabs[0].id;
     summaryState.url = tabs[0].url;
-    
+
     // Check for cached summary
     const cachedSummary = await checkCachedSummary(tabs[0].url);
     if (cachedSummary) {
       summaryState.isRunning = false;
-      summaryState.status = 'completed';
+      setSummaryStatus('completed');
       summaryState.tabId = null;
       summaryState.url = null;
       sendResponse({
@@ -127,28 +218,28 @@ async function runSummaryProcess(sendResponse) {
       });
       return;
     }
-    
+
     // Send extraction request to content script
     console.log(`[Eison-Background] Requesting article extraction from tab ${tabs[0].id}`);
     const response = await browser.tabs.sendMessage(tabs[0].id, {
       command: 'getArticleText'
     });
-    
-    sendResponse({ 
-      command: 'summaryResponse', 
+
+    sendResponse({
+      command: 'summaryResponse',
       status: 'started',
-      message: '開始提取內容...' 
+      message: '開始提取內容...'
     });
-    
+
   } catch (error) {
     console.error('[Eison-Background] Error starting summary:', error);
     summaryState.isRunning = false;
-    summaryState.status = 'error';
+    setSummaryStatus('error');
     summaryState.tabId = null;
     summaryState.url = null;
-    sendResponse({ 
-      command: 'summaryResponse', 
-      error: error.message 
+    sendResponse({
+      command: 'summaryResponse',
+      error: error.message
     });
   }
 }
@@ -159,16 +250,16 @@ async function handleArticleExtracted(message, tabId) {
     if (message.error) {
       throw new Error(message.error);
     }
-    
-    summaryState.status = 'summarizing';
-    
+
+    setSummaryStatus('summarizing');
+
     // Send to content script for LLM processing
     await browser.tabs.sendMessage(tabId, {
       command: 'processSummary',
       articleText: message.body,
       articleTitle: message.title
     });
-    
+
   } catch (error) {
     console.error('[Eison-Background] Error handling article extraction:', error);
     handleSummaryError({ error: error.message }, tabId);
@@ -190,12 +281,12 @@ async function handleSummaryComplete(message, tabId) {
       summaryText: message.summaryText,
       timestamp: Date.now()
     });
-    
+
     console.log('[Eison-Background] Summary saved to cache for URL:', tabUrl);
-    
+
     // Reset state
     summaryState.isRunning = false;
-    summaryState.status = 'completed';
+    setSummaryStatus('completed');
     summaryState.tabId = null;
     summaryState.url = null;
 
@@ -209,7 +300,7 @@ async function handleSummaryComplete(message, tabId) {
     }).catch((err) => {
       console.warn('[Eison-Background] Unable to notify completion:', err);
     });
-    
+
   } catch (error) {
     console.error('[Eison-Background] Error handling summary completion:', error);
     handleSummaryError({ error: error.message }, tabId);
@@ -219,10 +310,10 @@ async function handleSummaryComplete(message, tabId) {
 // Handle summary error
 async function handleSummaryError(message, tabId) {
   summaryState.isRunning = false;
-  summaryState.status = 'error';
+  setSummaryStatus('error');
   summaryState.tabId = null;
   summaryState.url = null;
-  
+
   console.error('[Eison-Background] Summary error:', message.error);
 
   browser.runtime.sendMessage({
@@ -242,7 +333,7 @@ async function checkCachedSummary(url) {
     if (result.ReceiptURL === url) {
       const titleResult = await browser.storage.local.get('ReceiptTitleText');
       const textResult = await browser.storage.local.get('ReceiptText');
-      
+
       if (titleResult.ReceiptTitleText && textResult.ReceiptText) {
         return {
           titleText: titleResult.ReceiptTitleText,
@@ -270,6 +361,7 @@ async function getTabUrl(tabId) {
 
 // Save summary to cache
 async function saveSummaryCache(url, summaryData) {
+  console.log('[Eison-Background] saveSummaryCache:', url, summaryData.titleText);
   try {
     await browser.storage.local.set({
       'ReceiptURL': url,
