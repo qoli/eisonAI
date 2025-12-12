@@ -123,9 +123,17 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Handle LLM response from content script
-  if (message.command === 'summaryComplete' && sender.tab) {
+  if (message.command === 'summaryComplete') {
     console.log(`[Eison-Background] Summary completed, saving results...`);
-    handleSummaryComplete(message, sender.tab.id);
+    const tabId = sender.tab?.id || message.tabId || summaryState.tabId;
+    handleSummaryComplete(message, tabId);
+    return;
+  }
+
+  // Allow popup/UI to explicitly cache a completed summary
+  if (message.command === 'cacheSummaryResult' && !sender.tab) {
+    console.log('[Eison-Background] Caching summary result from popup/UI...');
+    handleCacheSummaryRequest(message);
     return;
   }
 
@@ -269,7 +277,7 @@ async function handleArticleExtracted(message, tabId) {
 // Handle summary completion
 async function handleSummaryComplete(message, tabId) {
   try {
-    const tabUrl = summaryState.url || (await getTabUrl(tabId));
+    const tabUrl = message.url || summaryState.url || (tabId ? await getTabUrl(tabId) : null);
 
     if (!tabUrl) {
       throw new Error('No URL available for summary cache');
@@ -296,7 +304,8 @@ async function handleSummaryComplete(message, tabId) {
       status: 'completed',
       titleText: message.titleText,
       summaryText: message.summaryText,
-      tabId
+      tabId,
+      url: tabUrl
     }).catch((err) => {
       console.warn('[Eison-Background] Unable to notify completion:', err);
     });
@@ -324,6 +333,31 @@ async function handleSummaryError(message, tabId) {
   }).catch((err) => {
     console.warn('[Eison-Background] Unable to notify error:', err);
   });
+}
+
+// Cache summary result explicitly requested by popup/UI (no state updates)
+async function handleCacheSummaryRequest(message) {
+  try {
+    const tabId = message.tabId || summaryState.tabId;
+    const tabUrl = message.url || summaryState.url || (tabId ? await getTabUrl(tabId) : null);
+
+    if (!tabUrl) {
+      throw new Error('No URL available for summary cache');
+    }
+    if (!message.titleText || !message.summaryText) {
+      throw new Error('Missing summary data for cache');
+    }
+
+    await saveSummaryCache(tabUrl, {
+      titleText: message.titleText,
+      summaryText: message.summaryText,
+      timestamp: Date.now()
+    });
+
+    console.log('[Eison-Background] Cached summary result for URL:', tabUrl);
+  } catch (error) {
+    console.error('[Eison-Background] Error caching summary result:', error);
+  }
 }
 
 // Check for cached summary

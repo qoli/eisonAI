@@ -36,6 +36,7 @@ function addMessageListener() {
 
         if (request.titleText && request.summaryText) {
           displaySummaryResult(request.titleText, request.summaryText);
+          cacheSummaryResultFromPopup(request.titleText, request.summaryText, request.url);
         } else {
           reloadReceiptData();
         }
@@ -289,26 +290,54 @@ function delayRun() {
 }
 
 async function reloadReceiptData() {
-  let tabURL = await loadData("ReceiptURL", "");
+  try {
+    let tabURL = await loadData("ReceiptURL", "");
+    let currentURL = await getTabURL();
 
-  if (tabURL != (await getTabURL())) {
-    return;
+    if (tabURL != currentURL) {
+      return;
+    }
+
+    let receiptTitleText = await loadData("ReceiptTitleText", "");
+    let receiptText = await loadData("ReceiptText", "");
+
+    if (receiptText != "") {
+      showArea("SummaryContent");
+
+      document.getElementById("receiptTitle").innerText = receiptTitleText;
+      document.getElementById("receipt").innerText = receiptText;
+
+      // Ensure status reflects completion when cached data is shown
+      summaryStatusText("總結完畢");
+
+      displaySummaryResult(receiptTitleText, receiptText)
+    }
+  } catch (error) {
+    console.warn("[Eison-Popup] Failed to reload cached data:", error);
   }
+}
 
-  let receiptTitleText = await loadData("ReceiptTitleText", "");
-  let receiptText = await loadData("ReceiptText", "");
+async function cacheSummaryResultFromPopup(titleText, summaryText, urlFromMessage) {
+  try {
+    const url = urlFromMessage || await getTabURL();
 
-  if (receiptText != "") {
-    showArea("SummaryContent");
+    if (!url) {
+      console.warn("[Eison-Popup] No URL available to cache summary");
+      return;
+    }
 
-    document.getElementById("receiptTitle").innerText = receiptTitleText;
-    document.getElementById("receipt").innerText = receiptText;
+    await saveData("ReceiptURL", url);
+    await saveData("ReceiptTitleText", titleText);
+    await saveData("ReceiptText", summaryText);
 
-    // Ensure status reflects completion when cached data is shown
-    summaryStatusText("總結完畢");
-
-    displaySummaryResult(receiptTitleText, receiptText)
-
+    await browser.runtime.sendMessage({
+      command: "cacheSummaryResult",
+      url,
+      titleText,
+      summaryText
+    });
+  } catch (error) {
+    console.warn("[Eison-Popup] Failed to cache summary result:", error);
   }
 }
 

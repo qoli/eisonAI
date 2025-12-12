@@ -95,7 +95,7 @@ async function processSummaryRequest(articleText, articleTitle) {
 
     // Call LLM API
     await apiPostMessage(responseCollector, () => {
-      handleSummaryComplete(responseCollector.innerText, articleTitle);
+      notifySummaryComplete(responseCollector.innerText, articleTitle);
     });
 
   } catch (error) {
@@ -108,20 +108,22 @@ async function processSummaryRequest(articleText, articleTitle) {
 }
 
 // Handle summary completion
-async function handleSummaryComplete(resultText, articleTitle) {
+async function notifySummaryComplete(resultText, articleTitle) {
   try {
     console.log("[Eison-Content] Processing LLM response...");
 
     // Process the result text similar to original setupSummary
     let receiptTitleText = removeBR(extractSummary(resultText));
     let receiptText = excludeSummary(resultText)
+    const pageUrl = window.location.href;
 
     // Send completion message to background
     browser.runtime.sendMessage({
       command: "summaryComplete",
       titleText: receiptTitleText,
       summaryText: receiptText,
-      originalTitle: articleTitle
+      originalTitle: articleTitle,
+      url: pageUrl
     });
 
     console.log("[Eison-Content] Summary completion sent to background");
