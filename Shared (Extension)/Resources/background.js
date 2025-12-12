@@ -2,6 +2,7 @@
 let summaryState = {
   isRunning: false,
   tabId: null,
+  url: null,
   status: 'idle' // idle, extracting, summarizing, completed, error
 };
 
@@ -48,10 +49,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle streaming updates from content script
   if (message.command === 'summaryStream' && sender.tab) {
-    // Keep status up-to-date while streaming
-    if (summaryState.tabId === sender.tab.id) {
-      summaryState.status = 'summarizing';
-    }
+    // Keep status up-to-date while streaming (even if service worker restarted)
+    summaryState.tabId = sender.tab.id;
+    summaryState.isRunning = true;
+    summaryState.status = 'summarizing';
 
     // Forward stream updates to any listening UI (e.g., popup)
     browser.runtime.sendMessage({
@@ -109,12 +110,15 @@ async function runSummaryProcess(sendResponse) {
     }
     
     summaryState.tabId = tabs[0].id;
+    summaryState.url = tabs[0].url;
     
     // Check for cached summary
     const cachedSummary = await checkCachedSummary(tabs[0].url);
     if (cachedSummary) {
       summaryState.isRunning = false;
       summaryState.status = 'completed';
+      summaryState.tabId = null;
+      summaryState.url = null;
       sendResponse({
         command: 'summaryResponse',
         cached: true,
@@ -140,6 +144,8 @@ async function runSummaryProcess(sendResponse) {
     console.error('[Eison-Background] Error starting summary:', error);
     summaryState.isRunning = false;
     summaryState.status = 'error';
+    summaryState.tabId = null;
+    summaryState.url = null;
     sendResponse({ 
       command: 'summaryResponse', 
       error: error.message 
@@ -172,24 +178,37 @@ async function handleArticleExtracted(message, tabId) {
 // Handle summary completion
 async function handleSummaryComplete(message, tabId) {
   try {
-    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    const currentTab = tabs[0];
-    
-    if (currentTab) {
-      // Save to cache
-      await saveSummaryCache(currentTab.url, {
-        titleText: message.titleText,
-        summaryText: message.summaryText,
-        timestamp: Date.now()
-      });
-      
-      console.log('[Eison-Background] Summary saved to cache for URL:', currentTab.url);
+    const tabUrl = summaryState.url || (await getTabUrl(tabId));
+
+    if (!tabUrl) {
+      throw new Error('No URL available for summary cache');
     }
+
+    // Save to cache
+    await saveSummaryCache(tabUrl, {
+      titleText: message.titleText,
+      summaryText: message.summaryText,
+      timestamp: Date.now()
+    });
+    
+    console.log('[Eison-Background] Summary saved to cache for URL:', tabUrl);
     
     // Reset state
     summaryState.isRunning = false;
     summaryState.status = 'completed';
     summaryState.tabId = null;
+    summaryState.url = null;
+
+    // Notify any UI listeners (e.g., popup) that the summary finished
+    browser.runtime.sendMessage({
+      command: 'summaryStatusUpdate',
+      status: 'completed',
+      titleText: message.titleText,
+      summaryText: message.summaryText,
+      tabId
+    }).catch((err) => {
+      console.warn('[Eison-Background] Unable to notify completion:', err);
+    });
     
   } catch (error) {
     console.error('[Eison-Background] Error handling summary completion:', error);
@@ -202,8 +221,18 @@ async function handleSummaryError(message, tabId) {
   summaryState.isRunning = false;
   summaryState.status = 'error';
   summaryState.tabId = null;
+  summaryState.url = null;
   
   console.error('[Eison-Background] Summary error:', message.error);
+
+  browser.runtime.sendMessage({
+    command: 'summaryStatusUpdate',
+    status: 'error',
+    error: message.error,
+    tabId
+  }).catch((err) => {
+    console.warn('[Eison-Background] Unable to notify error:', err);
+  });
 }
 
 // Check for cached summary
@@ -224,6 +253,17 @@ async function checkCachedSummary(url) {
     return null;
   } catch (error) {
     console.error('[Eison-Background] Error checking cache:', error);
+    return null;
+  }
+}
+
+// Get URL for a tab, used when saving summary results
+async function getTabUrl(tabId) {
+  try {
+    const tab = await browser.tabs.get(tabId);
+    return tab?.url || null;
+  } catch (error) {
+    console.error('[Eison-Background] Error getting tab URL:', error);
     return null;
   }
 }

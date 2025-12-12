@@ -360,7 +360,7 @@ async function apiPostMessage(
             } catch (error) { }
           }
 
-          console.log("[streaming] " + data);
+          // console.log("[streaming] " + data);
 
 
           if (data === "data: [DONE]") {
