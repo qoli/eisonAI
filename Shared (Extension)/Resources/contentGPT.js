@@ -351,14 +351,17 @@ async function apiPostMessage(
               let errorJSON = JSON.parse(data);
               typeSentence(
                 "\nError: " +
-                  (errorJSON.error?.message || JSON.stringify(errorJSON)),
+                (errorJSON.error?.message || JSON.stringify(errorJSON)),
                 responseElem
               );
 
               showID("ReadabilityErrorResend", "flex");
               return;
-            } catch (error) {}
+            } catch (error) { }
           }
+
+          console.log("[streaming] " + data);
+
 
           if (data === "data: [DONE]") {
             dataDone = true;
@@ -487,7 +490,8 @@ function excludeSummary(text) {
 }
 
 function formatMarkdown(inputString) {
-  return inputString.replace(/^(<p><br>)/, "<p>").replace(/<br><br>/g, "<br>");
+  // return inputString.replace(/^(<p><br>)/, "<p>").replace(/<br><br>/g, "<br>");
+  return inputString
 }
 
 function callLoading() {
@@ -508,7 +512,7 @@ function hideLoading() {
 function hideID(idName) {
   try {
     document.querySelector("#" + idName).style.display = "none";
-  } catch (error) {}
+  } catch (error) { }
 }
 
 function showID(idName, display) {
@@ -517,7 +521,7 @@ function showID(idName, display) {
   }
   try {
     document.querySelector("#" + idName).style.display = display;
-  } catch (error) {}
+  } catch (error) { }
 }
 
 function uiFocus(responseElem, delayMS) {

@@ -64,7 +64,7 @@
 
       <div class="flexCenter flex1 contentRight font12">
         <div id="StatusIcon" class="statusBox"></div>
-        <div id="StatusText">{Status Text}</div>
+        <div id="StatusText" class="ellipsis">{Status Text}</div>
       </div>
     </div>
 
@@ -85,7 +85,7 @@
         </svg>
 
         <span id="currentHOST">...</span>
-        
+
       </div>
 
       <div class="flexLeft"></div>
@@ -94,14 +94,16 @@
     <!-- Summary content -->
     <div id="SummaryContent" class="areaSlideHidden">
       <div class="flexBetween">
-        <h4>Summary</h4>
+        <h4 class="flex-inline-container">
+          <span id="responseTitle">Summary</span>
+          <span id="response" class="text-shimmer"></span>
+        </h4>
         <h4 id="shareButton" class="text-link text-underline clickListen" data-function="shareContent">
           分享
         </h4>
       </div>
 
       <div class="viewBlock pathBorder">
-        <div id="response" class="text-shimmer"></div>
         <div id="receiptTitle"></div>
         <div id="receipt"></div>
       </div>

@@ -395,7 +395,7 @@ async function pollSummaryStatus() {
 
 // Display summary result
 function displaySummaryResult(titleText, summaryText) {
-  document.getElementById("response").innerHTML = "";
+  summaryStatusText("");
   document.getElementById("receiptTitle").innerHTML = titleText;
   document.getElementById("receipt").innerHTML = summaryText;
   showID("shareButton");
@@ -405,13 +405,19 @@ function displaySummaryResult(titleText, summaryText) {
 
 // Render streaming summary text while LLM is working
 function renderStreamingSummary(text) {
-  document.getElementById("receiptTitle").innerText = "摘要生成中...";
+  document.getElementById("receiptTitle").innerText = "";
   document.getElementById("receipt").innerText = text;
 }
 
 function summaryStatusText(msg) {
   let text = document.getElementById("response");
   text.innerHTML = msg;
+
+  if (msg == "") {
+    document.getElementById("responseTitle").innerHTML = "Summary";
+  } else {
+    document.getElementById("responseTitle").innerHTML = "";
+  }
 }
 
 function statusText(msg) {
