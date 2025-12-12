@@ -278,6 +278,9 @@ async function reloadReceiptData() {
 
     document.getElementById("receiptTitle").innerHTML = receiptTitleText;
     document.getElementById("receipt").innerHTML = receiptText;
+
+    // Ensure status reflects completion when cached data is shown
+    summaryStatusText("總結完畢");
   }
 }
 
