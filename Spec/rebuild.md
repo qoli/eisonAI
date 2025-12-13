@@ -16,7 +16,7 @@
 1. 引入 `AnyLanguageModel`（native / Swift）作為本地推理框架。
 2. 以 `qwen3-0.6B`（MLX，4-bit）作為預設本地 LLM，用於「網頁總結」。
 3. 在不改變既有 UI 互動（包含串流體驗）的前提下，把 LLM 呼叫從 JS 遠端 API 轉移到 native 本地推理。
-4. 追加一套「Share Extension + App Intent」入口，讓 Safari 以外的分享/捷徑也能呼叫同一套本地總結能力。
+4.（未來，M10）追加一套「Share Extension + App Intent」入口，讓 Safari 以外的分享/捷徑也能呼叫同一套本地總結能力。
 
 ### 1.3 非目標（non-goals）
 
@@ -37,7 +37,7 @@
 - 快取：沿用 `browser.storage.local` 以 URL 為鍵的快取策略（至少維持與現況等效）。
 - 失敗處理：顯示可理解錯誤，且 state 可回復到 idle。
 
-### 2.2 Share Extension + App Intent 總結
+### 2.2（未來，M10）Share Extension + App Intent 總結
 
 - Share Extension（分享選單）：
   - 可從 Safari/其他 App 分享 `URL` 或 `文字` 到 EisonAI。
@@ -82,7 +82,7 @@
    - 存快取（`browser.storage.local`）
    - 廣播給 `popup.js`：`summaryStream` / `summaryStatusUpdate`
 
-### 3.3 資料流程（Share Extension / Intent）
+### 3.3（未來，M10）資料流程（Share Extension / Intent）
 
 - Share Extension / App Intent 直接呼叫 `LocalLLMService`，不經過 Safari extension message broker。
 - 模型與快取建議放 App Group，避免重複下載與多份佔用（見 7.2）。
@@ -423,7 +423,7 @@ MVP（若先求可跑）可先把模型打包進 App（但需評估 App 體積�
 - Safari Extension / Share Extension / App Intent **不主動下載大型模型**：若模型未就緒，一律回傳 `MODEL_NOT_READY`，並提示使用者開啟主 App 下載。
 - 僅在 macOS（限制較少）且使用者允許時，可考慮讓 App Extension 觸發下載；但仍需有全域鎖避免重入。
 
-### 7.3 共用本地能力（Share Extension / Intent）
+### 7.3（未來，M10）共用本地能力（Share Extension / Intent）
 
 新增 target（規劃）：
 
@@ -509,5 +509,5 @@ MVP（若先求可跑）可先把模型打包進 App（但需評估 App 體積�
    - 後續再把 native 回傳內容替換為真正的本地推理輸出（仍沿用同一套協定與 UI 流程）。
 3. **M2：模型管理**
    - App Group 存放、下載/更新、錯誤提示與重試（使用 `swift-huggingface` 實作下載與 resume）。
-4. **M3：Share Extension + App Intent**
+4. **M10：Share Extension + App Intent（未來實現）**
    - 新入口共用同一套摘要能力，完成端到端體驗。
