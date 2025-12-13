@@ -104,6 +104,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
+		EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "eisonAI Extension (iOS).entitlements"; sourceTree = "<group>"; };
 		EA77261E2BC5B6B2005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = ../Base.lproj/Main.html; sourceTree = "<group>"; };
 		EA77261F2BC5B6B2005A194D /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		EA7726202BC5B6B2005A194D /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
@@ -179,6 +181,8 @@
 		EA7726162BC5B6B2005A194D = {
 			isa = PBXGroup;
 			children = (
+				EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */,
+				EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */,
 				EA77261B2BC5B6B2005A194D /* Shared (App) */,
 				EA7726242BC5B6B3005A194D /* Shared (Extension) */,
 				EA7726352BC5B6B3005A194D /* iOS (App) */,
@@ -692,6 +696,7 @@
 		EA7726832BC5B6B3005A194D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = WQY45CL427;
@@ -723,6 +728,7 @@
 		EA7726842BC5B6B3005A194D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = WQY45CL427;
@@ -757,6 +763,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = WQY45CL427;
@@ -795,6 +802,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
 				DEVELOPMENT_TEAM = WQY45CL427;
@@ -855,6 +863,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI.Extension;
 				PRODUCT_NAME = "eisonAI Extension";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -888,6 +897,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI.Extension;
 				PRODUCT_NAME = "eisonAI Extension";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -925,6 +935,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -961,6 +972,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
