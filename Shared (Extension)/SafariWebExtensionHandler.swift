@@ -100,43 +100,52 @@ private func modelStatusPayload() -> [String: Any] {
        persisted.revision == revision
     {
         if persisted.state == "ready", isModelReady(appGroupID: "group.com.qoli.eisonAI", repoId: repoId, revision: revision) {
-            return [
+            return pruneNilValues([
                 "state": "ready",
                 "progress": 1.0,
-                "error": NSNull(),
+                "error": nil,
                 "repoId": repoId,
-                "revision": revision
-            ]
+                "revision": revision,
+            ])
         }
 
         if persisted.state == "downloading" || persisted.state == "verifying" || persisted.state == "failed" {
-            return [
+            return pruneNilValues([
                 "state": persisted.state,
                 "progress": persisted.progress,
-                "error": persisted.error ?? NSNull(),
+                "error": persisted.error,
                 "repoId": repoId,
-                "revision": revision
-            ]
+                "revision": revision,
+            ])
         }
     }
 
     if isModelReady(appGroupID: "group.com.qoli.eisonAI", repoId: repoId, revision: revision) {
-        return [
+        return pruneNilValues([
             "state": "ready",
             "progress": 1.0,
-            "error": NSNull(),
+            "error": nil,
             "repoId": repoId,
-            "revision": revision
-        ]
+            "revision": revision,
+        ])
     }
 
-    return [
+    return pruneNilValues([
         "state": "notInstalled",
         "progress": 0.0,
-        "error": NSNull(),
+        "error": nil,
         "repoId": repoId,
-        "revision": revision
-    ]
+        "revision": revision,
+    ])
+}
+
+private func pruneNilValues(_ dict: [String: Any?]) -> [String: Any] {
+    var pruned: [String: Any] = [:]
+    for (key, value) in dict {
+        guard let value else { continue }
+        pruned[key] = value
+    }
+    return pruned
 }
 
 private struct PersistedModelStatus: Decodable {
