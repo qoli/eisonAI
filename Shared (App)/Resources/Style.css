@@ -56,6 +56,29 @@ body.state-off :is(.state-on, .state-unknown) {
     display: none;
 }
 
+body.platform-ios .model-card {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--spacing) / 2);
+    width: 100%;
+    max-width: 420px;
+}
+
+.model-actions {
+    display: flex;
+    gap: calc(var(--spacing) / 2);
+    justify-content: center;
+}
+
+.model-progress {
+    width: 100%;
+}
+
+.model-hint {
+    opacity: 0.75;
+    font-size: 0.9em;
+}
+
 button {
     font-size: 1em;
 }

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		EA4D8BA92EECFD77001630A4 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = EA4D8BA82EECFD77001630A4 /* AnyLanguageModel */; };
 		EA4D8BAC2EECFD93001630A4 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = EA4D8BAB2EECFD93001630A4 /* HuggingFace */; };
+		EA92327364B0CF48B6AF74E4 /* ModelDownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA511F3258CA89D6FA210F37 /* ModelDownloadManager.swift */; };
 		EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
 		EA7726392BC5B6B3005A194D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726382BC5B6B3005A194D /* SceneDelegate.swift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
@@ -129,6 +130,7 @@
 		EA7726402BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA7726452BC5B6B3005A194D /* eisonAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eisonAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726472BC5B6B3005A194D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		EA511F3258CA89D6FA210F37 /* ModelDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadManager.swift; sourceTree = "<group>"; };
 		EA77264A2BC5B6B3005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		EA77264C2BC5B6B3005A194D /* eisonAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = eisonAI.entitlements; sourceTree = "<group>"; };
 		EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "eisonAI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -163,8 +165,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EA4D8BA92EECFD77001630A4 /* AnyLanguageModel in Frameworks */,
-				EA4D8BAC2EECFD93001630A4 /* HuggingFace in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -259,6 +259,7 @@
 			isa = PBXGroup;
 			children = (
 				EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
+				EA511F3258CA89D6FA210F37 /* ModelDownloadManager.swift */,
 				EA7726382BC5B6B3005A194D /* SceneDelegate.swift */,
 				EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
 				EA77263D2BC5B6B3005A194D /* Main.storyboard */,
@@ -497,6 +498,7 @@
 			files = (
 				EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
 				EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
+				EA92327364B0CF48B6AF74E4 /* ModelDownloadManager.swift in Sources */,
 				EA7726392BC5B6B3005A194D /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -704,7 +706,7 @@
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -736,7 +738,7 @@
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -776,7 +778,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -815,7 +817,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

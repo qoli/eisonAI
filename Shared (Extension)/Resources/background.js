@@ -96,6 +96,25 @@ browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log(`[Eison-Background] Received message:`, message, 'from sender:', sender);
 
+  if (message.command === 'getModelStatus' && !sender.tab) {
+    getModelStatusViaNative()
+      .then((payload) => {
+        sendResponse({
+          command: 'modelStatusResponse',
+          ...(payload || {})
+        });
+      })
+      .catch((error) => {
+        sendResponse({
+          command: 'modelStatusResponse',
+          state: 'failed',
+          progress: 0,
+          error: error.message
+        });
+      });
+    return true;
+  }
+
   // Handle summary request from popup
   if (message.command === 'runSummary' && !sender.tab) {
     console.log(`[Eison-Background] Starting summary process...`);
@@ -321,6 +340,32 @@ async function summarizeViaNative({ url, title, text }) {
     titleText: result.titleText || '',
     summaryText: result.summaryText || ''
   };
+}
+
+async function getModelStatusViaNative() {
+  const requestId = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
+  const request = {
+    v: 1,
+    id: requestId,
+    type: 'request',
+    name: 'model.getStatus',
+    payload: {}
+  };
+
+  const response = await browser.runtime.sendNativeMessage(NATIVE_APP_ID, request);
+
+  if (!response || typeof response !== 'object') {
+    throw new Error('Native response is empty');
+  }
+  if (response.name === 'error') {
+    const message = response.payload?.message || 'Native error';
+    throw new Error(message);
+  }
+  if (response.name !== 'model.status') {
+    throw new Error(`Unexpected native response: ${response.name || 'unknown'}`);
+  }
+
+  return response.payload || {};
 }
 
 async function handleNativeEchoComplete({ titleText, summaryText, url, tabId }) {

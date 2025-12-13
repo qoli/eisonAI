@@ -117,17 +117,7 @@ function setupButtonBarActions() {
   });
 }
 
-function setupSettingsLink() {
-  var settingsLink = document.getElementById("SettingsLink");
-
-  if (settingsLink) {
-    let href = browser.runtime.getURL("settings.html");
-    settingsLink.href = href;
-  }
-}
-
 function setupStatus() {
-  let icon = document.getElementById("StatusIcon");
   let text = document.getElementById("StatusText");
 
   (async () => {
@@ -135,39 +125,34 @@ function setupStatus() {
     let apiKey = await loadData("APIKEY", "");
     let apiModel = await loadData("APIMODEL", "gpt-3.5-turbo");
 
-    let bool = await setupGPT();
-    if (bool) {
-      text.innerHTML = "已設定";
-      try {
-        let response;
-        // Check if using Google Gemini API
-        if (apiURL.includes("generativelanguage.googleapis.com")) {
-          let newURL = `${apiURL}/models?key=${apiKey}`;
-          response = await fetch(newURL);
-        } else {
-          // Default case for OpenAI and others
-          let newURL = `${apiURL}/models`;
-          response = await fetch(newURL, {
-            headers: {
-              Authorization: "Bearer " + apiKey,
-            },
-          });
-        }
+    try {
+      const status = await browser.runtime.sendMessage({ command: "getModelStatus" });
+      const state = status?.state || "unknown";
+      const progress = typeof status?.progress === "number" ? status.progress : 0;
 
-        if (response.ok) {
-          setStatus("normal");
-          text.innerHTML = apiModel;
-        } else {
-          const { status, statusText } = response;
-          setStatus("error");
-          text.innerHTML = "測試失敗 " + status + statusText;
-        }
-      } catch (error) {
-        setStatus("warming");
-        text.innerHTML = error;
+      if (state === "ready") {
+        setStatus("normal");
+        text.innerHTML = "本地模型已就緒";
+        return;
       }
-    } else {
-      text.innerHTML = "請先設定 ChatGPT API";
+
+      if (state === "downloading" || state === "verifying") {
+        setStatus("warming");
+        text.innerHTML = `模型下載中 ${Math.round(progress * 100)}%`;
+        return;
+      }
+
+      if (state === "failed") {
+        setStatus("error");
+        text.innerHTML = "模型下載失敗，請打開 App 重試";
+        return;
+      }
+
+      setStatus("error");
+      text.innerHTML = "未下載模型，請打開 App 下載";
+    } catch (error) {
+      setStatus("error");
+      text.innerHTML = "模型狀態取得失敗";
     }
   })();
 }
@@ -222,7 +207,6 @@ function mainApp() {
 
   //runtime only
   addMessageListener();
-  setupSettingsLink();
   setupStatus();
 
   hideID("shareButton")
@@ -418,7 +402,7 @@ async function pollSummaryStatus() {
           break;
 
         case 'error':
-          summaryStatusText("總結失敗");
+          // Keep the detailed error message pushed via `summaryStatusUpdate` if available.
           break;
 
         default:

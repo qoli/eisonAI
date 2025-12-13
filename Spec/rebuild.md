@@ -18,6 +18,11 @@
 3. 在不改變既有 UI 互動（包含串流體驗）的前提下，把 LLM 呼叫從 JS 遠端 API 轉移到 native 本地推理。
 4.（未來，M10）追加一套「Share Extension + App Intent」入口，讓 Safari 以外的分享/捷徑也能呼叫同一套本地總結能力。
 
+### 1.4 平台範圍（本期）
+
+- 本期（M2）以 **iOS 發佈** 為主；不再以 macOS App 為交付目標。
+- Safari Web Extension 仍運行於 iOS Safari（由 iOS App 承載與提供 native messaging）。
+
 ### 1.3 非目標（non-goals）
 
 - 不在本次重構中完善「多輪對話」的長記憶與向量檢索（可留做後續）。
@@ -380,6 +385,30 @@ MVP（若先求可跑）可先把模型打包進 App（但需評估 App 體積�
 本專案預計使用 `https://github.com/huggingface/swift-huggingface.git` 作為 Hugging Face Hub 檔案下載工具，並在其上包一層 `ModelDownloader`，把「模型挑選、檔案清單、下載、校驗、落盤、進度回報」收斂成穩定 API，供 `LocalLLMService` / Share Extension / App Intent 共用。
 
 > 注意：iOS/macOS 下載行為需要網路；extension 進程不一定適合做大型下載，建議「由主 App 負責下載」，extension 僅做 ready check 與推理。
+
+M2 實作備註：
+
+- 若 `swift-huggingface` 在 iOS 專案中因平台 API 不相容而無法編譯/整合，M2 允許暫以 `URLSession` 直接下載 `https://huggingface.co/<repoId>/resolve/<revision>/<file>` 來完成「下載 + 進度 + 落盤」的最小閉環；後續再替換為 `swift-huggingface` 的 `downloadFile` / `downloadSnapshot`。
+
+#### 7.2.2 固定模型來源（M2 定案）
+
+本期固定使用下列模型（repo + revision 固定，避免上游變更導致不可重現）：
+
+- `repoId`: `lmstudio-community/Qwen3-0.6B-MLX-4bit`
+- `revision`（固定 commit）: `75429955681c1850a9c8723767fe4252da06eb57`
+- license: `apache-2.0`（以該 repo README front-matter 為準）
+
+需要下載的檔案（全量，排除 `.gitattributes`/`README.md`）：
+
+- `model.safetensors`
+- `model.safetensors.index.json`
+- `tokenizer.json`
+- `merges.txt`
+- `vocab.json`
+- `tokenizer_config.json`
+- `config.json`
+- `special_tokens_map.json`
+- `added_tokens.json`
 
 #### 7.2.2 Model Descriptor（可配置、可版本化）
 
