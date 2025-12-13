@@ -30,9 +30,57 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         os_log(.default, "Received message from browser.runtime.sendNativeMessage: %@ (profile: %@)", String(describing: message), profile?.uuidString ?? "none")
 
         let response = NSExtensionItem()
-        response.userInfo = [ SFExtensionMessageKey: [ "echo": message ] ]
+
+        let responseMessage = handleMessage(message)
+        response.userInfo = [ SFExtensionMessageKey: responseMessage ]
 
         context.completeRequest(returningItems: [ response ], completionHandler: nil)
     }
 
+}
+
+private func handleMessage(_ message: Any?) -> [String: Any] {
+    guard let dict = message as? [String: Any] else {
+        return makeError(requestId: nil, code: "INVALID_INPUT", message: "Message must be an object")
+    }
+
+    let requestId = dict["id"] as? String
+    let name = dict["name"] as? String
+
+    guard name == "summarize.start" else {
+        return makeError(requestId: requestId, code: "INVALID_INPUT", message: "Unsupported request: \(name ?? "unknown")")
+    }
+
+    let payload = dict["payload"] as? [String: Any]
+    let title = payload?["title"] as? String ?? ""
+    let text = payload?["text"] as? String ?? ""
+
+    // M1: echo mode — return the Readability-extracted text as-is.
+    return [
+        "v": dict["v"] as? Int ?? 1,
+        "id": requestId ?? "",
+        "type": "response",
+        "name": "summarize.done",
+        "payload": [
+            "requestId": requestId ?? "",
+            "result": [
+                "titleText": title.isEmpty ? "正文" : title,
+                "summaryText": text
+            ]
+        ]
+    ]
+}
+
+private func makeError(requestId: String?, code: String, message: String) -> [String: Any] {
+    return [
+        "v": 1,
+        "id": requestId ?? "",
+        "type": "event",
+        "name": "error",
+        "payload": [
+            "requestId": requestId ?? "",
+            "code": code,
+            "message": message
+        ]
+    ]
 }

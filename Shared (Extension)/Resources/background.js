@@ -7,6 +7,8 @@ let summaryState = {
   lastUpdated: 0
 };
 
+const NATIVE_APP_ID = 'com.qoli.eisonAI';
+
 let statusTimeoutHandle = null;
 
 function scheduleStateTimeout(status) {
@@ -117,7 +119,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle content extraction response from content script
   if (message.command === 'articleTextResponse' && sender.tab) {
-    console.log(`[Eison-Background] Received article text, starting LLM processing...`);
+    console.log(`[Eison-Background] Received article text, starting native processing...`);
     handleArticleExtracted(message, sender.tab.id);
     return;
   }
@@ -261,17 +263,83 @@ async function handleArticleExtracted(message, tabId) {
 
     setSummaryStatus('summarizing');
 
-    // Send to content script for LLM processing
-    await browser.tabs.sendMessage(tabId, {
-      command: 'processSummary',
-      articleText: message.body,
-      articleTitle: message.title
+    const tabUrl = summaryState.url || (tabId ? await getTabUrl(tabId) : null);
+    const nativeResult = await summarizeViaNative({
+      url: tabUrl,
+      title: message.title || '',
+      text: message.body || ''
+    });
+
+    await handleNativeEchoComplete({
+      titleText: nativeResult?.titleText || message.title || '正文',
+      summaryText: nativeResult?.summaryText || message.body || '',
+      url: tabUrl,
+      tabId
     });
 
   } catch (error) {
     console.error('[Eison-Background] Error handling article extraction:', error);
     handleSummaryError({ error: error.message }, tabId);
   }
+}
+
+async function summarizeViaNative({ url, title, text }) {
+  const requestId = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
+  const request = {
+    v: 1,
+    id: requestId,
+    type: 'request',
+    name: 'summarize.start',
+    payload: {
+      url: url || '',
+      title: title || '',
+      text: text || ''
+    }
+  };
+
+  const response = await browser.runtime.sendNativeMessage(NATIVE_APP_ID, request);
+
+  if (!response || typeof response !== 'object') {
+    throw new Error('Native response is empty');
+  }
+
+  if (response.name === 'error') {
+    const message = response.payload?.message || 'Native error';
+    throw new Error(message);
+  }
+
+  if (response.name !== 'summarize.done') {
+    throw new Error(`Unexpected native response: ${response.name || 'unknown'}`);
+  }
+
+  const result = response.payload?.result;
+  if (!result) {
+    throw new Error('Native summarize result missing');
+  }
+
+  return {
+    titleText: result.titleText || '',
+    summaryText: result.summaryText || ''
+  };
+}
+
+async function handleNativeEchoComplete({ titleText, summaryText, url, tabId }) {
+  summaryState.isRunning = false;
+  setSummaryStatus('completed');
+  summaryState.tabId = null;
+  summaryState.url = null;
+
+  browser.runtime.sendMessage({
+    command: 'summaryStatusUpdate',
+    status: 'completed',
+    titleText,
+    summaryText,
+    tabId,
+    url,
+    noCache: true
+  }).catch((err) => {
+    console.warn('[Eison-Background] Unable to notify completion:', err);
+  });
 }
 
 // Handle summary completion

@@ -36,7 +36,9 @@ function addMessageListener() {
 
         if (request.titleText && request.summaryText) {
           displaySummaryResult(request.titleText, request.summaryText);
-          cacheSummaryResultFromPopup(request.titleText, request.summaryText, request.url);
+          if (!request.noCache) {
+            cacheSummaryResultFromPopup(request.titleText, request.summaryText, request.url);
+          }
         } else {
           reloadReceiptData();
         }

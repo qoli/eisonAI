@@ -18,8 +18,6 @@
     {
       "js": [
         "contentReadability.js",
-        "contentGPT.js",
-        "contentMarked.js",
         "content.js"
       ],
       "css": ["readability.css"],
