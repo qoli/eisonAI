@@ -505,7 +505,8 @@ MVP（若先求可跑）可先把模型打包進 App（但需評估 App 體積�
 1. **M0：協定與最小回路**
    - `background.js` 能呼叫 native `summarize.start` 並拿到 `done`（先不串流也可）。
 2. **M1：本地推理 + 串流**
-   - `LocalLLMService` 以 qwen3-0.6B 跑通摘要；Extension UI 可串流顯示。
+   - 先完成 native messaging 的端到端管線與資料對齊：native 端暫時「回傳 Readability 正文」作為結果（用於驗證通訊、狀態機、UI 顯示與錯誤處理）。
+   - 後續再把 native 回傳內容替換為真正的本地推理輸出（仍沿用同一套協定與 UI 流程）。
 3. **M2：模型管理**
    - App Group 存放、下載/更新、錯誤提示與重試（使用 `swift-huggingface` 實作下載與 resume）。
 4. **M3：Share Extension + App Intent**
