@@ -8,8 +8,23 @@ let summaryState = {
 };
 
 // Safari native messaging target.
-// In Safari Web Extensions, the target is the extension bundle identifier (appex), not the containing app.
-const NATIVE_APP_ID = 'com.qoli.eisonAI.Extension';
+// Safari's behavior varies by platform/version; try extension bundle id first, then the containing app bundle id.
+const NATIVE_APP_IDS = ['com.qoli.eisonAI.Extension', 'com.qoli.eisonAI'];
+
+async function sendNativeMessage(request) {
+  let lastError = null;
+
+  for (const appId of NATIVE_APP_IDS) {
+    try {
+      return await browser.runtime.sendNativeMessage(appId, request);
+    } catch (error) {
+      lastError = error;
+      console.warn('[Eison-Background] sendNativeMessage failed for', appId, error);
+    }
+  }
+
+  throw lastError || new Error('Unable to reach native app');
+}
 
 let statusTimeoutHandle = null;
 
@@ -318,13 +333,7 @@ async function summarizeViaNative({ url, title, text }) {
     }
   };
 
-  let response;
-  try {
-    response = await browser.runtime.sendNativeMessage(NATIVE_APP_ID, request);
-  } catch (error) {
-    console.error('[Eison-Background] sendNativeMessage failed:', error);
-    throw new Error(error?.message || 'Unable to reach native app');
-  }
+  const response = await sendNativeMessage(request);
 
   if (!response || typeof response !== 'object') {
     throw new Error('Native response is empty');
@@ -360,13 +369,7 @@ async function getModelStatusViaNative() {
     payload: {}
   };
 
-  let response;
-  try {
-    response = await browser.runtime.sendNativeMessage(NATIVE_APP_ID, request);
-  } catch (error) {
-    console.error('[Eison-Background] sendNativeMessage failed:', error);
-    throw new Error(error?.message || 'Unable to reach native app');
-  }
+  const response = await sendNativeMessage(request);
 
   if (!response || typeof response !== 'object') {
     throw new Error('Native response is empty');

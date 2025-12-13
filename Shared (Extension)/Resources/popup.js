@@ -5,6 +5,65 @@ function sendMessageToContent(message) {
     .catch((e) => console.error("Error sending message from popup:", e));
 }
 
+async function saveData(key, data) {
+  const obj = {};
+  obj[key] = data;
+  await browser.storage.local.set(obj);
+}
+
+async function loadData(key, defaultValue = "") {
+  const result = await browser.storage.local.get(key);
+  const value = result[key];
+  return value === undefined ? defaultValue : value;
+}
+
+function hideID(idName) {
+  const element = document.getElementById(idName);
+  if (element) {
+    element.style.display = "none";
+  }
+}
+
+function showID(idName, display = "block") {
+  const element = document.getElementById(idName);
+  if (element) {
+    element.style.display = display;
+  }
+}
+
+window.addEventListener("error", (event) => {
+  try {
+    const text = document.getElementById("StatusText");
+    if (text) {
+      text.textContent = `錯誤：${event?.message || "unknown"}`;
+    }
+    const icon = document.getElementById("StatusIcon");
+    if (icon) {
+      icon.classList.remove("normal", "warming");
+      icon.classList.add("error");
+    }
+  } catch {
+    // ignore
+  }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  try {
+    const text = document.getElementById("StatusText");
+    if (text) {
+      const reason = event?.reason?.message ? String(event.reason.message) : String(event?.reason || "unknown");
+      text.textContent = `錯誤：${reason}`;
+    }
+    const icon = document.getElementById("StatusIcon");
+    if (icon) {
+      icon.classList.remove("normal", "warming");
+      icon.classList.add("error");
+    }
+  } catch {
+    // ignore
+  }
+});
+
 function getDebugText() {
   sendMessageToContent({ command: "getDebugText" });
 }
@@ -90,22 +149,6 @@ function getHostFromUrl(url) {
   return parsedUrl.host;
 }
 
-function saveAPIConfig() {
-  (async () => {
-    let url = document.querySelector("#APIURL").value;
-    let key = document.querySelector("#APIKEY").value;
-    let model = document.querySelector("#APIMODEL").value;
-
-    await saveData("APIURL", url);
-    await saveData("APIKEY", key);
-    await saveData("APIMODEL", model);
-
-    document.querySelector(
-      "#ReadabilityText"
-    ).innerHTML = `${url} + ${key} + ${model} `;
-  })();
-}
-
 function setupButtonBarActions() {
   const buttonBars = document.querySelectorAll(".buttonBar");
 
@@ -121,10 +164,6 @@ function setupStatus() {
   let text = document.getElementById("StatusText");
 
   (async () => {
-    let apiURL = await loadData("APIURL", "");
-    let apiKey = await loadData("APIKEY", "");
-    let apiModel = await loadData("APIMODEL", "gpt-3.5-turbo");
-
     try {
       const status = await browser.runtime.sendMessage({ command: "getModelStatus" });
       const state = status?.state || "unknown";
@@ -152,7 +191,8 @@ function setupStatus() {
       text.innerHTML = "未下載模型，請打開 App 下載";
     } catch (error) {
       setStatus("error");
-      text.innerHTML = "模型狀態取得失敗";
+      const message = error?.message ? String(error.message) : String(error);
+      text.innerHTML = "模型狀態取得失敗：" + message;
     }
   })();
 }
@@ -250,6 +290,15 @@ function isMacOS() {
 }
 
 // Run app
+try {
+  const text = document.getElementById("StatusText");
+  if (text) {
+    text.textContent = "載入中...";
+  }
+} catch {
+  // ignore
+}
+
 mainApp();
 
 setTimeout(() => {
