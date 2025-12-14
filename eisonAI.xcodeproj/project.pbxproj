@@ -3,10 +3,13 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 60;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		EA46DDA42EEEBA3D0037F8D9 /* EisonAIKit in Frameworks */ = {isa = PBXBuildFile; productRef = EA46DDA32EEEBA3D0037F8D9 /* EisonAIKit */; };
+		EA5CA4E52EEEB843008ACF06 /* llmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA5CA4E42EEEB843008ACF06 /* llmView.swift */; };
+		EA5CA4E82EEEB900008ACF06 /* EisonAIKit in Frameworks */ = {isa = PBXBuildFile; productRef = EA46DDA32EEEBA3D0037F8D9 /* EisonAIKit */; };
 		EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
 		EA7726392BC5B6B3005A194D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726382BC5B6B3005A194D /* SceneDelegate.swift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
@@ -64,6 +67,7 @@
 		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
 		EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "eisonAI Extension (iOS).entitlements"; sourceTree = "<group>"; };
 		EA511F3258CA89D6FA210F37 /* ModelDownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDownloadManager.swift; sourceTree = "<group>"; };
+		EA5CA4E42EEEB843008ACF06 /* llmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = llmView.swift; sourceTree = "<group>"; };
 		EA77261E2BC5B6B2005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = ../Base.lproj/Main.html; sourceTree = "<group>"; };
 		EA77261F2BC5B6B2005A194D /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		EA7726202BC5B6B2005A194D /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
@@ -100,6 +104,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA46DDA42EEEBA3D0037F8D9 /* EisonAIKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,6 +112,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA5CA4E82EEEB900008ACF06 /* EisonAIKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -190,6 +196,7 @@
 			isa = PBXGroup;
 			children = (
 				EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
+				EA5CA4E42EEEB843008ACF06 /* llmView.swift */,
 				EA511F3258CA89D6FA210F37 /* ModelDownloadManager.swift */,
 				EA7726382BC5B6B3005A194D /* SceneDelegate.swift */,
 				EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
@@ -254,7 +261,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 1530;
-				LastUpgradeCheck = 1620;
+				LastUpgradeCheck = 2600;
 				TargetAttributes = {
 					EA7726322BC5B6B3005A194D = {
 						CreatedOnToolsVersion = 15.3;
@@ -274,8 +281,8 @@
 			);
 			mainGroup = EA7726162BC5B6B2005A194D;
 			packageReferences = (
-				EA4D8BA72EECFD77001630A4 /* XCRemoteSwiftPackageReference "AnyLanguageModel" */,
 				EA4D8BAA2EECFD93001630A4 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
+				EA46DDA22EEEBA3D0037F8D9 /* XCLocalSwiftPackageReference "EisonAIKit" */,
 			);
 			productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
 			projectDirPath = "";
@@ -333,6 +340,7 @@
 				EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
 				EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
 				EA92327364B0CF48B6AF74E4 /* ModelDownloadManager.swift in Sources */,
+				EA5CA4E52EEEB843008ACF06 /* llmView.swift in Sources */,
 				EA7726392BC5B6B3005A194D /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -419,6 +427,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = WQY45CL427;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -440,6 +449,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -481,6 +491,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = WQY45CL427;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -495,6 +506,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -505,7 +517,6 @@
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				DEVELOPMENT_TEAM = WQY45CL427;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
@@ -537,7 +548,6 @@
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				DEVELOPMENT_TEAM = WQY45CL427;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
@@ -572,7 +582,6 @@
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				DEVELOPMENT_TEAM = WQY45CL427;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = eisonAI;
@@ -611,7 +620,6 @@
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				DEVELOPMENT_TEAM = WQY45CL427;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "iOS (App)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = eisonAI;
@@ -675,15 +683,14 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		EA4D8BA72EECFD77001630A4 /* XCRemoteSwiftPackageReference "AnyLanguageModel" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/mattt/AnyLanguageModel";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.5.0;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		EA46DDA22EEEBA3D0037F8D9 /* XCLocalSwiftPackageReference "EisonAIKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = EisonAIKit;
 		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
 		EA4D8BAA2EECFD93001630A4 /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/huggingface/swift-huggingface.git";
@@ -693,6 +700,13 @@
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EA46DDA32EEEBA3D0037F8D9 /* EisonAIKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EisonAIKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = EA7726172BC5B6B2005A194D /* Project object */;
 }

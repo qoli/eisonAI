@@ -306,12 +306,14 @@ async function handleArticleExtracted(message, tabId) {
       text: message.body || ''
     });
 
-    await handleNativeEchoComplete({
-      titleText: nativeResult?.titleText || message.title || '正文',
-      summaryText: nativeResult?.summaryText || message.body || '',
-      url: tabUrl,
+    await handleSummaryComplete(
+      {
+        titleText: nativeResult?.titleText || message.title || 'Summary',
+        summaryText: nativeResult?.summaryText || '',
+        url: tabUrl
+      },
       tabId
-    });
+    );
 
   } catch (error) {
     console.error('[Eison-Background] Error handling article extraction:', error);
@@ -383,25 +385,6 @@ async function getModelStatusViaNative() {
   }
 
   return response.payload || {};
-}
-
-async function handleNativeEchoComplete({ titleText, summaryText, url, tabId }) {
-  summaryState.isRunning = false;
-  setSummaryStatus('completed');
-  summaryState.tabId = null;
-  summaryState.url = null;
-
-  browser.runtime.sendMessage({
-    command: 'summaryStatusUpdate',
-    status: 'completed',
-    titleText,
-    summaryText,
-    tabId,
-    url,
-    noCache: true
-  }).catch((err) => {
-    console.warn('[Eison-Background] Unable to notify completion:', err);
-  });
 }
 
 // Handle summary completion

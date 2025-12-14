@@ -31,27 +31,29 @@
 
 ### 3.1 需要先決策（缺的資料/決策）
 
-- [ ] 推理 runtime：要用 `AnyLanguageModel`（需修 macro build）或改用其他（例如 `mlx-swift`/`mlx-swift-lm` 類路線）
-- [ ] `AnyLanguageModel`：目前已改成本地 package reference（`../AnyLanguageModel`）；若要用 MLX 本地模型需確保專案已啟用 `MLX`（trait / build 設定）
-- [ ] 目標行為：先「非串流一次性回傳」(M3a) 還是直接做「串流/輪詢」(M3b)
-- [ ] 生成參數預設值：`temperature`、`maxOutputTokens`、stop/重複懲罰等
+- [x] 推理 runtime：`AnyLanguageModel`
+- [x] `AnyLanguageModel`：本地 package reference（`../AnyLanguageModel`）
+- [x] 目標行為：先做「非串流一次性回傳」(M3a)
+- [x] 生成參數預設值（暫定）：`temperature=0.4`、`maxOutputTokens=512`
 - [ ] Prompt 預設內容：
   - [ ] `APPSystemText`
   - [ ] `APPPromptText`（user template；含 `{{title}}` / `{{text}}` 之類 placeholder）
+  - [x]（暫時）native 內建 fallback prompt（後續再改由 App 管理並落 App Group）
 
 ### 3.2 主要工作項目
 
-- [ ] 新增/落地 `LocalLLMService`（shared）：
-  - [ ] 從 App Group model path 載入模型（repoId + revision）
-  - [ ] tokenizer + prompt 拼裝
-  - [ ] 產生符合 `eison.summary.v1` 格式輸出（`總結：` + `要點：`）
+- [x] Native 端產生摘要（M3a）：
+  - [x] `SafariWebExtensionHandler.swift`：改為 async，使用 `mlx-swift-lm`（`MLXLLM`/`MLXLMCommon`）從 App Group 模型目錄做本地推理
+  - [x] 產生符合 `eison.summary.v1` 格式輸出（`總結：` + `要點：`）
+  - [x] 長文保護：先用字元截斷（16k chars）避免 prompt 過大
+- [x] 使用 App Group 模型路徑載入 MLX 模型（repoId + revision）
 - [ ] 長文處理（chunk + reduce）：
   - [ ] 先以字元長度 chunk（MVP），後續可改 tokenizer-based
 - [ ] Extension ↔︎ Native 串流：
   - [ ] 先確認 iOS Safari `connectNative` 是否可用；否則走 `summarize.poll`
   - [ ] `background.js` 支援 `stream/done/error` 並 forward 到 `popup.js`
 - [ ] 快取策略：
-  - [ ] M3 開始恢復快取（目前 echo mode `noCache:true`）
+  - [x] M3 恢復快取（`background.js` 會寫入 `Receipt*`；`popup.js` 會 cache）
 
 ## M10（未來實現）
 
@@ -63,4 +65,5 @@
 
 - `swift-huggingface` 在 iOS 編譯會踩到 `homeDirectoryForCurrentUser`（因此 M2 已改用 `URLSession` 直接 resolve 下載）。
 - AnyLanguageModel 的 MLX 支援需要啟用 `MLX`（trait / build 設定）。
+- 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 MLX 相關依賴（避免 Xcode 無法直接設定 traits）。
 - AnyLanguageModel README 提到 Xcode 26 + iOS 18/更早 可能會有 build bug（必要時改用 Xcode 16 toolchain）。
