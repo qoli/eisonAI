@@ -293,7 +293,7 @@ function isMacOS() {
 try {
   const text = document.getElementById("StatusText");
   if (text) {
-    text.textContent = "載入中...";
+    text.textContent = "載入中... (popup.js m2)";
   }
 } catch {
   // ignore
