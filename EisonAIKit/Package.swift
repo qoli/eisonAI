@@ -4,24 +4,21 @@ import PackageDescription
 let package = Package(
     name: "EisonAIKit",
     platforms: [
-        .iOS(.v17),
-        .macOS(.v14),
+        .iOS(.v18),
+        .macOS(.v15),
         .visionOS(.v1),
     ],
     products: [
         .library(name: "EisonAIKit", targets: ["EisonAIKit"])
     ],
     dependencies: [
-        .package(path: "../../AnyLanguageModel", traits: ["MLX"]),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm", branch: "main"),
+        .package(path: "../../AnyLanguageModel", traits: ["CoreML"]),
     ],
     targets: [
         .target(
             name: "EisonAIKit",
             dependencies: [
                 .product(name: "AnyLanguageModel", package: "AnyLanguageModel"),
-                .product(name: "MLXLLM", package: "mlx-swift-lm"),
-                .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
             ]
         )
     ]

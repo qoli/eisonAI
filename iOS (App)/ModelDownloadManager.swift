@@ -15,19 +15,18 @@ final class ModelDownloadManager {
 
     private enum Constants {
         static let appGroupID = "group.com.qoli.eisonAI"
-        static let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
-        static let revision = "75429955681c1850a9c8723767fe4252da06eb57"
+        static let repoId = "XDGCC/coreml-Qwen3-0.6B"
+        static let revision = "fc6bdeb0b02573744ee2cba7e3f408f2851adf57"
 
         static let requiredFiles: [String] = [
-            "added_tokens.json",
-            "config.json",
-            "merges.txt",
-            "model.safetensors",
-            "model.safetensors.index.json",
-            "special_tokens_map.json",
             "tokenizer.json",
             "tokenizer_config.json",
-            "vocab.json",
+            "config.json",
+            "Qwen3-0.6B.mlmodelc/metadata.json",
+            "Qwen3-0.6B.mlmodelc/model.mil",
+            "Qwen3-0.6B.mlmodelc/coremldata.bin",
+            "Qwen3-0.6B.mlmodelc/analytics/coremldata.bin",
+            "Qwen3-0.6B.mlmodelc/weights/weight.bin",
         ]
     }
 
@@ -176,8 +175,8 @@ final class ModelDownloadManager {
                 throw NSError(domain: "ModelDownload", code: 2, userInfo: [NSLocalizedDescriptionKey: "Files missing after download"])
             }
 
-            // Qwen3: disable thinking by patching chat_template to always insert an empty <think>...</think> block.
-            // vLLM can do this via `chat_template_kwargs.enable_thinking=false`, but MLX-swift-lm doesn't expose template kwargs.
+            // Qwen3: disable thinking by patching `tokenizer_config.json:chat_template` to always insert an empty <think>...</think> block.
+            // Some runtimes can do this via `enable_thinking=false`, but our local CoreML path doesn't pass template kwargs.
             try patchTokenizerConfigDisableThinkingIfNeeded(in: destinationDir)
 
             status = Status(
@@ -271,6 +270,13 @@ final class ModelDownloadManager {
             }
         }
 
+        // Ensure compiled CoreML model directory exists
+        if !FileManager.default.fileExists(
+            atPath: destinationDir.appendingPathComponent("Qwen3-0.6B.mlmodelc").path
+        ) {
+            return false
+        }
+
         return true
     }
 
@@ -286,22 +292,41 @@ final class ModelDownloadManager {
             return
         }
 
-        // Only patch Qwen3-style templates.
-        let conditional = """
-{%- if enable_thinking is defined and enable_thinking is false %}
-        {{- '<think>\\n\\n</think>\\n\\n' }}
-    {%- endif %}
-"""
-
-        guard chatTemplate.contains("enable_thinking is defined"),
-              chatTemplate.contains(conditional) else {
+        // Patch Qwen3-style templates that gate "empty think" insertion behind `enable_thinking=false`.
+        guard chatTemplate.contains("enable_thinking is defined and enable_thinking is false") else {
             return
         }
 
-        let replacement = "        {{- '<think>\\n\\n</think>\\n\\n' }}"
-        let patched = chatTemplate.replacingOccurrences(of: conditional, with: replacement)
+        var lines = chatTemplate.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        var changed = false
 
-        obj["chat_template"] = patched
+        var i = 0
+        while i < lines.count {
+            if lines[i].contains("enable_thinking is defined and enable_thinking is false") {
+                var j = i + 1
+                while j < lines.count && !lines[j].contains("{%- endif %}") {
+                    j += 1
+                }
+
+                if j < lines.count {
+                    let insertionIndent: String
+                    if i + 1 < lines.count {
+                        insertionIndent = String(lines[i + 1].prefix { $0 == " " || $0 == "\t" })
+                    } else {
+                        insertionIndent = String(lines[i].prefix { $0 == " " || $0 == "\t" }) + "    "
+                    }
+
+                    lines.replaceSubrange(i...j, with: [insertionIndent + "{{- '<think>\\n\\n</think>\\n\\n' }}"])
+                    changed = true
+                    i += 1
+                    continue
+                }
+            }
+            i += 1
+        }
+
+        guard changed else { return }
+        obj["chat_template"] = lines.joined(separator: "\n")
 
         let out = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
         try out.write(to: tokenizerConfigURL, options: [.atomic])

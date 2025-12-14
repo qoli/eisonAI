@@ -187,46 +187,46 @@ extension ViewController {
 
 private actor LLMPingRunner {
     static let shared = LLMPingRunner()
-    private var modelContainer: ModelContainer?
+    @available(iOS 18.0, macOS 15.0, *)
+    private var model: AnyLanguageModel.CoreMLLanguageModel?
 
     func respond(to input: String) async throws -> String {
-#if targetEnvironment(simulator)
-        // MLX/Metal GPU initialization can abort on iOS Simulator.
-        throw NSError(
-            domain: "EisonAI",
-            code: 2,
-            userInfo: [NSLocalizedDescriptionKey: "LLM local inference is not supported on iOS Simulator. Please run on a real device."]
-        )
-#else
-        let container = try await getModelContainer()
-        let generateParameters = GenerateParameters(maxTokens: 64, temperature: 0.2)
-
-        let session = ChatSession(container, instructions: "你是一個簡潔的助手。請直接回覆，盡量短。", generateParameters: generateParameters)
-        return try await session.respond(to: input)
-#endif
-    }
-
-    private func getModelContainer() async throws -> ModelContainer {
-        if let modelContainer {
-            return modelContainer
+        guard #available(iOS 18.0, macOS 15.0, *) else {
+            throw NSError(domain: "EisonAI", code: 2, userInfo: [NSLocalizedDescriptionKey: "CoreML model requires iOS 18 / macOS 15"])
         }
 
-        let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
-        let revision = "75429955681c1850a9c8723767fe4252da06eb57"
+        let model = try await getModel()
+        let session = AnyLanguageModel.LanguageModelSession(model: model, instructions: "你是一個簡潔的助手。請直接回覆，盡量短。")
+        let options = AnyLanguageModel.GenerationOptions(temperature: 0.2, maximumResponseTokens: 64)
+        let response: AnyLanguageModel.LanguageModelSession.Response<String> = try await session.respond(
+            to: AnyLanguageModel.Prompt(input),
+            options: options
+        )
+        return response.content
+    }
+
+    @available(iOS 18.0, macOS 15.0, *)
+    private func getModel() async throws -> AnyLanguageModel.CoreMLLanguageModel {
+        if let model {
+            return model
+        }
+
+        let repoId = "XDGCC/coreml-Qwen3-0.6B"
+        let revision = "fc6bdeb0b02573744ee2cba7e3f408f2851adf57"
         let appGroupID = "group.com.qoli.eisonAI"
 
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
             throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "App Group 容器不可用"])
         }
 
-        let modelDir = container
+        let modelRoot = container
             .appendingPathComponent("Models", isDirectory: true)
             .appendingPathComponent(repoId, isDirectory: true)
             .appendingPathComponent(revision, isDirectory: true)
 
-        let configuration = ModelConfiguration(directory: modelDir)
-        let loaded = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
-        modelContainer = loaded
+        let compiledURL = modelRoot.appendingPathComponent("Qwen3-0.6B.mlmodelc", isDirectory: true)
+        let loaded = try await AnyLanguageModel.CoreMLLanguageModel(url: compiledURL, computeUnits: .all)
+        self.model = loaded
         return loaded
     }
 }

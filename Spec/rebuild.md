@@ -1,4 +1,4 @@
-# 重構計劃 Spec：本地 LLM（AnyLanguageModel + Qwen3-0.6B MLX 4bit）
+# 重構計劃 Spec：本地 LLM（AnyLanguageModel + Qwen3-0.6B CoreML）
 
 參考：https://huggingface.co/blog/anylanguagemodel
 
@@ -7,14 +7,14 @@
 ### 1.1 現況（as-is）
 
 - 內容擷取：`content.js` 使用 `Readability` 從頁面 DOM 提取正文。
-- 協調：`background.js` 管控「提取 → LLM → 快取 → 通知 popup」流程與狀態。
+- 協調：iOS Safari（MV3）下本期由 `popup.js` 直接管控「提取 → Native → 快取」；`background.js` 保留狀態查詢等輔助能力。
 - LLM：目前由 `contentGPT.js` 走遠端 API，並以 fetch 串流輸出（此重構會移除遠端路徑）。
 - UI：`popup.js` 顯示總結與串流更新，並將結果快取在 `browser.storage.local`。
 
 ### 1.2 重構目標（to-be）
 
 1. 引入 `AnyLanguageModel`（native / Swift）作為本地推理框架。
-2. 以 `qwen3-0.6B`（MLX，4-bit）作為預設本地 LLM，用於「網頁總結」。
+2. 以 `Qwen3-0.6B`（CoreML，MLProgram）作為預設本地 LLM，用於「網頁總結」。
 3. 在不改變既有 UI 互動（包含串流體驗）的前提下，把 LLM 呼叫從 JS 遠端 API 轉移到 native 本地推理。
 4.（未來，M10）追加一套「Share Extension + App Intent」入口，讓 Safari 以外的分享/捷徑也能呼叫同一套本地總結能力。
 
@@ -22,6 +22,7 @@
 
 - 本期（M2）以 **iOS 發佈** 為主；不再以 macOS App 為交付目標。
 - Safari Web Extension 仍運行於 iOS Safari（由 iOS App 承載與提供 native messaging）。
+- 本期最低版本提升到 **iOS 18**（CoreML MLProgram + stateful KV cache 需求）。
 
 ### 1.3 非目標（non-goals）
 
@@ -68,7 +69,7 @@
 
 **Native（Swift）**
 
-- `SafariWebExtensionHandler.swift`：負責接收 `browser.runtime.sendNativeMessage` / `connectNative` 訊息、轉交到本地 LLM Service，再把結果回傳 extension。
+- `SafariWebExtensionHandler.swift`：負責接收 `browser.runtime.sendNativeMessage` 訊息、轉交到本地 LLM Service，再把結果回傳 extension。（`connectNative` 可留作未來串流路徑）
 - 新增 shared module（建議以 Swift Package / Shared sources 實作）：`LocalLLMService`
   - 模型下載/安裝/版本管理
   - 推理與串流 callback
@@ -77,15 +78,11 @@
 
 ### 3.2 資料流程（Safari Extension）
 
-1. `popup.js` → `background.js`：`runSummary`
-2. `background.js` → `content.js`：`getArticleText`
-3. `content.js` → `background.js`：`articleTextResponse { title, body }`
-4. `background.js` → Native：`summarize.start { url, title, text, options }`
-5. Native → `background.js`：`summarize.stream { requestId, delta }`（0..N 次）
-6. Native → `background.js`：`summarize.done { requestId, result }`
-7. `background.js`：
-   - 存快取（`browser.storage.local`）
-   - 廣播給 `popup.js`：`summaryStream` / `summaryStatusUpdate`
+1. `popup.js` → `content.js`：`getArticleText`
+2. `content.js` → `popup.js`：`articleTextResponse { title, body }`
+3. `popup.js` → Native：`summarize.start { url, title, text }`（若 payload 過大則改用 `summarize.begin/chunk/end`）
+4. Native → `popup.js`：`summarize.done { result }`（本期先採一次性回傳，非串流）
+5. `popup.js`：將結果寫入 `browser.storage.local`（URL 作為快取 key）
 
 ### 3.3（未來，M10）資料流程（Share Extension / Intent）
 
@@ -96,16 +93,16 @@
 
 ### 4.1 通訊方式
 
-優先方案（支援串流）：
+本期實作（iOS Safari 優先、最穩定）：
 
-- 使用 `browser.runtime.connectNative(hostName)` 建立長連線 port，native 以多次 message 推送 `stream/done/error`。
+- 使用 `browser.runtime.sendNativeMessage(message, callback)` 呼叫 containing app 的 native app extension。
+- 若 payload 過大，改用 `summarize.begin/chunk/end` 分段傳輸（避免 message size 限制）。
+- 先採「一次性回傳」（非串流）；串流可留待後續確認 `connectNative` 可用性後再加。
 
-相容方案（若平台僅支援 `sendNativeMessage` 或 connectNative 行為受限）：
+未來方案（若目標平台確認可用）：
 
-- `sendNativeMessage`：`summarize.start` 回傳 `requestId`。
-- Extension 以短輪詢：`sendNativeMessage summarize.poll { requestId }` 拉取增量與狀態，直到 done。
-
-> 本 Spec 先以「支援 connectNative」作主路徑設計；實作時若 Safari 版本/限制不符，降級到 poll 模式。
+- `browser.runtime.connectNative(hostName)`：建立長連線 port，native 推送 `stream/done/error`。
+- 若 `connectNative` 不穩定，才考慮 `summarize.poll`。
 
 ### 4.2 Message Envelope（通用外層）
 
@@ -273,9 +270,8 @@
   "name": "model.status",
   "payload": {
     "state": "notInstalled|downloading|verifying|ready|failed",
-    "modelId": "qwen3-0.6b-mlx-4bit",
     "repoId": "hf-repo-id",
-    "revision": "main-or-hash",
+    "revision": "commit-hash",
     "progress": 0.0,
     "error": null
   }
@@ -315,15 +311,12 @@
 
 ### 6.1 background.js
 
-- `handleArticleExtracted` 改成：
-  - 設定 state `summarizing`
-  - 呼叫 native `summarize.start`
-  - 監聽 native stream/done/error，並 forward 到 popup（沿用現有 `summaryStream` / `summaryStatusUpdate`）
-- 保留既有：
+- iOS Safari（MV3）下 `background.service_worker` 的 native messaging 不穩定，本期採用 **`popup.js` 直接呼叫 native** 作為主路徑。
+- `background.js` 保留既有：
   - state machine、timeout、tab navigation 監控
   - cache 存取（`ReceiptURL`/`ReceiptTitleText`/`ReceiptText`）
-- 新增：
-  - `requestId` 對應目前 summary job，支援 cancel（tab 關閉/導覽時）。
+  - `getSummaryStatus`（供 popup polling）
+- （未來）若改回 background orchestrator，再補上 `requestId`/cancel 與 stream 轉送。
 
 ### 6.2 content.js
 
@@ -335,6 +328,9 @@
 - 維持既有：
   - 接收 `summaryStream` / `summaryStatusUpdate`
   - 顯示與快取
+- 本期新增/調整：
+  - 直接呼叫 native `summarize.start`（或 fallback `summarize.begin/chunk/end`）以完成摘要
+  - 額外呼叫 `model.getStatus` 顯示「模型是否已就緒」
 - 可選新增：
   - 顯示「模型狀態」（下載中/可用/錯誤），以提升可用性（見 7.2）。
 
@@ -359,20 +355,20 @@
 
 ### 7.1 SafariWebExtensionHandler.swift
 
-目前只回傳 echo，需改為：
+目標行為：
 
 - 解析 envelope（`v/id/type/name/payload`）
 - 將 `summarize.start/cancel/(poll)` 轉交 `LocalLLMService`
 - 回傳：
   - `summarize.started` response
-  - streaming events（若採 connectNative）
+  - （可選）streaming events（若採 connectNative）
   - done/error
 
 ### 7.2 模型管理（下載、存放、更新）
 
 建議採用 App Group（例如 `group.com.qoli.eisonAI`，實際以專案為準）：
 
-- 路徑：`AppGroup/Models/qwen3-0.6B-mlx-4bit/...`
+- 路徑：`AppGroup/Models/XDGCC/coreml-Qwen3-0.6B/<revision>/Qwen3-0.6B.mlmodelc/...`
 - metadata：`model.json`（版本、hash、來源、大小、最後使用時間）
 - 啟動策略：
   - 第一次使用：若模型不存在，回傳 `MODEL_NOT_READY` 並提示使用者到 App/設定頁觸發下載。
@@ -388,33 +384,33 @@ MVP（若先求可跑）可先把模型打包進 App（但需評估 App 體積�
 
 M2 實作備註：
 
-- 若 `swift-huggingface` 在 iOS 專案中因平台 API 不相容而無法編譯/整合，M2 允許暫以 `URLSession` 直接下載 `https://huggingface.co/<repoId>/resolve/<revision>/<file>` 來完成「下載 + 進度 + 落盤」的最小閉環；後續再替換為 `swift-huggingface` 的 `downloadFile` / `downloadSnapshot`。
+- `swift-huggingface` 在 iOS 專案中可能因平台 API 不相容而無法編譯/整合（例如 `homeDirectoryForCurrentUser`），因此 M2 先採用 `URLSession` 直接下載 `https://huggingface.co/<repoId>/resolve/<revision>/<file>` 來完成「下載 + 進度 + 落盤」的最小閉環；後續再替換為 `swift-huggingface` 的 `downloadFile` / `downloadSnapshot`。
 
 #### 7.2.2 固定模型來源（M2 定案）
 
 本期固定使用下列模型（repo + revision 固定，避免上游變更導致不可重現）：
 
-- `repoId`: `lmstudio-community/Qwen3-0.6B-MLX-4bit`
-- `revision`（固定 commit）: `75429955681c1850a9c8723767fe4252da06eb57`
-- license: `apache-2.0`（以該 repo README front-matter 為準）
+- `repoId`: `XDGCC/coreml-Qwen3-0.6B`
+- `revision`（固定 commit）: `fc6bdeb0b02573744ee2cba7e3f408f2851adf57`
+- 平台需求：iOS 18.0+ / macOS 15.0+（CoreML MLProgram + stateful KV cache）
+- license: 以該 repo README / metadata 為準（下載前需再次確認）
 
 需要下載的檔案（全量，排除 `.gitattributes`/`README.md`）：
 
-- `model.safetensors`
-- `model.safetensors.index.json`
 - `tokenizer.json`
-- `merges.txt`
-- `vocab.json`
 - `tokenizer_config.json`
 - `config.json`
-- `special_tokens_map.json`
-- `added_tokens.json`
+- `Qwen3-0.6B.mlmodelc/metadata.json`
+- `Qwen3-0.6B.mlmodelc/model.mil`
+- `Qwen3-0.6B.mlmodelc/coremldata.bin`
+- `Qwen3-0.6B.mlmodelc/analytics/coremldata.bin`
+- `Qwen3-0.6B.mlmodelc/weights/weight.bin`
 
 #### 7.2.2 Model Descriptor（可配置、可版本化）
 
 以 `model.json`（或 embedded defaults + 可更新的 json）描述要下載的模型：
 
-- `repoId`：Hugging Face repo（需確認實際 qwen3-0.6B mlx 4bit 的 repo）
+- `repoId`：Hugging Face repo
 - `revision`：例如 `main` / 指定 commit hash（推薦固定 hash 以利可重現）
 - `files`：需要的檔名清單（例如 tokenizer/config/weights 等）
 - `sha256`（可選但建議）：每個檔案的 checksum
@@ -430,9 +426,8 @@ M2 實作備註：
 
 建議落盤結構：
 
-- `AppGroup/Models/<modelId>/`
+- `AppGroup/Models/<repoId>/<revision>/`
   - `manifest.json`（repoId/revision/files/sha256/size/installedAt）
-  - `blobs/`（實際檔案）
   - `tmp/`（下載暫存與 partial）
 
 #### 7.2.4 進度與狀態（UI/Extension 需要）
@@ -515,7 +510,7 @@ M2 實作備註：
 
 ### 8.2 Native messaging 串流可行性
 
-- 若 `connectNative` 在目標 Safari/iOS/macOS 版本上不可用或不穩定，需降級為 poll 模式。
+- 若 `connectNative` 在目標 Safari/iOS/macOS 版本上不可用或不穩定，本期維持 `sendNativeMessage`（一次性回傳 + 分段上傳）路徑。
 - poll 模式會讓串流更「塊狀」，但仍能維持進度感。
 
 ### 8.3 模型大小與首用體驗
