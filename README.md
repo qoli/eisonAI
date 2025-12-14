@@ -52,9 +52,9 @@ EisonAI 採用了安全的 Native Messaging 架構來連接瀏覽器與本地模
 
 ```mermaid
 graph LR
-    Safari[Safari 瀏覽器] <--> Extension[EisonAI 擴展 (JS)]
-    Extension <-->|Native Messaging| HostApp[原生宿主應用 (Swift)]
-    HostApp <-->|EisonAIKit| Model[本地 CoreML 模型]
+    Safari["Safari 瀏覽器"] <--> Extension["EisonAI 擴展 (JS)"]
+    Extension <-->|"Native Messaging"| HostApp["原生宿主應用 (Swift)"]
+    HostApp <-->|"EisonAIKit"| Model["本地 CoreML 模型"]
 ```
 
 1. **Content Script**: 負責提取網頁正文。
