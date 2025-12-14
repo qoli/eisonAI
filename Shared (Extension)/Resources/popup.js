@@ -1,8 +1,211 @@
-function sendMessageToContent(message) {
-  console.log("Popup: Sending message to background:", message);
+const browser = globalThis.browser ?? globalThis.chrome;
+
+const FEATURE_FLAGS = {
+  forceContentMvp: false
+};
+
+function measureJsonBytes(value) {
+  try {
+    const encoder = new TextEncoder();
+    return encoder.encode(JSON.stringify(value)).length;
+  } catch {
+    return null;
+  }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function splitTextToUtf8Chunks(text, maxBytes) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+
+  if (!text) return chunks;
+  if (maxBytes <= 0) return [text];
+
+  let start = 0;
+  const textLength = text.length;
+
+  // Heuristic starting point: assume 2 bytes/char average for CJK-heavy text.
+  const approxCharsPerChunk = Math.max(256, Math.floor(maxBytes / 2));
+
+  while (start < textLength) {
+    let end = Math.min(textLength, start + approxCharsPerChunk);
+
+    // If our guess is too large, shrink until it fits.
+    while (end > start && encoder.encode(text.slice(start, end)).length > maxBytes) {
+      end = Math.max(start + 1, end - 64);
+    }
+    while (end > start && encoder.encode(text.slice(start, end)).length > maxBytes) {
+      end -= 1;
+    }
+
+    // Safety fallback to avoid infinite loops.
+    if (end <= start) {
+      end = Math.min(textLength, start + 1);
+    }
+
+    chunks.push(text.slice(start, end));
+    start = end;
+  }
+
+  return chunks;
+}
+
+function createMutex() {
+  let tail = Promise.resolve();
+  return {
+    async run(task) {
+      const previous = tail;
+      let release = null;
+      tail = new Promise((resolve) => (release = resolve));
+      await previous;
+      try {
+        return await task();
+      } finally {
+        release?.();
+      }
+    }
+  };
+}
+
+const nativeMessageMutex = createMutex();
+
+function sendMessageToBackground(message) {
+  if (typeof browser?.runtime?.sendMessage !== "function") {
+    console.error("[Eison-Popup] runtime.sendMessage unavailable, cannot message background:", message);
+    return;
+  }
+  console.log("[Eison-Popup] Sending message to background:", message);
   browser.runtime
     .sendMessage(message)
-    .catch((e) => console.error("Error sending message from popup:", e));
+    .catch((e) => console.error("[Eison-Popup] Error sending message to background:", e));
+}
+
+async function getActiveTab() {
+  if (typeof browser?.tabs?.query !== "function") {
+    throw new Error("browser.tabs.query is unavailable");
+  }
+  try {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    return tabs && tabs[0] ? tabs[0] : null;
+  } catch (error) {
+    console.error("[Eison-Popup] tabs.query failed with currentWindow, retrying without it:", error);
+    const tabs = await browser.tabs.query({ active: true });
+    return tabs && tabs[0] ? tabs[0] : null;
+  }
+}
+
+async function sendMessageToActiveTabContent(message) {
+  if (typeof browser?.tabs?.sendMessage !== "function") {
+    throw new Error("browser.tabs.sendMessage is unavailable");
+  }
+  const tab = await getActiveTab();
+  if (!tab?.id) {
+    throw new Error("No active tab found");
+  }
+  console.log("[Eison-Popup] Sending message to content:", { tabId: tab.id, message });
+  return await browser.tabs.sendMessage(tab.id, message);
+}
+
+async function sendNativeMessage(request, options = {}) {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    const error = new Error("browser.runtime.sendNativeMessage is unavailable in popup context");
+    console.error("[Eison-Popup] sendNativeMessage unavailable:", { request, error });
+    throw error;
+  }
+
+  return await nativeMessageMutex.run(async () => {
+    return await sendNativeMessageUnlocked(request, options);
+  });
+}
+
+async function sendNativeMessageUnlocked(request, options = {}) {
+  // Safari's `sendNativeMessage` is often callback-based and may throw
+  // "Invalid call to runtime.sendNativeMessage()" when invoked without a callback.
+  // The function arity isn't reliable on Safari (can be 0), so try callback-style first.
+
+  // Safari ignores the first argument, but iOS Safari appears to reject certain values (e.g. extension bundle id).
+  // Use the sample's placeholder first, then fall back to the containing app bundle id.
+  const nativeAppIds = ["application.id", "com.qoli.eisonAI"];
+  const fn = browser.runtime.sendNativeMessage;
+  const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : 10_000;
+
+  const callWithCallbackOrPromise = (appId) =>
+    new Promise((resolve, reject) => {
+      let settled = false;
+
+      const finish = (error, response) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve(response);
+      };
+
+      const timer = setTimeout(() => {
+        finish(new Error("sendNativeMessage timed out"));
+      }, timeoutMs);
+
+      try {
+        const maybePromise = fn.call(browser.runtime, appId, request, (response) => {
+          const runtimeError = browser?.runtime?.lastError;
+          if (runtimeError) {
+            finish(new Error(runtimeError.message || String(runtimeError)));
+            return;
+          }
+          finish(null, response);
+        });
+
+        if (maybePromise && typeof maybePromise.then === "function") {
+          maybePromise.then(
+            (response) => finish(null, response),
+            (error) => finish(error)
+          );
+        }
+      } catch (error) {
+        try {
+          Promise.resolve(fn.call(browser.runtime, appId, request)).then(
+            (response) => finish(null, response),
+            (err) => finish(err)
+          );
+        } catch (err2) {
+          finish(err2);
+        }
+      }
+    });
+
+  let lastError = null;
+  for (const appId of nativeAppIds) {
+    try {
+      console.log("[Eison-Popup] sendNativeMessage:", { appId, name: request?.name, id: request?.id });
+      return await callWithCallbackOrPromise(appId);
+    } catch (error) {
+      lastError = error;
+      console.error("[Eison-Popup] sendNativeMessage failed:", { appId, error });
+    }
+  }
+
+  // Very old/alternate implementations may accept 1-arg; keep as last resort.
+  try {
+    return await fn.call(browser.runtime, request);
+  } catch (error) {
+    lastError = lastError || error;
+  }
+
+  throw lastError || new Error("Unable to reach native app via sendNativeMessage");
+}
+
+function makeEnvelope(name, payload) {
+  const requestId = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
+  return {
+    v: 1,
+    id: requestId,
+    type: "request",
+    name,
+    payload: payload || {}
+  };
 }
 
 async function saveData(key, data) {
@@ -65,7 +268,7 @@ window.addEventListener("unhandledrejection", (event) => {
 });
 
 function getDebugText() {
-  sendMessageToContent({ command: "getDebugText" });
+  sendMessageToBackground({ command: "getDebugText" });
 }
 
 function addMessageListener() {
@@ -145,8 +348,13 @@ function addClickListeners() {
 }
 
 function getHostFromUrl(url) {
-  const parsedUrl = new URL(url);
-  return parsedUrl.host;
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.host || "";
+  } catch (error) {
+    console.error("[Eison-Popup] Invalid URL for host parse:", { url, error });
+    return "";
+  }
 }
 
 function setupButtonBarActions() {
@@ -165,9 +373,11 @@ function setupStatus() {
 
   (async () => {
     try {
-      const status = await browser.runtime.sendMessage({ command: "getModelStatus" });
-      const state = status?.state || "unknown";
-      const progress = typeof status?.progress === "number" ? status.progress : 0;
+      const response = await sendNativeMessage(makeEnvelope("model.getStatus", {}), { timeoutMs: 2_500 });
+      console.log("[Eison-Popup] model.getStatus response:", response);
+      const payload = response?.name === "model.status" ? response.payload : null;
+      const state = payload?.state || "unknown";
+      const progress = typeof payload?.progress === "number" ? payload.progress : 0;
 
       if (state === "ready") {
         setStatus("normal");
@@ -193,6 +403,7 @@ function setupStatus() {
       setStatus("error");
       const message = error?.message ? String(error.message) : String(error);
       text.innerHTML = "模型狀態取得失敗：" + message;
+      console.error("[Eison-Popup] setupStatus failed:", error);
     }
   })();
 }
@@ -241,6 +452,12 @@ async function shareContent() {
 }
 
 function mainApp() {
+  console.log("[Eison-Popup] runtime:", {
+    runtimeId: browser?.runtime?.id,
+    hasNativeMessaging: typeof browser?.runtime?.sendNativeMessage === "function",
+    sendNativeMessageArity: browser?.runtime?.sendNativeMessage?.length
+  });
+
   setupButtonBarActions();
   addClickListeners();
   setPlatformClassToBody();
@@ -253,9 +470,8 @@ function mainApp() {
 }
 
 async function getTabURL() {
-  let currentTabs = await browser.tabs.query({ active: true });
-
-  return currentTabs[0].url;
+  const tab = await getActiveTab();
+  return tab?.url || "";
 }
 
 function setStatus(className) {
@@ -348,7 +564,7 @@ async function reloadReceiptData() {
       displaySummaryResult(receiptTitleText, receiptText)
     }
   } catch (error) {
-    console.warn("[Eison-Popup] Failed to reload cached data:", error);
+    console.error("[Eison-Popup] Failed to reload cached data:", error);
   }
 }
 
@@ -357,57 +573,215 @@ async function cacheSummaryResultFromPopup(titleText, summaryText, urlFromMessag
     const url = urlFromMessage || await getTabURL();
 
     if (!url) {
-      console.warn("[Eison-Popup] No URL available to cache summary");
+      console.error("[Eison-Popup] No URL available to cache summary");
       return;
     }
 
     await saveData("ReceiptURL", url);
     await saveData("ReceiptTitleText", titleText);
     await saveData("ReceiptText", summaryText);
-
-    await browser.runtime.sendMessage({
-      command: "cacheSummaryResult",
-      url,
-      titleText,
-      summaryText
-    });
   } catch (error) {
-    console.warn("[Eison-Popup] Failed to cache summary result:", error);
+    console.error("[Eison-Popup] Failed to cache summary result:", error);
   }
+}
+
+async function summarizeViaNativeChunked({ url, title, text }) {
+  const sessionId = crypto?.randomUUID ? crypto.randomUUID() : String(Date.now());
+  const maxChunkBytes = 2000;
+  const chunks = splitTextToUtf8Chunks(text || "", maxChunkBytes);
+  if (chunks.length === 0) {
+    chunks.push("");
+  }
+
+  console.log("[Eison-Popup] summarize chunked:", {
+    sessionId,
+    maxChunkBytes,
+    chunkCount: chunks.length,
+    titleLength: (title || "").length,
+    textLength: (text || "").length
+  });
+
+  // Begin
+  const beginResp = await sendNativeMessage(
+    makeEnvelope("summarize.begin", {
+      sessionId,
+      url: url || "",
+      title: title || "",
+      chunkCount: chunks.length
+    }),
+    { timeoutMs: 2_500 }
+  );
+  if (beginResp?.name === "error") {
+    const msg = beginResp?.payload?.message ? String(beginResp.payload.message) : "Native error";
+    throw new Error(msg);
+  }
+
+  // Chunks
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkResp = await sendNativeMessage(
+      makeEnvelope("summarize.chunk", {
+        sessionId,
+        index: i,
+        text: chunks[i]
+      }),
+      { timeoutMs: 2_500 }
+    );
+    if (chunkResp?.name === "error") {
+      const msg = chunkResp?.payload?.message ? String(chunkResp.payload.message) : "Native error";
+      throw new Error(msg);
+    }
+    await sleep(25);
+  }
+
+  // End (returns final summary)
+  await sleep(150);
+
+  let lastError = null;
+  const endRequest = makeEnvelope("summarize.end", { sessionId });
+  for (const delay of [0, 250, 750]) {
+    if (delay) {
+      await sleep(delay);
+    }
+    try {
+      return await sendNativeMessage(endRequest, { timeoutMs: 120_000 });
+    } catch (error) {
+      lastError = error;
+      const message = error?.message ? String(error.message) : String(error);
+      console.error("[Eison-Popup] summarize.end failed, retrying:", { delay, message, error });
+    }
+  }
+  throw lastError || new Error("summarize.end failed");
 }
 
 /// 請求總結 - 新架構
 async function sendRunSummaryMessage() {
   showArea("SummaryContent");
-  summaryStatusText("請求中...");
+  summaryStatusText("準備中...");
 
   try {
-    const response = await browser.runtime.sendMessage({
-      command: "runSummary"
+    const tab = await getActiveTab();
+    if (!tab?.id || !tab.url) {
+      summaryStatusText("錯誤：找不到當前頁面");
+      console.error("[Eison-Popup] No active tab for summary");
+      return;
+    }
+
+    // Cache hit?
+    const cachedURL = await loadData("ReceiptURL", "");
+    const cachedTitle = await loadData("ReceiptTitleText", "");
+    const cachedText = await loadData("ReceiptText", "");
+    if (cachedURL === tab.url && cachedText) {
+      console.log("[Eison-Popup] Cache hit:", tab.url);
+      displaySummaryResult(cachedTitle || "Summary", cachedText);
+      return;
+    }
+
+    summaryStatusText("提取內容中...");
+    const articleResponse = await sendMessageToActiveTabContent({ command: "getArticleText" });
+    if (!articleResponse || typeof articleResponse !== "object") {
+      summaryStatusText("錯誤：無法取得文章內容");
+      console.error("[Eison-Popup] Invalid article response:", articleResponse);
+      return;
+    }
+    if (articleResponse.error) {
+      summaryStatusText("錯誤：" + String(articleResponse.error));
+      console.error("[Eison-Popup] Article extraction error:", articleResponse.error);
+      return;
+    }
+
+    const title = articleResponse.title || "";
+    const body = articleResponse.body || "";
+    console.log("[Eison-Popup] Article extracted:", { titleLength: title.length, bodyLength: body.length });
+
+    if (FEATURE_FLAGS.forceContentMvp) {
+      summaryStatusText("（MVP）由 content.js 產生摘要中...");
+      const mvpResp = await sendMessageToActiveTabContent({ command: "getMVPSummary" });
+      if (!mvpResp || typeof mvpResp !== "object") {
+        summaryStatusText("錯誤：MVP 摘要回傳格式不符");
+        return;
+      }
+      if (mvpResp.error) {
+        summaryStatusText("錯誤：" + String(mvpResp.error));
+        return;
+      }
+      const titleText = mvpResp.title || title || "Summary";
+      const summaryText = mvpResp.summaryText || "";
+      displaySummaryResult(titleText, summaryText);
+      await cacheSummaryResultFromPopup(titleText, summaryText, tab.url);
+      return;
+    }
+
+    summaryStatusText("呼叫本地模型中...");
+    renderStreamingSummary("");
+
+    const request = makeEnvelope("summarize.start", {
+      url: tab.url,
+      title,
+      text: body
     });
+    const requestBytes = measureJsonBytes(request);
+    console.log("[Eison-Popup] summarize.start request size:", { requestBytes, titleLength: title.length, bodyLength: body.length });
+
+    let response;
+    try {
+      response = await sendNativeMessage(request, { timeoutMs: 120_000 });
+    } catch (error) {
+      const message = error?.message ? String(error.message) : String(error);
+      // Safari may reject larger messages; fall back to chunked native messaging.
+      if (message.includes("Invalid call to runtime.sendNativeMessage")) {
+        console.warn("[Eison-Popup] summarize.start rejected; falling back to chunked mode:", { message });
+        response = await summarizeViaNativeChunked({ url: tab.url, title, text: body });
+      } else {
+        throw error;
+      }
+    }
 
     console.log("[Eison-Popup] Summary response:", response);
 
-    if (response.cached) {
-      displaySummaryResult(response.titleText, response.summaryText);
+    if (response?.name === "error") {
+      const msg = response?.payload?.message ? String(response.payload.message) : "Native error";
+      summaryStatusText("錯誤：" + msg);
+      console.error("[Eison-Popup] Native error:", response);
+
+      // MVP debug fallback: keep UI usable when native messaging is blocked.
+      try {
+        summaryStatusText("（MVP）改由 content.js 產生摘要...");
+        const mvpResp = await sendMessageToActiveTabContent({ command: "getMVPSummary" });
+        if (mvpResp && !mvpResp.error) {
+          const titleText = mvpResp.title || title || "Summary";
+          const summaryText = mvpResp.summaryText || "";
+          displaySummaryResult(titleText, summaryText);
+          await cacheSummaryResultFromPopup(titleText, summaryText, tab.url);
+          return;
+        }
+      } catch (e) {
+        console.error("[Eison-Popup] MVP fallback failed:", e);
+      }
       return;
     }
 
-    if (response.error) {
-      summaryStatusText("錯誤：" + response.error);
+    if (response?.name !== "summarize.done") {
+      summaryStatusText("錯誤：Native 回傳格式不符");
+      console.error("[Eison-Popup] Unexpected native response:", response);
       return;
     }
 
-    if (response.status === 'started') {
-      summaryStatusText(response.message || "處理中...");
-      renderStreamingSummary("");
-      // Start polling for status updates
-      pollSummaryStatus();
+    const result = response?.payload?.result;
+    const titleText = result?.titleText || title || "Summary";
+    const summaryText = result?.summaryText || "";
+    if (!summaryText) {
+      summaryStatusText("錯誤：摘要內容為空");
+      console.error("[Eison-Popup] Empty summaryText:", response);
+      return;
     }
+
+    displaySummaryResult(titleText, summaryText);
+    await cacheSummaryResultFromPopup(titleText, summaryText, tab.url);
 
   } catch (e) {
+    const message = e?.message ? String(e.message) : String(e);
     console.error("[Eison-Popup] Error requesting summary:", e);
-    summaryStatusText("通信錯誤");
+    summaryStatusText("錯誤：" + message);
   }
 }
 

@@ -43,11 +43,19 @@ private actor LLMDemoRunner {
     private var modelContainer: ModelContainer?
 
     func run() async throws -> String {
+#if targetEnvironment(simulator)
+        throw NSError(
+            domain: "EisonAI",
+            code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "LLM local inference is not supported on iOS Simulator. Please run on a real device."]
+        )
+#else
         if #available(iOS 26.0, *) {
             return try await runAnyLanguageModelDemo()
         } else {
             return try await runMLXDemo()
         }
+#endif
     }
 
     @available(iOS 26.0, *)

@@ -68,10 +68,6 @@ private func handleMessage(_ message: Any?) async -> [String: Any] {
         ]
     }
 
-    guard name == "summarize.start" else {
-        return makeError(requestId: requestId, code: "INVALID_INPUT", message: "Unsupported request: \(name ?? "unknown")")
-    }
-
     let modelStatus = modelStatusPayload()
     let modelState = modelStatus["state"] as? String ?? "notInstalled"
     if modelState != "ready" {
@@ -84,31 +80,199 @@ private func handleMessage(_ message: Any?) async -> [String: Any] {
 
     let payload = dict["payload"] as? [String: Any]
     let title = payload?["title"] as? String ?? ""
+
+    // Chunked native messaging to work around Safari message size limitations.
+    if name == "summarize.begin" {
+        let sessionId = payload?["sessionId"] as? String ?? requestId ?? ""
+        let chunkCount = payload?["chunkCount"] as? Int ?? 0
+        let url = payload?["url"] as? String ?? ""
+        do {
+            try await NativeSummarizer.shared.beginChunkedSession(sessionId: sessionId, title: title, url: url, chunkCount: chunkCount)
+            return [
+                "v": dict["v"] as? Int ?? 1,
+                "id": requestId ?? "",
+                "type": "response",
+                "name": "summarize.ack",
+                "payload": [
+                    "sessionId": sessionId,
+                    "kind": "begin",
+                    "chunkCount": chunkCount,
+                ],
+            ]
+        } catch {
+            return makeError(requestId: requestId, code: "INVALID_INPUT", message: error.localizedDescription)
+        }
+    }
+
+    if name == "summarize.chunk" {
+        let sessionId = payload?["sessionId"] as? String ?? requestId ?? ""
+        let index = payload?["index"] as? Int ?? -1
+        let chunkText = payload?["text"] as? String ?? ""
+        do {
+            try await NativeSummarizer.shared.appendChunk(sessionId: sessionId, index: index, text: chunkText)
+            return [
+                "v": dict["v"] as? Int ?? 1,
+                "id": requestId ?? "",
+                "type": "response",
+                "name": "summarize.ack",
+                "payload": [
+                    "sessionId": sessionId,
+                    "kind": "chunk",
+                    "index": index,
+                ],
+            ]
+        } catch {
+            return makeError(requestId: requestId, code: "INVALID_INPUT", message: error.localizedDescription)
+        }
+    }
+
+    if name == "summarize.end" {
+        let sessionId = payload?["sessionId"] as? String ?? requestId ?? ""
+        do {
+            let assembled = try await NativeSummarizer.shared.consumeChunkedSession(sessionId: sessionId)
+            return try await summarizeAndRespond(dict: dict, requestId: requestId, title: assembled.title, text: assembled.text)
+        } catch {
+            return makeError(requestId: requestId, code: "INVALID_INPUT", message: error.localizedDescription)
+        }
+    }
+
+    guard name == "summarize.start" else {
+        return makeError(requestId: requestId, code: "INVALID_INPUT", message: "Unsupported request: \(name ?? "unknown")")
+    }
+
     let text = payload?["text"] as? String ?? ""
 
     do {
-        let summary = try await NativeSummarizer.shared.summarize(title: title, text: text)
-        return [
-            "v": dict["v"] as? Int ?? 1,
-            "id": requestId ?? "",
-            "type": "response",
-            "name": "summarize.done",
-            "payload": [
-                "requestId": requestId ?? "",
-                "result": [
-                    "titleText": title.isEmpty ? "Summary" : title,
-                    "summaryText": summary,
-                ],
-            ],
-        ]
+        return try await summarizeAndRespond(dict: dict, requestId: requestId, title: title, text: text)
     } catch {
+        os_log(.error, "[Eison-Native] summarize.failed (requestId=%@): %@", requestId ?? "none", String(describing: error))
         return makeError(requestId: requestId, code: "INFERENCE_FAILED", message: error.localizedDescription)
     }
+}
+
+private func summarizeAndRespond(dict: [String: Any], requestId: String?, title: String, text: String) async throws -> [String: Any] {
+    let start = Date()
+    os_log(.default, "[Eison-Native] summarize.start (requestId=%@, titleLen=%d, textLen=%d)", requestId ?? "none", title.count, text.count)
+    let summary = try await NativeSummarizer.shared.summarize(title: title, text: text)
+    os_log(.default, "[Eison-Native] summarize.done (requestId=%@, elapsed=%.3fs, outLen=%d)", requestId ?? "none", Date().timeIntervalSince(start), summary.count)
+    return [
+        "v": dict["v"] as? Int ?? 1,
+        "id": requestId ?? "",
+        "type": "response",
+        "name": "summarize.done",
+        "payload": [
+            "requestId": requestId ?? "",
+            "result": [
+                "titleText": title.isEmpty ? "Summary" : title,
+                "summaryText": summary,
+            ],
+        ],
+    ]
 }
 
 private actor NativeSummarizer {
     static let shared = NativeSummarizer()
     private var modelContainer: ModelContainer?
+    private let appGroupID = "group.com.qoli.eisonAI"
+
+    private struct ChunkedSessionMeta: Codable {
+        let createdAt: TimeInterval
+        let title: String
+        let url: String
+        let chunkCount: Int
+    }
+
+    private func validateSessionId(_ sessionId: String) throws {
+        guard !sessionId.isEmpty, sessionId.count <= 128 else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid sessionId"])
+        }
+        if sessionId.contains("/") || sessionId.contains("\\") {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid sessionId"])
+        }
+    }
+
+    private func sessionsRootURL() throws -> URL {
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "App Group 容器不可用"])
+        }
+        return container
+            .appendingPathComponent("Config", isDirectory: true)
+            .appendingPathComponent("ChunkedSessions", isDirectory: true)
+    }
+
+    private func sessionDirURL(sessionId: String) throws -> URL {
+        try validateSessionId(sessionId)
+        return try sessionsRootURL().appendingPathComponent(sessionId, isDirectory: true)
+    }
+
+    func beginChunkedSession(sessionId: String, title: String, url: String, chunkCount: Int) throws {
+        try validateSessionId(sessionId)
+        guard chunkCount >= 1, chunkCount <= 10_000 else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid chunkCount"])
+        }
+
+        let root = try sessionsRootURL()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let dir = try sessionDirURL(sessionId: sessionId)
+        // Clean existing (best-effort)
+        try? FileManager.default.removeItem(at: dir)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let meta = ChunkedSessionMeta(
+            createdAt: Date().timeIntervalSince1970,
+            title: title,
+            url: url,
+            chunkCount: chunkCount
+        )
+        let metaURL = dir.appendingPathComponent("meta.json")
+        let data = try JSONEncoder().encode(meta)
+        try data.write(to: metaURL, options: [.atomic])
+    }
+
+    func appendChunk(sessionId: String, index: Int, text: String) throws {
+        let dir = try sessionDirURL(sessionId: sessionId)
+        let metaURL = dir.appendingPathComponent("meta.json")
+        guard let metaData = try? Data(contentsOf: metaURL),
+              let meta = try? JSONDecoder().decode(ChunkedSessionMeta.self, from: metaData) else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown sessionId"])
+        }
+        guard index >= 0, index < meta.chunkCount else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid chunk index"])
+        }
+        let chunkURL = dir.appendingPathComponent("chunk_\(index).txt")
+        try text.data(using: .utf8)?.write(to: chunkURL, options: [.atomic])
+    }
+
+    func consumeChunkedSession(sessionId: String) throws -> (title: String, url: String, text: String) {
+        let dir = try sessionDirURL(sessionId: sessionId)
+        let metaURL = dir.appendingPathComponent("meta.json")
+        guard let metaData = try? Data(contentsOf: metaURL),
+              let meta = try? JSONDecoder().decode(ChunkedSessionMeta.self, from: metaData) else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown sessionId"])
+        }
+
+        var parts: [String] = []
+        parts.reserveCapacity(meta.chunkCount)
+        var missing: [Int] = []
+        for i in 0..<meta.chunkCount {
+            let chunkURL = dir.appendingPathComponent("chunk_\(i).txt")
+            if let data = try? Data(contentsOf: chunkURL),
+               let text = String(data: data, encoding: .utf8) {
+                parts.append(text)
+            } else {
+                missing.append(i)
+            }
+        }
+
+        if !missing.isEmpty {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing chunks: \(missing.prefix(20))"])
+        }
+
+        // Cleanup (best-effort)
+        try? FileManager.default.removeItem(at: dir)
+        return (title: meta.title, url: meta.url, text: parts.joined())
+    }
 
     func summarize(title: String, text: String) async throws -> String {
         let maxInputCharacters = 16_000

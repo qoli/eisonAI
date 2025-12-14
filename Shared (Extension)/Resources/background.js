@@ -1,3 +1,5 @@
+console.log('[Eison-Background] loaded');
+
 // Summary state management
 let summaryState = {
   isRunning: false,
@@ -12,18 +14,11 @@ let summaryState = {
 const NATIVE_APP_IDS = ['com.qoli.eisonAI.Extension', 'com.qoli.eisonAI'];
 
 async function sendNativeMessage(request) {
-  let lastError = null;
-
-  for (const appId of NATIVE_APP_IDS) {
-    try {
-      return await browser.runtime.sendNativeMessage(appId, request);
-    } catch (error) {
-      lastError = error;
-      console.warn('[Eison-Background] sendNativeMessage failed for', appId, error);
-    }
-  }
-
-  throw lastError || new Error('Unable to reach native app');
+  const error = new Error(
+    'Native messaging is not supported from MV3 service worker on Safari. Use popup-native path.'
+  );
+  console.error('[Eison-Background] sendNativeMessage blocked:', { request, error });
+  throw error;
 }
 
 let statusTimeoutHandle = null;
@@ -114,28 +109,23 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log(`[Eison-Background] Received message:`, message, 'from sender:', sender);
 
   if (message.command === 'getModelStatus' && !sender.tab) {
-    getModelStatusViaNative()
-      .then((payload) => {
-        sendResponse({
-          command: 'modelStatusResponse',
-          ...(payload || {})
-        });
-      })
-      .catch((error) => {
-        sendResponse({
-          command: 'modelStatusResponse',
-          state: 'failed',
-          progress: 0,
-          error: error.message
-        });
-      });
+    console.error('[Eison-Background] getModelStatus called from popup; redirect to popup-native.');
+    sendResponse({
+      command: 'modelStatusResponse',
+      state: 'failed',
+      progress: 0,
+      error: 'Native messaging is not supported from service worker. Please reopen popup and retry.'
+    });
     return true;
   }
 
   // Handle summary request from popup
   if (message.command === 'runSummary' && !sender.tab) {
-    console.log(`[Eison-Background] Starting summary process...`);
-    runSummaryProcess(sendResponse);
+    console.error('[Eison-Background] runSummary called from popup; redirect to popup-native.');
+    sendResponse({
+      command: 'summaryResponse',
+      error: 'Native messaging is not supported from service worker. Please reopen popup and retry.'
+    });
     return true; // Indicates async response
   }
 
@@ -155,8 +145,12 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Handle content extraction response from content script
   if (message.command === 'articleTextResponse' && sender.tab) {
-    console.log(`[Eison-Background] Received article text, starting native processing...`);
-    handleArticleExtracted(message, sender.tab.id);
+    console.log(`[Eison-Background] Received articleTextResponse; ignored (popup-native mode).`, {
+      tabId: sender.tab.id,
+      hasError: Boolean(message.error),
+      titleLength: (message.title || '').length,
+      bodyLength: (message.body || '').length
+    });
     return;
   }
 

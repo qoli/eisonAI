@@ -6,13 +6,13 @@
 
 - ✅ M1：Readability 擷取 → Native 回傳原文（echo）→ Popup 顯示
 - ✅ M2：模型下載（App）+ 模型狀態（Extension）+ 未就緒提示
-- ⏭️ M3：真正使用本地模型產生摘要（Qwen3 MLX 4bit）
+- ⏭️ M3：真正使用本地模型產生摘要（Qwen3 MLX 4bit）（已實作 M3a 非串流，待 iOS Safari E2E 驗證）
 - ⏸️ M10（未來）：Share Extension + App Intent
 
 ## M1（已完成）
 
 - ✅ Extension：`content.js` 只做 Readability 擷取
-- ✅ Extension：`background.js` 流程改為呼叫 native `summarize.start`
+- ✅ Extension：`popup.js` 直接呼叫 native `summarize.start`（避免 Safari MV3 `background.service_worker` 的 native messaging 不穩）
 - ✅ Native：`SafariWebExtensionHandler.swift` 在 M1 以 echo mode 回傳正文
 - ✅ UI：`popup.js` 顯示狀態與結果；移除 `contentGPT.js` fallback 與 settings 面板引用
 
@@ -26,6 +26,8 @@
 - ✅ Extension gating：
   - ✅ `model.getStatus` 顯示 `notInstalled/downloading/verifying/ready/failed`
   - ✅ `MODEL_NOT_READY` 提示使用者打開 App 下載模型
+- ✅ 修正 `popup.js` 語法錯誤（避免 popup 直接白屏 / 顯示 `{Status Text}`）
+- ✅ App 端 LLM Ping 測試（WebView UI 內 `llm.ping` → 回傳結果顯示）
 
 ## M3（下一步：本地推理產生摘要）
 
@@ -66,4 +68,12 @@
 - `swift-huggingface` 在 iOS 編譯會踩到 `homeDirectoryForCurrentUser`（因此 M2 已改用 `URLSession` 直接 resolve 下載）。
 - AnyLanguageModel 的 MLX 支援需要啟用 `MLX`（trait / build 設定）。
 - 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 MLX 相關依賴（避免 Xcode 無法直接設定 traits）。
+- iOS Simulator 上 MLX/Metal 初始化可能直接 `abort`；`llm.ping`/demo 已加 guard，Simulator 會回傳「請用真機」錯誤避免崩潰。
+- Safari MV3 `background.service_worker` 可能無法呼叫 `browser.runtime.sendNativeMessage`；目前改為由 `popup.js` 直接呼叫 native（避免 `Invalid call to runtime.sendNativeMe...`）。
+- Safari Web Extension 的 `sendNativeMessage` 常見是 callback 版：`sendNativeMessage("application.id", message, callback)`；若用 promise/少參數可能報 `Invalid call to runtime.sendNativeMessage()`，且 Safari 會忽略 `application.id`（仍建議傳入任意字串）並只送到 containing app 的 native app extension。
+- `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已加 mutex 讓 native 呼叫序列化（先 `model.getStatus` 再 `summarize.start`），並為摘要放寬 timeout。
+- iOS Safari 可能對 `sendNativeMessage` 的 payload 大小有限制；若 `summarize.start` 因 `Invalid call` 失敗，會自動 fallback 到分段傳輸（`summarize.begin/chunk/end`）。
+- iOS Safari 可能會對 `sendNativeMessage` 的 `applicationId` 字串做額外校驗；目前優先使用 `application.id`（sample 寫法）再 fallback `com.qoli.eisonAI`，避免使用 extension bundle id。
+- Debug/MVP：可在 `popup.js` 開啟 `FEATURE_FLAGS.forceContentMvp = true`，把摘要邏輯移到 `content.js`（`getMVPSummary`）以便先驗證 UI/通訊流程。
+- 若 popup 停留在「載入中... / `{Status Text}`」通常代表 `popup.js` 解析失敗（SyntaxError）；優先看 Safari Develop Console 的錯誤行號。
 - AnyLanguageModel README 提到 Xcode 26 + iOS 18/更早 可能會有 build bug（必要時改用 Xcode 16 toolchain）。

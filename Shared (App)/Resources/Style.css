@@ -79,6 +79,36 @@ body.platform-ios .model-card {
     font-size: 0.9em;
 }
 
+.llm-card {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--spacing) / 2);
+    padding-top: calc(var(--spacing) / 2);
+    border-top: 1px solid color-mix(in oklab, currentColor 20%, transparent);
+}
+
+.llm-title {
+    margin: 0;
+    font-weight: 600;
+}
+
+.llm-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.llm-output {
+    margin: 0;
+    padding: 12px;
+    text-align: left;
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, currentColor 20%, transparent);
+    background: color-mix(in oklab, currentColor 6%, transparent);
+    font: -apple-system-body;
+}
+
 button {
     font-size: 1em;
 }

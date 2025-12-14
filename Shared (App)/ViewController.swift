@@ -6,6 +6,11 @@
 //
 
 import WebKit
+import os.log
+
+#if canImport(EisonAIKit)
+import EisonAIKit
+#endif
 
 #if os(iOS)
 import UIKit
@@ -120,6 +125,12 @@ extension ViewController {
                 self.pushModelStatusToWebView(status)
             }
 
+        case "llm.ping":
+            Task { [weak self] in
+                guard let self else { return }
+                await self.runLLMPingTest()
+            }
+
         default:
             break
         }
@@ -131,6 +142,92 @@ extension ViewController {
             return
         }
         webView.evaluateJavaScript("updateModelStatus(\(json));")
+    }
+
+    private struct LLMPingResult: Codable {
+        let state: String // idle, running, done, error
+        let requestText: String
+        let responseText: String?
+        let error: String?
+    }
+
+    private func pushLLMPingResultToWebView(_ result: LLMPingResult) {
+        guard let data = try? JSONEncoder().encode(result),
+              let json = String(data: data, encoding: .utf8) else {
+            return
+        }
+        webView.evaluateJavaScript("updateLLMPingResult(\(json));")
+    }
+
+    @MainActor
+    private func runLLMPingTest() async {
+        let requestText = "Ping"
+        pushLLMPingResultToWebView(.init(state: "running", requestText: requestText, responseText: nil, error: nil))
+
+        do {
+            let status = await ModelDownloadManager.shared.refreshStatus()
+            guard status.state == "ready" else {
+                throw NSError(
+                    domain: "EisonAI",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Model not ready (\(status.state)). Please download the model first."]
+                )
+            }
+
+            let start = Date()
+            let response = try await LLMPingRunner.shared.respond(to: requestText)
+            os_log(.default, "[Eison-App] llm.ping done (elapsed=%.3fs, outLen=%d)", Date().timeIntervalSince(start), response.count)
+            pushLLMPingResultToWebView(.init(state: "done", requestText: requestText, responseText: response, error: nil))
+        } catch {
+            os_log(.error, "[Eison-App] llm.ping failed: %@", String(describing: error))
+            pushLLMPingResultToWebView(.init(state: "error", requestText: requestText, responseText: nil, error: error.localizedDescription))
+        }
+    }
+}
+
+private actor LLMPingRunner {
+    static let shared = LLMPingRunner()
+    private var modelContainer: ModelContainer?
+
+    func respond(to input: String) async throws -> String {
+#if targetEnvironment(simulator)
+        // MLX/Metal GPU initialization can abort on iOS Simulator.
+        throw NSError(
+            domain: "EisonAI",
+            code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "LLM local inference is not supported on iOS Simulator. Please run on a real device."]
+        )
+#else
+        let container = try await getModelContainer()
+        let generateParameters = GenerateParameters(maxTokens: 64, temperature: 0.2)
+
+        let session = ChatSession(container, instructions: "你是一個簡潔的助手。請直接回覆，盡量短。", generateParameters: generateParameters)
+        return try await session.respond(to: input)
+#endif
+    }
+
+    private func getModelContainer() async throws -> ModelContainer {
+        if let modelContainer {
+            return modelContainer
+        }
+
+        let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
+        let revision = "75429955681c1850a9c8723767fe4252da06eb57"
+        let appGroupID = "group.com.qoli.eisonAI"
+
+        guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
+            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "App Group 容器不可用"])
+        }
+
+        let modelDir = container
+            .appendingPathComponent("Models", isDirectory: true)
+            .appendingPathComponent(repoId, isDirectory: true)
+            .appendingPathComponent(revision, isDirectory: true)
+
+        let configuration = ModelConfiguration(directory: modelDir)
+        let loaded = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+        modelContainer = loaded
+        return loaded
     }
 }
 #endif
