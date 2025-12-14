@@ -1,106 +1,65 @@
 # EisonAI
 
-EisonAI 是一個智能的 Safari 瀏覽器插件，使用先進的大語言模型（LLM）技術來自動總結網頁內容。它能夠智能提取網頁的主要內容，並生成精確的摘要，幫助用戶快速理解網頁要點。
+EisonAI 是一個注重隱私的 Safari 瀏覽器擴展，利用本地運行的先進大語言模型（Local LLM）技術，為您提供快速、精確的網頁內容總結。所有數據處理均在您的設備上完成，無需將網頁內容發送至第三方伺服器，確保您的隱私安全。
 
-## 功能特點
+## 核心特點
 
-- **智能內容提取**：使用 [Readability.js](https://github.com/mozilla/readability) 技術自動識別和提取網頁的主要內容，去除廣告和無關元素。
-- **AI 智能總結**：整合大語言模型（LLM）生成網頁內容的精確摘要。
-    - 支援 OpenAI 相容的 API。
-    - 支援 Google Gemini API。
-- **互動式對話**：支持與 AI 進行多輪對話，深入探討網頁內容。
-- **優雅的界面**：
-    - 迷你浮動按鈕，不影響網頁瀏覽。
-    - 簡潔的對話框設計。
-    - 支持系統明暗主題自適應。
-    - 打字機效果的訊息顯示。
-    - 響應式 UI 設計，自動適應 macOS 和 iOS 平台。
-- **靈活的顯示模式**：
-    - 迷你圖標模式：在頁面角落顯示小圖標。
-    - 隱藏模式：完全隱藏，通過快捷鍵喚出。
-- **進階功能**：
-  - 支援 API 連線測試。
-  - 自訂系統提示詞 (System Prompt)。
-  - 摘要結果本地快取，避免重複生成。
-  - 支援鍵盤快捷操作（Enter 發送）。
-  - 支援將摘要結果分享到其他應用程式。
+- **本地智能 (Local Intelligence)**：
+  - 內建支援 CoreML 的本地大語言模型（基於 Qwen3-0.6B）。
+  - 無需依賴 OpenAI 或 Gemini 等外部 API，無需連網即可生成摘要（模型下載完成後）。
+  - 充分利用 Apple Silicon 的強大效能，實現快速推理。
 
-![EisonAI 使用界面](assets/images/SCR-20250227-ghmf.jpeg)
+- **隱私優先 (Privacy First)**：
+  - 您的瀏覽記錄和網頁內容永遠不會離開您的設備。
+  - 真正的離線可用，數據完全掌握在您手中。
 
-## 系統架構
+- **智能內容提取**：
+  - 使用 Readability 技術自動識別網頁正文，過濾廣告與無關元素。
+  - 支援長文章處理，透過分塊傳輸技術（Chunked Native Messaging）處理大量內容。
 
-### 核心模組
-
-1. **Content Script (`content.js`)**
-   - **職責**：被注入到每個網頁中。
-   - **核心功能**：監聽來自背景腳本的指令，使用 `Readability.js` 解析當前頁面的 DOM，提取主要文章內容，並將結果回傳。
-
-2. **Background Script (`background.js`)**
-   - **職責**：作為擴展功能的核心事件協調者。
-   - **核心功能**：建立一個持久的訊息通道，負責在 Popup 彈出視窗和 Content Script 之間轉發請求和響應，實現兩者之間的解耦。
-
-3. **彈出視窗 (Popup - `popup.js`)**
-   - **職責**：提供主要的使用者互動介面。
-   - **核心功能**：
-     - 觸發內容總結流程。
-     - 與使用者設定的 LLM API (如 OpenAI, Gemini) 進行通訊。
-     - 顯示總結結果和對話歷史。
-     - 檢查 API 連線狀態並提供即時反饋。
-     - 提供重新生成摘要、開啟設定頁面等操作。
-     - 支援分享摘要結果。
-     - 若無快取，開啟時自動觸發摘要流程。
-
-4. **設置頁面 (Settings - `settings.js`)**
-   - **職責**：管理所有使用者可配置的選項。
-   - **核心功能**：
-     - 設定 API 的 URL、金鑰 (Key) 和模型 (Model)。
-     - 提供 API 連線測試功能。
-     - 自訂用於生成摘要的系統提示詞 (System Prompt) 和使用者提示詞 (User Prompt)。
-     - 選擇擴展的顯示模式（迷你圖標或隱藏）。
-     - 所有設定都安全地儲存在本地。
-
-### 技術特點
-
-- **非同步訊息傳遞架構**：使用 `browser.runtime.onMessage` 在 Popup、Background 和 Content Script 之間進行高效的非同步通訊。
-- **內容提取**：使用 [Readability.js](https://github.com/mozilla/readability) 進行精準的網頁正文解析。
-- **模組化設計**：將功能清晰地劃分到獨立的腳本中（內容提取、UI 互動、API 設定、背景通訊），易於維護和擴展。
-- **本地持久化存儲**：使用 `browser.storage.local` 安全地儲存使用者 API 設定和應用程式狀態。
-- **跨平台 UI 適應**：通過 JavaScript 動態檢測運行環境（macOS/iOS），並應用相應的 CSS 樣式，提供一致的用戶體驗。
-- **安全性**：遵循瀏覽器擴展的內容安全策略（CSP），並要求 API 使用 HTTPS 連線。
+- **優雅的使用體驗**：
+  - 一鍵生成摘要，自動提取標題與重點。
+  - 簡潔的結構化輸出：總結 + Emoji 條列式要點。
+  - 響應式設計，完美適配 macOS 與 iOS Safari。
 
 ## 系統要求
 
-- macOS 12.0 或更高版本（用於 macOS Safari 插件）
-- iOS 15.0 或更高版本（用於 iOS Safari 插件）
-- Safari 15.0 或更高版本
+由於使用了最新的 CoreML 本地模型技術，EisonAI 需要較新的系統版本：
 
-## 安裝方法
+- **iOS 18.0** 或更高版本
+- **macOS 15.0 (Sequoia)** 或更高版本
+- **Safari 18.0** 或更高版本
+- 建議使用搭載 Apple Silicon (M系列/A系列) 晶片的設備以獲得最佳效能。
 
-1. 從 testflight 下載 EisonAI https://testflight.apple.com/join/1nfTzlPS
-2. 在 Safari 設定中啟用 EisonAI 插件：
-   - 打開 Safari 偏好設定
-   - 點擊「擴展」標籤
-   - 勾選 EisonAI 插件
+## 安裝與使用
 
-## 使用方法
+1. **安裝應用程式**：
+   - 下載並安裝 EisonAI App (iOS/macOS)。
+   - 首次啟動 App 時，請保持網路連線以自動下載本地模型文件 (Qwen3-0.6B)。
 
-1. **開啟總結**：
-   - 點擊瀏覽器右下角的 EisonAI 圖標
-   - 或使用配置的快捷鍵
+2. **啟用擴展**：
+   - **macOS**: 開啟 Safari -> 設定 -> 擴展 -> 勾選 EisonAI。
+   - **iOS**: 開啟 Safari -> 網址列 "大小" 圖標 -> 管理擴展 -> 開啟 EisonAI。
 
-2. **查看摘要**：
-   - 插件會自動提取頁面內容
-   - 使用 AI 生成內容摘要
-   - 顯示網頁標題和來源信息
+3. **開始使用**：
+   - 在任意文章頁面，點擊 Safari 工具列中的 EisonAI 圖標。
+   - 點擊 "AI Summary"。
+   - 擴展將自動提取內容並呼叫本地模型生成摘要。
 
-3. **深入對話**：
-   - 在對話框中輸入問題
-   - 按 Enter 發送
-   - 與 AI 進行多輪對話，深入探討內容
+## 系統架構
 
-4. **重新生成**：
-   - 如果對摘要不滿意，可以點擊 "Reanswer" 重新生成
-   - 系統會重新分析網頁內容並生成新的摘要
+EisonAI 採用了安全的 Native Messaging 架構來連接瀏覽器與本地模型：
+
+```mermaid
+graph LR
+    Safari["Safari 瀏覽器"] <--> Extension["EisonAI 擴展 (JS)"]
+    Extension <-->|"Native Messaging"| HostApp["原生宿主應用 (Swift)"]
+    HostApp <-->|"EisonAIKit"| Model["本地 CoreML 模型"]
+```
+
+1. **Content Script**: 負責提取網頁正文。
+2. **Background Script**: 協調通訊，透過 Native Messaging 將數據傳遞給宿主應用。
+3. **Native Host App**: 接收請求，使用 `AnyLanguageModel` 加載 CoreML 模型進行推理，並將結果回傳。
 
 ## 開發指南
 
@@ -112,72 +71,27 @@ git clone https://github.com/yourusername/eisonAI.git
 cd eisonAI
 ```
 
-2. 安裝依賴：
-```bash
-bundle install
-```
+2. 初始化子模組 (AnyLanguageModel)：
+   本項目依賴 `AnyLanguageModel` 進行模型推理，請確保同級目錄下有該項目或透過 Swift Package Manager 配置。
 
 3. 開啟 Xcode 項目：
 ```bash
 open eisonAI.xcodeproj
 ```
 
-### 核心依賴
+### 關鍵技術
 
-- browser API
-- Readability.js
-- contentGPT.js
-- popup.css
-
-### 開發注意事項
-
-1. API 設置相關：
-   - 必須使用 HTTPS
-   - URL 需符合特定格式 (https://example.com/v1)
-   - 必須進行 API 驗證測試
-
-2. 程式碼規範：
-   - 使用模組化設計
-   - 實作適當的錯誤處理
-   - 注意跨平台兼容性
-   - 遵循 CSP 安全準則
-
-## 貢獻指南
-
-歡迎貢獻！請查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何參與項目開發。
-
-## 行為準則
-
-本項目遵循 [行為準則](CODE_OF_CONDUCT.md)，請所有參與者遵守。
-
-## 關聯項目
-
-### [newSafari](https://github.com/qoli/newSafari)
-
-newSafari 是一個相似的 Safari 網頁內容擷取與總結工具，提供以下特點：
-
-- **基本擷取模式**：
-  - 自動獲取當前 Safari 頁面的 URL 和標題
-  - 智能清理 HTML 內容，提取純文本
-  - 使用 LLM 處理頁面內容
-  - 自動保存為 Markdown 文件
-  - 支援一鍵複製到剪貼板
-
-- **互動式總結模式**：
-  - 自動提取網頁主要內容
-  - 生成結構化摘要
-  - 支援互動式問答
-  - 支援流式輸出
-  - 智能對話記憶上下文
-
-兩個專案都致力於提升 Safari 瀏覽器的閱讀體驗，但採用不同的技術實現方案：
-- EisonAI 使用瀏覽器擴展形式，直接整合進 Safari
-- newSafari 採用獨立應用程式方式，通過 Python 實現
+- **Swift 6.1**: 宿主應用與擴展處理程序。
+- **CoreML**: 本地模型推理加速。
+- **AnyLanguageModel**: LLM 推理框架。
+- **Native Messaging**: 瀏覽器與原生應用之間的安全通訊橋樑。
 
 ## 許可證
 
 本項目基於 MIT 許可證開源 - 查看 [LICENSE](LICENSE) 文件了解更多信息。
 
+## 致謝
 
-## 更新日誌
-https://qoli.notion.site/060ffe20405c4e978c206e4e440c286b
+- **Qwen**: 強大的開源語言模型。
+- **Readability.js**: 優秀的網頁內容提取庫。
+- **AnyLanguageModel**: 便捷的 Swift LLM 封裝庫。
