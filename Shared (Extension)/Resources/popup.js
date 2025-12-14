@@ -1,9 +1,5 @@
 const browser = globalThis.browser ?? globalThis.chrome;
 
-const FEATURE_FLAGS = {
-  forceContentMvp: false
-};
-
 function measureJsonBytes(value) {
   try {
     const encoder = new TextEncoder();
@@ -693,24 +689,6 @@ async function sendRunSummaryMessage() {
     const body = articleResponse.body || "";
     console.log("[Eison-Popup] Article extracted:", { titleLength: title.length, bodyLength: body.length });
 
-    if (FEATURE_FLAGS.forceContentMvp) {
-      summaryStatusText("（MVP）由 content.js 產生摘要中...");
-      const mvpResp = await sendMessageToActiveTabContent({ command: "getMVPSummary" });
-      if (!mvpResp || typeof mvpResp !== "object") {
-        summaryStatusText("錯誤：MVP 摘要回傳格式不符");
-        return;
-      }
-      if (mvpResp.error) {
-        summaryStatusText("錯誤：" + String(mvpResp.error));
-        return;
-      }
-      const titleText = mvpResp.title || title || "Summary";
-      const summaryText = mvpResp.summaryText || "";
-      displaySummaryResult(titleText, summaryText);
-      await cacheSummaryResultFromPopup(titleText, summaryText, tab.url);
-      return;
-    }
-
     summaryStatusText("呼叫本地模型中...");
     renderStreamingSummary("");
 
@@ -742,21 +720,6 @@ async function sendRunSummaryMessage() {
       const msg = response?.payload?.message ? String(response.payload.message) : "Native error";
       summaryStatusText("錯誤：" + msg);
       console.error("[Eison-Popup] Native error:", response);
-
-      // MVP debug fallback: keep UI usable when native messaging is blocked.
-      try {
-        summaryStatusText("（MVP）改由 content.js 產生摘要...");
-        const mvpResp = await sendMessageToActiveTabContent({ command: "getMVPSummary" });
-        if (mvpResp && !mvpResp.error) {
-          const titleText = mvpResp.title || title || "Summary";
-          const summaryText = mvpResp.summaryText || "";
-          displaySummaryResult(titleText, summaryText);
-          await cacheSummaryResultFromPopup(titleText, summaryText, tab.url);
-          return;
-        }
-      } catch (e) {
-        console.error("[Eison-Popup] MVP fallback failed:", e);
-      }
       return;
     }
 

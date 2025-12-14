@@ -28,6 +28,7 @@
   - ✅ `MODEL_NOT_READY` 提示使用者打開 App 下載模型
 - ✅ 修正 `popup.js` 語法錯誤（避免 popup 直接白屏 / 顯示 `{Status Text}`）
 - ✅ App 端 LLM Ping 測試（WebView UI 內 `llm.ping` → 回傳結果顯示）
+- ✅ Qwen3 關閉 think：下載完成後 patch `tokenizer_config.json:chat_template`，讓模板永遠插入空 `<think></think>`（等價於 vLLM `enable_thinking=false`）
 
 ## M3（下一步：本地推理產生摘要）
 
@@ -74,6 +75,6 @@
 - `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已加 mutex 讓 native 呼叫序列化（先 `model.getStatus` 再 `summarize.start`），並為摘要放寬 timeout。
 - iOS Safari 可能對 `sendNativeMessage` 的 payload 大小有限制；若 `summarize.start` 因 `Invalid call` 失敗，會自動 fallback 到分段傳輸（`summarize.begin/chunk/end`）。
 - iOS Safari 可能會對 `sendNativeMessage` 的 `applicationId` 字串做額外校驗；目前優先使用 `application.id`（sample 寫法）再 fallback `com.qoli.eisonAI`，避免使用 extension bundle id。
-- Debug/MVP：可在 `popup.js` 開啟 `FEATURE_FLAGS.forceContentMvp = true`，把摘要邏輯移到 `content.js`（`getMVPSummary`）以便先驗證 UI/通訊流程。
+- 模型輸出可能包含 `<think>`/`<analysis>` 等推理內容；native 端已做輸出清洗並強制格式化，避免 UI 顯示推理與標籤。
 - 若 popup 停留在「載入中... / `{Status Text}`」通常代表 `popup.js` 解析失敗（SyntaxError）；優先看 Safari Develop Console 的錯誤行號。
 - AnyLanguageModel README 提到 Xcode 26 + iOS 18/更早 可能會有 build bug（必要時改用 Xcode 16 toolchain）。

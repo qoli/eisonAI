@@ -176,6 +176,10 @@ final class ModelDownloadManager {
                 throw NSError(domain: "ModelDownload", code: 2, userInfo: [NSLocalizedDescriptionKey: "Files missing after download"])
             }
 
+            // Qwen3: disable thinking by patching chat_template to always insert an empty <think>...</think> block.
+            // vLLM can do this via `chat_template_kwargs.enable_thinking=false`, but MLX-swift-lm doesn't expose template kwargs.
+            try patchTokenizerConfigDisableThinkingIfNeeded(in: destinationDir)
+
             status = Status(
                 state: "ready",
                 progress: 1,
@@ -268,6 +272,39 @@ final class ModelDownloadManager {
         }
 
         return true
+    }
+
+    private func patchTokenizerConfigDisableThinkingIfNeeded(in modelDir: URL) throws {
+        let tokenizerConfigURL = modelDir.appendingPathComponent("tokenizer_config.json")
+        guard FileManager.default.fileExists(atPath: tokenizerConfigURL.path) else {
+            return
+        }
+
+        let data = try Data(contentsOf: tokenizerConfigURL)
+        guard var obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let chatTemplate = obj["chat_template"] as? String else {
+            return
+        }
+
+        // Only patch Qwen3-style templates.
+        let conditional = """
+{%- if enable_thinking is defined and enable_thinking is false %}
+        {{- '<think>\\n\\n</think>\\n\\n' }}
+    {%- endif %}
+"""
+
+        guard chatTemplate.contains("enable_thinking is defined"),
+              chatTemplate.contains(conditional) else {
+            return
+        }
+
+        let replacement = "        {{- '<think>\\n\\n</think>\\n\\n' }}"
+        let patched = chatTemplate.replacingOccurrences(of: conditional, with: replacement)
+
+        obj["chat_template"] = patched
+
+        let out = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
+        try out.write(to: tokenizerConfigURL, options: [.atomic])
     }
 
     private func modelDirectoryURL() throws -> URL {

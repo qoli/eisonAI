@@ -8,6 +8,7 @@
 import os.log
 import SafariServices
 import EisonAIKit
+import Foundation
 
 class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     func beginRequest(with context: NSExtensionContext) {
@@ -286,6 +287,8 @@ private actor NativeSummarizer {
         - <每行一個要點，開頭請用 emoji>
 
         除了以上格式，不要輸出任何多餘文字。
+        禁止輸出任何推理過程或標籤（例如 <think>、<analysis>、<summary>）。
+        請不要輸出英文。
         """
 
         let userPrompt = """
@@ -362,19 +365,128 @@ private func normalizeInputText(_ text: String, limit: Int) -> String {
 }
 
 private func normalizeSummaryOutput(_ raw: String) -> String {
+    let stripped = stripModelArtifacts(raw)
+    return enforceSummaryFormat(stripped)
+}
+
+private func stripModelArtifacts(_ raw: String) -> String {
     var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if text.hasPrefix("```") {
-        text = text.replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+    // Remove common reasoning blocks.
+    text = text.replacingOccurrences(of: "<think>", with: "<think>\n")
+    text = text.replacingOccurrences(of: "</think>", with: "\n</think>")
+    text = text.replacingOccurrences(of: "<analysis>", with: "<analysis>\n")
+    text = text.replacingOccurrences(of: "</analysis>", with: "\n</analysis>")
+
+    text = text.replacingOccurrences(of: "```", with: "")
+
+    // Strip <think>...</think> and <analysis>...</analysis> entirely.
+    for pattern in [#"(?s)<think>.*?</think>"#, #"(?s)<analysis>.*?</analysis>"#] {
+        if let regex = try? NSRegularExpression(pattern: pattern) {
+            let range = NSRange(text.startIndex..<text.endIndex, in: text)
+            text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+        }
     }
 
-    if !text.contains("總結：") {
-        text = "總結：\n\n要點：\n- 🧾 \(text)"
+    // Remove summary tags but keep their contents.
+    text = text.replacingOccurrences(of: "<summary>", with: "")
+    text = text.replacingOccurrences(of: "</summary>", with: "")
+
+    // Normalize whitespace.
+    let lines = text
+        .split(whereSeparator: \.isNewline)
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+
+    return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+private func enforceSummaryFormat(_ raw: String) -> String {
+    let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if text.isEmpty {
+        return "總結：（模型未輸出內容）\n要點：\n- 🧾（模型未輸出內容）"
     }
-    if !text.contains("要點：") {
-        text += "\n\n要點：\n- 🧾（模型未輸出要點）"
+
+    let lines = text.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    // Extract summary candidate.
+    var summaryCandidate: String? = nil
+    for line in lines {
+        if line.hasPrefix("總結：") {
+            let rest = line.replacingOccurrences(of: "總結：", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !rest.isEmpty { summaryCandidate = rest; break }
+        }
     }
-    return text
+    if summaryCandidate == nil {
+        // First non-bullet meaningful line.
+        for line in lines {
+            if line == "要點：" { continue }
+            if line.hasPrefix("-") { continue }
+            if line.hasPrefix("總結：") { continue }
+            summaryCandidate = line
+            break
+        }
+    }
+    let summaryLine = (summaryCandidate ?? "（模型未輸出總結）")
+        .replacingOccurrences(of: "總結：", with: "")
+        .replacingOccurrences(of: "要點：", with: "")
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+    // Extract bullets after 要點： if present; otherwise collect any lines starting with '-'.
+    var bullets: [String] = []
+    var isInBulletSection = false
+    for line in lines {
+        if line == "要點：" { isInBulletSection = true; continue }
+        if line.hasPrefix("要點：") { isInBulletSection = true; continue }
+        if isInBulletSection, line.hasPrefix("-") {
+            bullets.append(line)
+        }
+    }
+    if bullets.isEmpty {
+        for line in lines where line.hasPrefix("-") {
+            bullets.append(line)
+        }
+    }
+
+    // Fallback bullet if none.
+    if bullets.isEmpty {
+        bullets = ["- 🧾（模型未輸出要點）"]
+    }
+
+    // Ensure bullets are "- <emoji> ..." and not empty.
+    let emojiRegex = try? NSRegularExpression(pattern: #"^\s*-\s*\p{Extended_Pictographic}"#)
+    let normalizedBullets: [String] = bullets.prefix(8).map { bullet in
+        var b = bullet
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "•", with: "-")
+
+        if !b.hasPrefix("-") {
+            b = "- " + b
+        }
+        if b == "-" || b == "- " {
+            return "- 🧾（空白要點）"
+        }
+
+        if let emojiRegex {
+            let range = NSRange(b.startIndex..<b.endIndex, in: b)
+            let hasEmoji = emojiRegex.firstMatch(in: b, range: range) != nil
+            if !hasEmoji {
+                b = b.replacingOccurrences(of: #"^\s*-\s*"#, with: "- 🧾 ", options: .regularExpression)
+            } else {
+                b = b.replacingOccurrences(of: #"^\s*-\s*"#, with: "- ", options: .regularExpression)
+            }
+        }
+
+        // Prevent model leaking tags.
+        b = b.replacingOccurrences(of: "<", with: "＜").replacingOccurrences(of: ">", with: "＞")
+        return b
+    }
+
+    let safeSummary = summaryLine
+        .replacingOccurrences(of: "<", with: "＜")
+        .replacingOccurrences(of: ">", with: "＞")
+
+    return (["總結：\(safeSummary)", "要點："] + normalizedBullets).joined(separator: "\n")
 }
 
 private func modelStatusPayload() -> [String: Any] {
