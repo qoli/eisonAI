@@ -70,6 +70,7 @@
 - AnyLanguageModel 的 CoreML 支援需要啟用 `CoreML` trait。
 - 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 AnyLanguageModel 相關依賴（避免 Xcode 無法直接設定 traits）。
 - 若 `AnyLanguageModel.CoreMLLanguageModel` 在編譯時不存在，需確認 AnyLanguageModel package 有把 traits 映射到 Swift compilation conditions（`-D CoreML/MLX/Llama`）；目前已在本機 `AnyLanguageModel/Package.swift` 補上 `swiftSettings: [.define(..., .when(traits: ...))]`。
+- `XDGCC/coreml-Qwen3-0.6B` 的 CoreML I/O key 使用 snake_case（`input_ids`/`causal_mask`/`key_cache`/`value_cache`）。swift-transformers 1.1.5 預設只認 camelCase（`inputIds`/`causalMask`/`keyCache`/`valueCache`），會在 `Models/LanguageModel.swift` 取不到 shape 而 `fatalError("Cannot obtain shape information")`；目前用 `ThirdParty/swift-transformers` 的本地修補版解決，並在本機 `AnyLanguageModel/Package.swift` 改為 path dependency 指向它。
 - Safari MV3 `background.service_worker` 可能無法呼叫 `browser.runtime.sendNativeMessage`；目前改為由 `popup.js` 直接呼叫 native（避免 `Invalid call to runtime.sendNativeMe...`）。
 - Safari Web Extension 的 `sendNativeMessage` 常見是 callback 版：`sendNativeMessage("application.id", message, callback)`；若用 promise/少參數可能報 `Invalid call to runtime.sendNativeMessage()`，且 Safari 會忽略 `application.id`（仍建議傳入任意字串）並只送到 containing app 的 native app extension。
 - `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已加 mutex 讓 native 呼叫序列化（先 `model.getStatus` 再 `summarize.start`），並為摘要放寬 timeout。

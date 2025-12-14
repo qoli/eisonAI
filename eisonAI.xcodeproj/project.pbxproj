@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		EA46DDA42EEEBA3D0037F8D9 /* EisonAIKit in Frameworks */ = {isa = PBXBuildFile; productRef = EA46DDA32EEEBA3D0037F8D9 /* EisonAIKit */; };
+		EA46DDA72EEF09DF0037F8D9 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = EA46DDA62EEF09DF0037F8D9 /* HuggingFace */; };
 		EA5CA4E52EEEB843008ACF06 /* llmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA5CA4E42EEEB843008ACF06 /* llmView.swift */; };
 		EA5CA4E82EEEB900008ACF06 /* EisonAIKit in Frameworks */ = {isa = PBXBuildFile; productRef = EA46DDA32EEEBA3D0037F8D9 /* EisonAIKit */; };
 		EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
@@ -105,6 +106,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EA46DDA42EEEBA3D0037F8D9 /* EisonAIKit in Frameworks */,
+				EA46DDA72EEF09DF0037F8D9 /* HuggingFace in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,8 +283,8 @@
 			);
 			mainGroup = EA7726162BC5B6B2005A194D;
 			packageReferences = (
-				EA4D8BAA2EECFD93001630A4 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				EA46DDA22EEEBA3D0037F8D9 /* XCLocalSwiftPackageReference "EisonAIKit" */,
+				EA46DDA52EEF09DF0037F8D9 /* XCLocalSwiftPackageReference "../swift-huggingface" */,
 			);
 			productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
 			projectDirPath = "";
@@ -688,23 +690,20 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = EisonAIKit;
 		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		EA4D8BAA2EECFD93001630A4 /* XCRemoteSwiftPackageReference "swift-huggingface" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/huggingface/swift-huggingface.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 0.4.1;
-			};
+		EA46DDA52EEF09DF0037F8D9 /* XCLocalSwiftPackageReference "../swift-huggingface" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../swift-huggingface";
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		EA46DDA32EEEBA3D0037F8D9 /* EisonAIKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = EisonAIKit;
+		};
+		EA46DDA62EEF09DF0037F8D9 /* HuggingFace */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = HuggingFace;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
