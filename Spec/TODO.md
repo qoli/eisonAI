@@ -49,6 +49,7 @@
   - [x] `SafariWebExtensionHandler.swift`：改為 async，使用 `mlx-swift-lm`（`MLXLLM`/`MLXLMCommon`）從 App Group 模型目錄做本地推理
   - [x] 產生符合 `eison.summary.v1` 格式輸出（`總結：` + `要點：`）
   - [x] 長文保護：先用字元截斷（16k chars）避免 prompt 過大
+  - [x] iOS Simulator guard：避免 MLX/Metal 初始化 `abort` 造成 Safari 端 `sendNativeMessage` 報 `Could not acquire startup assertion`
 - [x] 使用 App Group 模型路徑載入 MLX 模型（repoId + revision）
 - [ ] 長文處理（chunk + reduce）：
   - [ ] 先以字元長度 chunk（MVP），後續可改 tokenizer-based
@@ -69,12 +70,6 @@
 - `swift-huggingface` 在 iOS 編譯會踩到 `homeDirectoryForCurrentUser`（因此 M2 已改用 `URLSession` 直接 resolve 下載）。
 - AnyLanguageModel 的 MLX 支援需要啟用 `MLX`（trait / build 設定）。
 - 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 MLX 相關依賴（避免 Xcode 無法直接設定 traits）。
-- iOS Simulator 上 MLX/Metal 初始化可能直接 `abort`；`llm.ping`/demo 已加 guard，Simulator 會回傳「請用真機」錯誤避免崩潰。
-- Safari MV3 `background.service_worker` 可能無法呼叫 `browser.runtime.sendNativeMessage`；目前改為由 `popup.js` 直接呼叫 native（避免 `Invalid call to runtime.sendNativeMe...`）。
-- Safari Web Extension 的 `sendNativeMessage` 常見是 callback 版：`sendNativeMessage("application.id", message, callback)`；若用 promise/少參數可能報 `Invalid call to runtime.sendNativeMessage()`，且 Safari 會忽略 `application.id`（仍建議傳入任意字串）並只送到 containing app 的 native app extension。
-- `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已加 mutex 讓 native 呼叫序列化（先 `model.getStatus` 再 `summarize.start`），並為摘要放寬 timeout。
-- iOS Safari 可能對 `sendNativeMessage` 的 payload 大小有限制；若 `summarize.start` 因 `Invalid call` 失敗，會自動 fallback 到分段傳輸（`summarize.begin/chunk/end`）。
-- iOS Safari 可能會對 `sendNativeMessage` 的 `applicationId` 字串做額外校驗；目前優先使用 `application.id`（sample 寫法）再 fallback `com.qoli.eisonAI`，避免使用 extension bundle id。
-- 模型輸出可能包含 `<think>`/`<analysis>` 等推理內容；native 端已做輸出清洗並強制格式化，避免 UI 顯示推理與標籤。
+- iOS Simulator 上 MLX/Metal 初始化可能直接 `abort`；`llm.ping` 與 extension `summarize.*` 已加 guard，Simulator 會回傳「請用真機」錯誤避免崩潰（避免 Safari 端出現 `Could not acquire startup assertion`）。
 - 若 popup 停留在「載入中... / `{Status Text}`」通常代表 `popup.js` 解析失敗（SyntaxError）；優先看 Safari Develop Console 的錯誤行號。
 - AnyLanguageModel README 提到 Xcode 26 + iOS 18/更早 可能會有 build bug（必要時改用 Xcode 16 toolchain）。

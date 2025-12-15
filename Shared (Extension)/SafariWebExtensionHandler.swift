@@ -175,6 +175,8 @@ private actor NativeSummarizer {
     static let shared = NativeSummarizer()
     private var modelContainer: ModelContainer?
     private let appGroupID = "group.com.qoli.eisonAI"
+    private let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
+    private let revision = "75429955681c1850a9c8723767fe4252da06eb57"
 
     private struct ChunkedSessionMeta: Codable {
         let createdAt: TimeInterval
@@ -276,6 +278,14 @@ private actor NativeSummarizer {
     }
 
     func summarize(title: String, text: String) async throws -> String {
+#if os(iOS) && targetEnvironment(simulator)
+        // MLX/Metal GPU initialization can abort on iOS Simulator.
+        throw NSError(
+            domain: "EisonAI",
+            code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "LLM local inference is not supported on iOS Simulator. Please run on a real device."]
+        )
+#else
         let maxInputCharacters = 16_000
         let normalizedText = normalizeInputText(text, limit: maxInputCharacters)
 
@@ -330,6 +340,7 @@ private actor NativeSummarizer {
         }
 
         return normalizeSummaryOutput(output)
+#endif
     }
 
     private func getModelContainer() async throws -> ModelContainer {
@@ -337,12 +348,16 @@ private actor NativeSummarizer {
             return modelContainer
         }
 
-        let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
-        let revision = "75429955681c1850a9c8723767fe4252da06eb57"
-        let appGroupID = "group.com.qoli.eisonAI"
-
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
             throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "App Group 容器不可用"])
+        }
+
+        guard isModelReady(appGroupID: appGroupID, repoId: repoId, revision: revision) else {
+            throw NSError(
+                domain: "EisonAI",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Model files are not ready. Please open the app to download the model first."]
+            )
         }
 
         let modelDir = container

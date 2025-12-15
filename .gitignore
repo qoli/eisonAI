@@ -41,3 +41,4 @@ fastlane/test_output
 .AppleDouble
 .LSOverride
 ._*
+build/
