@@ -42,3 +42,4 @@ fastlane/test_output
 .LSOverride
 ._*
 build/
+/Docs/MessagingAWebExtensionsNativeApp
