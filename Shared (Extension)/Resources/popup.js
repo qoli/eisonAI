@@ -13,6 +13,15 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function shouldRetryNativeMessagingError(error) {
+  const message = error?.message ? String(error.message) : String(error);
+  return (
+    message.includes("Invalid call to runtime.sendNativeMessage") ||
+    message.includes("Could not acquire startup assertion") ||
+    message.includes("SFErrorDomain")
+  );
+}
+
 function splitTextToUtf8Chunks(text, maxBytes) {
   const encoder = new TextEncoder();
   const chunks = [];
@@ -113,7 +122,31 @@ async function sendNativeMessage(request, options = {}) {
   }
 
   return await nativeMessageMutex.run(async () => {
-    return await sendNativeMessageUnlocked(request, options);
+    const retries = typeof options.retries === "number" ? options.retries : 1;
+    const retryDelaysMs = Array.isArray(options.retryDelaysMs) ? options.retryDelaysMs : [250, 750, 1500];
+
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        const delay = retryDelaysMs[Math.min(attempt - 1, retryDelaysMs.length - 1)] || 250;
+        await sleep(delay);
+      }
+
+      try {
+        return await sendNativeMessageUnlocked(request, options);
+      } catch (error) {
+        lastError = error;
+        const message = error?.message ? String(error.message) : String(error);
+        const canRetry = attempt < retries && shouldRetryNativeMessagingError(error);
+        if (canRetry) {
+          console.warn("[Eison-Popup] sendNativeMessage retrying:", { attempt: attempt + 1, retries, message });
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw lastError || new Error("Unable to reach native app via sendNativeMessage");
   });
 }
 
@@ -122,9 +155,8 @@ async function sendNativeMessageUnlocked(request, options = {}) {
   // "Invalid call to runtime.sendNativeMessage()" when invoked without a callback.
   // The function arity isn't reliable on Safari (can be 0), so try callback-style first.
 
-  // Safari ignores the first argument, but iOS Safari appears to reject certain values (e.g. extension bundle id).
-  // Use the sample's placeholder first, then fall back to the containing app bundle id.
-  const nativeAppIds = ["application.id", "com.qoli.eisonAI"];
+  // Safari routes native messages to the containing app; Apple's sample uses a placeholder string.
+  const nativeAppIds = [typeof options.appId === "string" && options.appId ? options.appId : "application.id"];
   const fn = browser.runtime.sendNativeMessage;
   const timeoutMs = typeof options.timeoutMs === "number" ? options.timeoutMs : 10_000;
 
@@ -605,7 +637,7 @@ async function summarizeViaNativeChunked({ url, title, text }) {
       title: title || "",
       chunkCount: chunks.length
     }),
-    { timeoutMs: 2_500 }
+    { timeoutMs: 2_500, retries: 2 }
   );
   if (beginResp?.name === "error") {
     const msg = beginResp?.payload?.message ? String(beginResp.payload.message) : "Native error";
@@ -620,7 +652,7 @@ async function summarizeViaNativeChunked({ url, title, text }) {
         index: i,
         text: chunks[i]
       }),
-      { timeoutMs: 2_500 }
+      { timeoutMs: 2_500, retries: 1 }
     );
     if (chunkResp?.name === "error") {
       const msg = chunkResp?.payload?.message ? String(chunkResp.payload.message) : "Native error";
@@ -639,11 +671,14 @@ async function summarizeViaNativeChunked({ url, title, text }) {
       await sleep(delay);
     }
     try {
-      return await sendNativeMessage(endRequest, { timeoutMs: 120_000 });
+      return await sendNativeMessage(endRequest, { timeoutMs: 120_000, retries: 2 });
     } catch (error) {
       lastError = error;
       const message = error?.message ? String(error.message) : String(error);
       console.error("[Eison-Popup] summarize.end failed, retrying:", { delay, message, error });
+      if (!shouldRetryNativeMessagingError(error)) {
+        throw error;
+      }
     }
   }
   throw lastError || new Error("summarize.end failed");
@@ -701,16 +736,23 @@ async function sendRunSummaryMessage() {
     console.log("[Eison-Popup] summarize.start request size:", { requestBytes, titleLength: title.length, bodyLength: body.length });
 
     let response;
-    try {
-      response = await sendNativeMessage(request, { timeoutMs: 120_000 });
-    } catch (error) {
-      const message = error?.message ? String(error.message) : String(error);
-      // Safari may reject larger messages; fall back to chunked native messaging.
-      if (message.includes("Invalid call to runtime.sendNativeMessage")) {
-        console.warn("[Eison-Popup] summarize.start rejected; falling back to chunked mode:", { message });
-        response = await summarizeViaNativeChunked({ url: tab.url, title, text: body });
-      } else {
-        throw error;
+    const maxDirectRequestBytes = 8_000;
+    if (typeof requestBytes === "number" && requestBytes > maxDirectRequestBytes) {
+      console.warn("[Eison-Popup] summarize.start too large; using chunked mode:", { requestBytes, maxDirectRequestBytes });
+      response = await summarizeViaNativeChunked({ url: tab.url, title, text: body });
+    } else {
+      try {
+        response = await sendNativeMessage(request, { timeoutMs: 120_000, retries: 2 });
+      } catch (error) {
+        const message = error?.message ? String(error.message) : String(error);
+        // Safari often reports all failures as "Invalid call"; treat it as a generic transport error.
+        if (message.includes("Invalid call to runtime.sendNativeMessage")) {
+          console.warn("[Eison-Popup] summarize.start rejected; falling back to chunked mode:", { message });
+          await sleep(250);
+          response = await summarizeViaNativeChunked({ url: tab.url, title, text: body });
+        } else {
+          throw error;
+        }
       }
     }
 

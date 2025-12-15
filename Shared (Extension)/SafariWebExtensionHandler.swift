@@ -277,6 +277,35 @@ private actor NativeSummarizer {
         return (title: meta.title, url: meta.url, text: parts.joined())
     }
 
+    private func withTimeout<T>(
+        seconds: Double,
+        operation: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+            group.addTask {
+                let ns = UInt64(max(0, seconds) * 1_000_000_000)
+                try await Task.sleep(nanoseconds: ns)
+                throw NSError(
+                    domain: "EisonAI",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Inference timed out after \(Int(seconds))s."]
+                )
+            }
+
+            do {
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
+            } catch {
+                group.cancelAll()
+                throw error
+            }
+        }
+    }
+
     func summarize(title: String, text: String) async throws -> String {
 #if os(iOS) && targetEnvironment(simulator)
         // MLX/Metal GPU initialization can abort on iOS Simulator.
@@ -286,7 +315,16 @@ private actor NativeSummarizer {
             userInfo: [NSLocalizedDescriptionKey: "LLM local inference is not supported on iOS Simulator. Please run on a real device."]
         )
 #else
+        #if os(iOS)
+        let maxInputCharacters = 6_000
+        let maxOutputTokens = 256
+        let timeoutSeconds: Double = 25
+        #else
         let maxInputCharacters = 16_000
+        let maxOutputTokens = 512
+        let timeoutSeconds: Double = 120
+        #endif
+
         let normalizedText = normalizeInputText(text, limit: maxInputCharacters)
 
         let systemText = """
@@ -312,7 +350,7 @@ private actor NativeSummarizer {
         """
 
         let container = try await getModelContainer()
-        let generateParameters = GenerateParameters(maxTokens: 512, temperature: 0.4)
+        let generateParameters = GenerateParameters(maxTokens: maxOutputTokens, temperature: 0.4)
 
         let chat: [Chat.Message] = [
             .system(systemText),
@@ -321,22 +359,25 @@ private actor NativeSummarizer {
 
         let userInput = UserInput(chat: chat)
 
-        let output = try await container.perform { context in
-            let input = try await context.processor.prepare(input: userInput)
-            let cache = context.model.newCache(parameters: generateParameters)
+        let output = try await withTimeout(seconds: timeoutSeconds) {
+            try await container.perform { context in
+                let input = try await context.processor.prepare(input: userInput)
+                let cache = context.model.newCache(parameters: generateParameters)
 
-            var fullText = ""
-            for await item in try MLXLMCommon.generate(
-                input: input,
-                cache: cache,
-                parameters: generateParameters,
-                context: context
-            ) {
-                if let chunk = item.chunk {
-                    fullText += chunk
+                var fullText = ""
+                for await item in try MLXLMCommon.generate(
+                    input: input,
+                    cache: cache,
+                    parameters: generateParameters,
+                    context: context
+                ) {
+                    try Task.checkCancellation()
+                    if let chunk = item.chunk {
+                        fullText += chunk
+                    }
                 }
+                return fullText
             }
-            return fullText
         }
 
         return normalizeSummaryOutput(output)

@@ -37,7 +37,7 @@
 - [x] 推理 runtime：`AnyLanguageModel`
 - [x] `AnyLanguageModel`：本地 package reference（`../AnyLanguageModel`）
 - [x] 目標行為：先做「非串流一次性回傳」(M3a)
-- [x] 生成參數預設值（暫定）：`temperature=0.4`、`maxOutputTokens=512`
+- [x] 生成參數預設值（暫定）：`temperature=0.4`、`maxOutputTokens=512`（iOS 預設 256）
 - [ ] Prompt 預設內容：
   - [ ] `APPSystemText`
   - [ ] `APPPromptText`（user template；含 `{{title}}` / `{{text}}` 之類 placeholder）
@@ -50,6 +50,7 @@
   - [x] 產生符合 `eison.summary.v1` 格式輸出（`總結：` + `要點：`）
   - [x] 長文保護：先用字元截斷（16k chars）避免 prompt 過大
   - [x] iOS Simulator guard：避免 MLX/Metal 初始化 `abort` 造成 Safari 端 `sendNativeMessage` 報 `Could not acquire startup assertion`
+  - [x] Native inference timeout（iOS 25s / macOS 120s）+ iOS 輸入/輸出上限（6k chars / 256 tokens），降低 Safari 端「卡住/Invalid call」機率
 - [x] 使用 App Group 模型路徑載入 MLX 模型（repoId + revision）
 - [ ] 長文處理（chunk + reduce）：
   - [ ] 先以字元長度 chunk（MVP），後續可改 tokenizer-based
@@ -71,5 +72,8 @@
 - AnyLanguageModel 的 MLX 支援需要啟用 `MLX`（trait / build 設定）。
 - 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 MLX 相關依賴（避免 Xcode 無法直接設定 traits）。
 - iOS Simulator 上 MLX/Metal 初始化可能直接 `abort`；`llm.ping` 與 extension `summarize.*` 已加 guard，Simulator 會回傳「請用真機」錯誤避免崩潰（避免 Safari 端出現 `Could not acquire startup assertion`）。
+- Safari 對 `sendNativeMessage` 的錯誤回報不穩（常被包成 `Invalid call to runtime.sendNativeMessage()`）；popup 端對此類錯誤做重試，並在大 payload（`requestBytes > 8000`）時直接走 chunked（`summarize.begin/chunk/end`）。
+- `sendNativeMessage` 的 `applicationId`：目前固定使用 `application.id`（Apple sample 寫法）。
+- `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已用 mutex 序列化 native 呼叫。
 - 若 popup 停留在「載入中... / `{Status Text}`」通常代表 `popup.js` 解析失敗（SyntaxError）；優先看 Safari Develop Console 的錯誤行號。
 - AnyLanguageModel README 提到 Xcode 26 + iOS 18/更早 可能會有 build bug（必要時改用 Xcode 16 toolchain）。
