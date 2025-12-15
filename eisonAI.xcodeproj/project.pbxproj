@@ -124,11 +124,11 @@
 			children = (
 				EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */,
 				EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */,
-				EA77261B2BC5B6B2005A194D /* Shared (App) */,
-				EA7726242BC5B6B3005A194D /* Shared (Extension) */,
 				EA7726352BC5B6B3005A194D /* iOS (App) */,
 				EA7726552BC5B6B3005A194D /* iOS (Extension) */,
 				EA7726342BC5B6B3005A194D /* Products */,
+				EA77261B2BC5B6B2005A194D /* Shared (App) */,
+				EA7726242BC5B6B3005A194D /* Shared (Extension) */,
 			);
 			sourceTree = "<group>";
 		};
