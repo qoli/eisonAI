@@ -173,9 +173,11 @@ private func summarizeAndRespond(dict: [String: Any], requestId: String?, title:
 
 private actor NativeSummarizer {
     static let shared = NativeSummarizer()
-    @available(macOS 15.0, iOS 18.0, tvOS 18.0, visionOS 2.0, watchOS 11.0, *)
-    private var model: AnyLanguageModel.CoreMLLanguageModel?
     private let appGroupID = "group.com.qoli.eisonAI"
+
+    #if MLX
+        private var model: AnyLanguageModel.MLXLanguageModel?
+    #endif
 
     private struct ChunkedSessionMeta: Codable {
         let createdAt: TimeInterval
@@ -277,12 +279,23 @@ private actor NativeSummarizer {
     }
 
     func summarize(title: String, text: String) async throws -> String {
-        guard #available(macOS 15.0, iOS 18.0, tvOS 18.0, visionOS 2.0, watchOS 11.0, *) else {
-            throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "CoreML model requires iOS 18 / macOS 15"])
-        }
+        #if !MLX
+            throw NSError(
+                domain: "EisonAI",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "此版本未啟用 MLX 推理（AnyLanguageModel traits: MLX）。"]
+            )
+        #else
+            #if targetEnvironment(simulator)
+                throw NSError(
+                    domain: "EisonAI",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "MLX 無法在 iOS Simulator 使用，請改用真機或 My Mac (Designed for iPad)。"]
+                )
+            #endif
 
-        let maxInputCharacters = 16_000
-        let normalizedText = normalizeInputText(text, limit: maxInputCharacters)
+            let maxInputCharacters = 16_000
+            let normalizedText = normalizeInputText(text, limit: maxInputCharacters)
 
         let systemText = """
         你是一個網頁文章摘要助手。請用繁體中文輸出，並嚴格遵守格式：
@@ -306,28 +319,29 @@ private actor NativeSummarizer {
         \(normalizedText)
         """
 
-        let model = try await getModel()
-        let session = AnyLanguageModel.LanguageModelSession(model: model, instructions: systemText)
-        let options = AnyLanguageModel.GenerationOptions(
-            temperature: 0.4,
-            maximumResponseTokens: 512
-        )
-        let response: AnyLanguageModel.LanguageModelSession.Response<String> = try await session.respond(
-            to: AnyLanguageModel.Prompt(userPrompt),
-            options: options
-        )
+            let model = try await getModel()
+            let session = AnyLanguageModel.LanguageModelSession(model: model, instructions: systemText)
+            let options = AnyLanguageModel.GenerationOptions(
+                temperature: 0.4,
+                maximumResponseTokens: 512
+            )
+            let response: AnyLanguageModel.LanguageModelSession.Response<String> = try await session.respond(
+                to: AnyLanguageModel.Prompt(userPrompt),
+                options: options
+            )
 
-        return normalizeSummaryOutput(response.content)
+            return normalizeSummaryOutput(response.content)
+        #endif
     }
 
-    @available(macOS 15.0, iOS 18.0, tvOS 18.0, visionOS 2.0, watchOS 11.0, *)
-    private func getModel() async throws -> AnyLanguageModel.CoreMLLanguageModel {
+    #if MLX
+    private func getModel() async throws -> AnyLanguageModel.MLXLanguageModel {
         if let model {
             return model
         }
 
-        let repoId = "XDGCC/coreml-Qwen3-0.6B"
-        let revision = "fc6bdeb0b02573744ee2cba7e3f408f2851adf57"
+        let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
+        let revision = "75429955681c1850a9c8723767fe4252da06eb57"
 
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
             throw NSError(domain: "EisonAI", code: 1, userInfo: [NSLocalizedDescriptionKey: "App Group 容器不可用"])
@@ -338,11 +352,11 @@ private actor NativeSummarizer {
             .appendingPathComponent(repoId, isDirectory: true)
             .appendingPathComponent(revision, isDirectory: true)
 
-        let compiledURL = modelRoot.appendingPathComponent("Qwen3-0.6B.mlmodelc", isDirectory: true)
-        let loaded = try await AnyLanguageModel.CoreMLLanguageModel(url: compiledURL, computeUnits: .all)
+        let loaded = AnyLanguageModel.MLXLanguageModel(modelId: repoId, directory: modelRoot)
         self.model = loaded
         return loaded
     }
+    #endif
 }
 
 private func normalizeInputText(_ text: String, limit: Int) -> String {
@@ -478,8 +492,8 @@ private func enforceSummaryFormat(_ raw: String) -> String {
 }
 
 private func modelStatusPayload() -> [String: Any] {
-    let repoId = "XDGCC/coreml-Qwen3-0.6B"
-    let revision = "fc6bdeb0b02573744ee2cba7e3f408f2851adf57"
+    let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
+    let revision = "75429955681c1850a9c8723767fe4252da06eb57"
 
     if let persisted = loadPersistedModelStatus(appGroupID: "group.com.qoli.eisonAI"),
        persisted.repoId == repoId,
@@ -563,14 +577,15 @@ private func isModelReady(appGroupID: String, repoId: String, revision: String) 
         .appendingPathComponent(revision, isDirectory: true)
 
     let requiredFiles: [String] = [
+        "added_tokens.json",
         "tokenizer.json",
         "tokenizer_config.json",
+        "special_tokens_map.json",
+        "merges.txt",
+        "vocab.json",
         "config.json",
-        "Qwen3-0.6B.mlmodelc/metadata.json",
-        "Qwen3-0.6B.mlmodelc/model.mil",
-        "Qwen3-0.6B.mlmodelc/coremldata.bin",
-        "Qwen3-0.6B.mlmodelc/analytics/coremldata.bin",
-        "Qwen3-0.6B.mlmodelc/weights/weight.bin",
+        "model.safetensors",
+        "model.safetensors.index.json",
     ]
 
     for file in requiredFiles {

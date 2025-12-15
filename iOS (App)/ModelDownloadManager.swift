@@ -15,18 +15,19 @@ final class ModelDownloadManager {
 
     private enum Constants {
         static let appGroupID = "group.com.qoli.eisonAI"
-        static let repoId = "XDGCC/coreml-Qwen3-0.6B"
-        static let revision = "fc6bdeb0b02573744ee2cba7e3f408f2851adf57"
+        static let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
+        static let revision = "75429955681c1850a9c8723767fe4252da06eb57"
 
         static let requiredFiles: [String] = [
+            "added_tokens.json",
             "tokenizer.json",
             "tokenizer_config.json",
+            "special_tokens_map.json",
+            "merges.txt",
+            "vocab.json",
             "config.json",
-            "Qwen3-0.6B.mlmodelc/metadata.json",
-            "Qwen3-0.6B.mlmodelc/model.mil",
-            "Qwen3-0.6B.mlmodelc/coremldata.bin",
-            "Qwen3-0.6B.mlmodelc/analytics/coremldata.bin",
-            "Qwen3-0.6B.mlmodelc/weights/weight.bin",
+            "model.safetensors",
+            "model.safetensors.index.json",
         ]
     }
 
@@ -176,7 +177,7 @@ final class ModelDownloadManager {
             }
 
             // Qwen3: disable thinking by patching `tokenizer_config.json:chat_template` to always insert an empty <think>...</think> block.
-            // Some runtimes can do this via `enable_thinking=false`, but our local CoreML path doesn't pass template kwargs.
+            // Some runtimes can do this via `enable_thinking=false`; for local runtimes we patch the template itself.
             try patchTokenizerConfigDisableThinkingIfNeeded(in: destinationDir)
 
             status = Status(
@@ -268,13 +269,6 @@ final class ModelDownloadManager {
             if !FileManager.default.fileExists(atPath: url.path) {
                 return false
             }
-        }
-
-        // Ensure compiled CoreML model directory exists
-        if !FileManager.default.fileExists(
-            atPath: destinationDir.appendingPathComponent("Qwen3-0.6B.mlmodelc").path
-        ) {
-            return false
         }
 
         return true

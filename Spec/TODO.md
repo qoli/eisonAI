@@ -6,7 +6,7 @@
 
 - ✅ M1：Readability 擷取 → Native 回傳原文（echo）→ Popup 顯示
 - ✅ M2：模型下載（App）+ 模型狀態（Extension）+ 未就緒提示
-- ⏭️ M3：真正使用本地模型產生摘要（Qwen3 CoreML 0.6B）（已實作 M3a 非串流，待 iOS Safari E2E 驗證）
+- ⏭️ M3：真正使用本地模型產生摘要（Qwen3 MLX 0.6B 4bit）（已實作 M3a 非串流，待 iOS Safari E2E 驗證）
 - ⏸️ M10（未來）：Share Extension + App Intent
 
 ## M1（已完成）
@@ -19,7 +19,7 @@
 ## M2（已完成）
 
 - ✅ App Group：`group.com.qoli.eisonAI`（App / iOS Extension entitlements 已更新）
-- ✅ 模型固定 revision：`fc6bdeb0b02573744ee2cba7e3f408f2851adf57`（`XDGCC/coreml-Qwen3-0.6B`）
+- ✅ 模型固定 revision：`75429955681c1850a9c8723767fe4252da06eb57`（`lmstudio-community/Qwen3-0.6B-MLX-4bit`）
 - ✅ 模型下載與落盤：`iOS (App)/ModelDownloadManager.swift`
   - ✅ 修正 CFNetworkDownload tmp 檔案搬移時機（必須在 `didFinishDownloadingTo` 內 move）
 - ✅ App 最小 UI：只提供下載按鈕與進度/狀態（WebView UI）
@@ -46,10 +46,10 @@
 ### 3.2 主要工作項目
 
 - [x] Native 端產生摘要（M3a）：
-  - [x] `SafariWebExtensionHandler.swift`：改為 async，使用 `AnyLanguageModel.CoreMLLanguageModel`（iOS 18+）從 App Group 模型目錄做本地推理
+  - [x] `SafariWebExtensionHandler.swift`：改為 async，使用 `AnyLanguageModel.MLXLanguageModel` 從 App Group 模型目錄做本地推理
   - [x] 產生符合 `eison.summary.v1` 格式輸出（`總結：` + `要點：`）
   - [x] 長文保護：先用字元截斷（16k chars）避免 prompt 過大
-- [x] 使用 App Group 模型路徑載入 CoreML 模型（repoId + revision）
+- [x] 使用 App Group 模型路徑載入 MLX 模型（repoId + revision）
 - [ ] 長文處理（chunk + reduce）：
   - [ ] 先以字元長度 chunk（MVP），後續可改 tokenizer-based
 - [ ] Extension ↔︎ Native 串流：
@@ -63,14 +63,15 @@
 - [ ] Share Extension（分享 URL/文字）→ 呼叫同一套 `LocalLLMService`
 - [ ] App Intent（Shortcuts）`SummarizeTextIntent` / `SummarizeURLIntent`
 - [ ] 每站客製 prompt（regex rule；根域名輸入是 regex 簡寫；不匹配子域名）
+- [ ] CoreML 推理（自編譯 CoreML Qwen3；暫緩）
 
 ## 已知風險 / 觀察
 
 - `swift-huggingface` 在 iOS 編譯會踩到 `homeDirectoryForCurrentUser`（因此 M2 已改用 `URLSession` 直接 resolve 下載）。
-- AnyLanguageModel 的 CoreML 支援需要啟用 `CoreML` trait。
+- AnyLanguageModel 的 MLX 支援需要啟用 `MLX` trait。
 - 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 AnyLanguageModel 相關依賴（避免 Xcode 無法直接設定 traits）。
-- 若 `AnyLanguageModel.CoreMLLanguageModel` 在編譯時不存在，需確認 AnyLanguageModel package 有把 traits 映射到 Swift compilation conditions（`-D CoreML/MLX/Llama`）；目前已在本機 `AnyLanguageModel/Package.swift` 補上 `swiftSettings: [.define(..., .when(traits: ...))]`。
-- `XDGCC/coreml-Qwen3-0.6B` 的 CoreML I/O key 使用 snake_case（`input_ids`/`causal_mask`/`key_cache`/`value_cache`）。swift-transformers 1.1.5 預設只認 camelCase（`inputIds`/`causalMask`/`keyCache`/`valueCache`），會在 `Models/LanguageModel.swift` 取不到 shape 而 `fatalError("Cannot obtain shape information")`；目前用 `ThirdParty/swift-transformers` 的本地修補版解決，並在本機 `AnyLanguageModel/Package.swift` 改為 path dependency 指向它。
+- 若 `AnyLanguageModel.MLXLanguageModel` 在編譯時不存在，需確認 AnyLanguageModel package 有把 traits 映射到 Swift compilation conditions（`-D MLX/...`）。
+- MLX 無法在 iOS Simulator 使用（初始化 Metal device 可能直接崩潰）；目前已在 App / Extension 端加 guard，提示改用真機或 My Mac (Designed for iPad)。
 - Safari MV3 `background.service_worker` 可能無法呼叫 `browser.runtime.sendNativeMessage`；目前改為由 `popup.js` 直接呼叫 native（避免 `Invalid call to runtime.sendNativeMe...`）。
 - Safari Web Extension 的 `sendNativeMessage` 常見是 callback 版：`sendNativeMessage("application.id", message, callback)`；若用 promise/少參數可能報 `Invalid call to runtime.sendNativeMessage()`，且 Safari 會忽略 `application.id`（仍建議傳入任意字串）並只送到 containing app 的 native app extension。
 - `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已加 mutex 讓 native 呼叫序列化（先 `model.getStatus` 再 `summarize.start`），並為摘要放寬 timeout。

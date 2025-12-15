@@ -40,14 +40,15 @@ struct llmView: View {
 
 private actor LLMDemoRunner {
     static let shared = LLMDemoRunner()
-    @available(iOS 18.0, macOS 15.0, *)
-    private var model: AnyLanguageModel.CoreMLLanguageModel?
+    #if MLX
+        private var model: AnyLanguageModel.MLXLanguageModel?
+    #endif
 
     func run() async throws -> String {
         if #available(iOS 26.0, *) {
             return try await runAnyLanguageModelDemo()
         }
-        return try await runCoreMLDemo()
+        return try await runMLXDemo()
     }
 
     @available(iOS 26.0, *)
@@ -61,29 +62,41 @@ private actor LLMDemoRunner {
         return response.content
     }
 
-    private func runCoreMLDemo() async throws -> String {
-        guard #available(iOS 18.0, macOS 15.0, *) else {
-            throw NSError(domain: "EisonAI", code: 2, userInfo: [NSLocalizedDescriptionKey: "CoreML model requires iOS 18 / macOS 15"])
-        }
+    private func runMLXDemo() async throws -> String {
+        #if !MLX
+            throw NSError(
+                domain: "EisonAI",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "此版本未啟用 MLX 推理（AnyLanguageModel traits: MLX）。"]
+            )
+        #else
+            #if targetEnvironment(simulator)
+                throw NSError(
+                    domain: "EisonAI",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "MLX 無法在 iOS Simulator 使用，請改用真機或 My Mac (Designed for iPad)。"]
+                )
+            #endif
 
-        let model = try await getModel()
-        let session = AnyLanguageModel.LanguageModelSession(model: model, instructions: "你是一個簡潔的助手。")
-        let options = AnyLanguageModel.GenerationOptions(temperature: 0.2, maximumResponseTokens: 200)
-        let response: AnyLanguageModel.LanguageModelSession.Response<String> = try await session.respond(
-            to: AnyLanguageModel.Prompt("用一句話介紹你自己。"),
-            options: options
-        )
-        return response.content
+            let model = try await getModel()
+            let session = AnyLanguageModel.LanguageModelSession(model: model, instructions: "你是一個簡潔的助手。")
+            let options = AnyLanguageModel.GenerationOptions(temperature: 0.2, maximumResponseTokens: 200)
+            let response: AnyLanguageModel.LanguageModelSession.Response<String> = try await session.respond(
+                to: AnyLanguageModel.Prompt("用一句話介紹你自己。"),
+                options: options
+            )
+            return response.content
+        #endif
     }
 
-    @available(iOS 18.0, macOS 15.0, *)
-    private func getModel() async throws -> AnyLanguageModel.CoreMLLanguageModel {
+    #if MLX
+    private func getModel() async throws -> AnyLanguageModel.MLXLanguageModel {
         if let model {
             return model
         }
 
-        let repoId = "XDGCC/coreml-Qwen3-0.6B"
-        let revision = "fc6bdeb0b02573744ee2cba7e3f408f2851adf57"
+        let repoId = "lmstudio-community/Qwen3-0.6B-MLX-4bit"
+        let revision = "75429955681c1850a9c8723767fe4252da06eb57"
         let appGroupID = "group.com.qoli.eisonAI"
 
         guard let container = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) else {
@@ -95,11 +108,11 @@ private actor LLMDemoRunner {
             .appendingPathComponent(repoId, isDirectory: true)
             .appendingPathComponent(revision, isDirectory: true)
 
-        let compiledURL = modelRoot.appendingPathComponent("Qwen3-0.6B.mlmodelc", isDirectory: true)
-        let loaded = try await AnyLanguageModel.CoreMLLanguageModel(url: compiledURL, computeUnits: .all)
+        let loaded = AnyLanguageModel.MLXLanguageModel(modelId: repoId, directory: modelRoot)
         self.model = loaded
         return loaded
     }
+    #endif
 }
 
 private struct WeatherTool: AnyLanguageModel.Tool {

@@ -12,7 +12,7 @@ let package = Package(
         .library(name: "EisonAIKit", targets: ["EisonAIKit"])
     ],
     dependencies: [
-        .package(path: "../../AnyLanguageModel", traits: ["CoreML"]),
+        .package(path: "../../AnyLanguageModel", traits: ["MLX"]),
     ],
     targets: [
         .target(
