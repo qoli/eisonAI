@@ -3,6 +3,7 @@ import { CreateWebWorkerMLCEngine } from "./webllm.js";
 const browser = globalThis.browser ?? globalThis.chrome;
 
 const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
+const MAX_OUTPUT_TOKENS = 1500;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
@@ -20,6 +21,7 @@ const statusEl = document.getElementById("status");
 const envEl = document.getElementById("env");
 const progressEl = document.getElementById("progress");
 const inputEl = document.getElementById("input");
+const inputTokensEl = document.getElementById("input-tokens");
 const outputEl = document.getElementById("output");
 
 function hasWebGPU() {
@@ -35,6 +37,46 @@ function setStatus(text, progress) {
 
 function setOutput(text) {
   outputEl.textContent = text;
+}
+
+const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
+
+function estimateTokensFromText(text) {
+  const value = String(text ?? "");
+  if (!value) return 0;
+
+  const cjkCount = value.match(CJK_REGEX)?.length ?? 0;
+  const nonCjkLength = value.replace(CJK_REGEX, "").length;
+  const estimate = cjkCount + nonCjkLength / 4;
+  return Math.max(1, Math.ceil(estimate));
+}
+
+function estimateTokensForMessages(messages) {
+  if (!Array.isArray(messages)) return 0;
+  let total = 0;
+  for (const msg of messages) {
+    if (!msg) continue;
+    const content = msg.content;
+    if (typeof content === "string") {
+      total += estimateTokensFromText(content);
+    } else if (Array.isArray(content)) {
+      for (const part of content) {
+        if (part?.type === "text" && typeof part.text === "string") {
+          total += estimateTokensFromText(part.text);
+        }
+      }
+    }
+  }
+  return total;
+}
+
+function setInputTokenEstimate(tokens) {
+  if (!inputTokensEl) return;
+  if (typeof tokens !== "number" || !Number.isFinite(tokens)) {
+    inputTokensEl.textContent = "—";
+    return;
+  }
+  inputTokensEl.textContent = `~${Math.max(0, Math.round(tokens))}`;
 }
 
 function enableControls(loaded) {
@@ -173,6 +215,7 @@ let engine = null;
 let worker = null;
 let generating = false;
 let cachedUserPrompt = "";
+let preparedMessagesForTokenEstimate = [];
 
 modelSelect.appendChild(new Option(MODEL_ID, MODEL_ID));
 modelSelect.value = MODEL_ID;
@@ -190,8 +233,12 @@ async function refreshCachedUserPrompt() {
   try {
     const ctx = await getArticleTextFromContentScript();
     cachedUserPrompt = buildSummaryUserPrompt(ctx);
+    preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
+    setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
   } catch (err) {
     cachedUserPrompt = "";
+    preparedMessagesForTokenEstimate = [];
+    setInputTokenEstimate(0);
     console.warn("[WebLLM Demo] Failed to prefetch user prompt:", err);
   }
 }
@@ -245,6 +292,9 @@ async function unloadEngine() {
 async function streamChat(messages) {
   if (!engine) throw new Error("Engine is not loaded.");
 
+  preparedMessagesForTokenEstimate = messages;
+  setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
+
   generating = true;
   runButton.disabled = true;
   summarizeButton.disabled = true;
@@ -259,7 +309,7 @@ async function streamChat(messages) {
     stream_options: { include_usage: true },
     messages,
     temperature: 0.4,
-    max_tokens: 512,
+    max_tokens: MAX_OUTPUT_TOKENS,
     extra_body: { enable_thinking: true },
   });
 
@@ -350,9 +400,22 @@ runButton.addEventListener("click", async () => {
       setStatus("請先輸入 prompt");
       return;
     }
+    preparedMessagesForTokenEstimate = [{ role: "user", content: prompt }];
+    setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
     await streamChat([{ role: "user", content: prompt }]);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
+  }
+});
+
+inputEl.addEventListener("input", () => {
+  const prompt = inputEl.value.trim();
+  if (prompt) {
+    setInputTokenEstimate(estimateTokensFromText(prompt));
+  } else if (preparedMessagesForTokenEstimate.length) {
+    setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
+  } else {
+    setInputTokenEstimate(0);
   }
 });
 
@@ -361,6 +424,8 @@ summarizeButton.addEventListener("click", async () => {
     setStatus("Reading page…");
     const ctx = await getArticleTextFromContentScript();
     cachedUserPrompt = buildSummaryUserPrompt(ctx);
+    preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
+    setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
     await streamChat(buildSummaryMessages(ctx));
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));

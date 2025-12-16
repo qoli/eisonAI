@@ -126,6 +126,21 @@ textarea {
   resize: vertical;
 }
 
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.meta-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .output {
   margin-top: 8px;
   white-space: pre-wrap;

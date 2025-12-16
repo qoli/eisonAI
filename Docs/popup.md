@@ -28,6 +28,7 @@
 - `複製系統提示詞` / `複製用戶提示詞`（方便檢查送入模型的 prompts）
 - `Generate / Stop`（手動輸入 prompt 生成）
 - 狀態文字 + 進度條 + 輸出區
+- `Input tokens（估算）`：以簡單規則估算目前 prompt 的 token 數
 
 ## 推理核心（popup.js）
 
@@ -66,6 +67,7 @@ browser.tabs.sendMessage(tab.id, { command: "getArticleText" });
 - `engine.chat.completions.create({ stream: true, ... })`
 - 逐段把 `delta.content` append 到 output
 - `Stop` 會呼叫 `engine.interruptGenerate()`
+- 目前輸出上限：`max_tokens = 1500`（見 `MAX_OUTPUT_TOKENS`）
 
 ## Safari 特殊相容（safari-web-extension://）
 
