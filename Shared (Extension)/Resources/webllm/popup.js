@@ -23,7 +23,9 @@ const envEl = document.getElementById("env");
 const progressEl = document.getElementById("progress");
 const inputEl = document.getElementById("input");
 const inputTokensEl = document.getElementById("input-tokens");
+const thinkEl = document.getElementById("think");
 const outputEl = document.getElementById("output");
+const shareEl = document.getElementById("share");
 
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
@@ -38,6 +40,62 @@ function setStatus(text, progress) {
 
 function setOutput(text) {
   outputEl.textContent = text;
+}
+
+function setThink(text) {
+  if (!thinkEl) return;
+  thinkEl.textContent = text;
+  try {
+    thinkEl.scrollTop = thinkEl.scrollHeight;
+  } catch {
+    // ignore
+  }
+}
+
+function setShareVisible(visible) {
+  if (!shareEl) return;
+  shareEl.hidden = !visible;
+}
+
+const THINK_OPEN_TAG = "<think>";
+const THINK_CLOSE_TAG = "</think>";
+
+function stripLeadingBlankLines(text) {
+  return String(text ?? "").replace(/^(?:[ \t]*\r?\n)+/, "");
+}
+
+function stripTrailingWhitespace(text) {
+  return String(text ?? "").replace(/\s+$/, "");
+}
+
+function splitModelThinking(rawText) {
+  const raw = String(rawText ?? "");
+  const openIndex = raw.indexOf(THINK_OPEN_TAG);
+  if (openIndex === -1) {
+    return { think: "", final: raw, hasThink: false, thinkClosed: true };
+  }
+
+  const afterOpen = openIndex + THINK_OPEN_TAG.length;
+  const closeIndex = raw.indexOf(THINK_CLOSE_TAG, afterOpen);
+  if (closeIndex === -1) {
+    return {
+      think: raw.slice(afterOpen),
+      final: raw.slice(0, openIndex),
+      hasThink: true,
+      thinkClosed: false,
+    };
+  }
+
+  const prefix = raw.slice(0, openIndex);
+  const think = raw.slice(afterOpen, closeIndex);
+  const final = prefix + raw.slice(closeIndex + THINK_CLOSE_TAG.length);
+  return { think, final, hasThink: true, thinkClosed: true };
+}
+
+function renderModelOutput(rawText) {
+  const { think, final } = splitModelThinking(rawText);
+  setThink(stripTrailingWhitespace(stripLeadingBlankLines(think)));
+  setOutput(stripTrailingWhitespace(stripLeadingBlankLines(final)));
 }
 
 function getErrorMessage(err) {
@@ -276,6 +334,7 @@ function buildSummaryMessages({ title, text, url }) {
 let engine = null;
 let worker = null;
 let generating = false;
+let generationInterrupted = false;
 let engineLoading = false;
 let cachedUserPrompt = "";
 let preparedMessagesForTokenEstimate = [];
@@ -291,6 +350,7 @@ const demoModelUrl = new URL(
 envEl.textContent = `WebGPU: ${hasWebGPU() ? "available" : "unavailable"} · Assets: bundled · model: ${new URL(demoModelUrl).protocol} · wasm: ${new URL(WASM_URL).protocol}`;
 console.log("[WebLLM Demo] modelUrl =", demoModelUrl);
 console.log("[WebLLM Demo] wasmUrl  =", WASM_URL);
+setShareVisible(false);
 enableControls(false);
 
 function hasReadableBodyText(text) {
@@ -462,6 +522,7 @@ async function streamChat(messages) {
   preparedMessagesForTokenEstimate = messages;
   setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
 
+  generationInterrupted = false;
   generating = true;
   runButton.disabled = true;
   summarizeButton.disabled = true;
@@ -470,9 +531,12 @@ async function streamChat(messages) {
   unloadButton.disabled = true;
   modelSelect.disabled = true;
   setStatus("Generating…");
+  setShareVisible(false);
+  setThink("");
   setOutput("");
 
   let acc = "";
+  let completed = false;
   try {
     await engine.resetChat();
     const completion = await engine.chat.completions.create({
@@ -488,9 +552,10 @@ async function streamChat(messages) {
       const delta = chunk?.choices?.[0]?.delta?.content ?? "";
       if (delta) {
         acc += delta;
-        setOutput(acc);
+        renderModelOutput(acc);
       }
     }
+    completed = true;
   } finally {
     generating = false;
     stopButton.disabled = true;
@@ -500,6 +565,10 @@ async function streamChat(messages) {
     unloadButton.disabled = !engine;
     modelSelect.disabled = false;
     setStatus("Ready", 1);
+    if (completed && !generationInterrupted) {
+      const text = String(outputEl?.textContent ?? "").trim();
+      setShareVisible(Boolean(text) && text !== NO_SUMMARY_TEXT_MESSAGE);
+    }
   }
 }
 
@@ -527,6 +596,8 @@ async function autoSummarizeActiveTab() {
   const ctx = await prepareSummaryContextWithRetry();
   if (!ctx) {
     setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+    setShareVisible(false);
+    setThink("");
     setOutput(NO_SUMMARY_TEXT_MESSAGE);
     loadButton.disabled = false;
     modelSelect.disabled = false;
@@ -536,6 +607,8 @@ async function autoSummarizeActiveTab() {
   if (!engine) {
     loadButton.disabled = true;
     modelSelect.disabled = true;
+    setShareVisible(false);
+    setThink("");
     setOutput("");
     try {
       await loadEngine(modelSelect.value);
@@ -559,6 +632,8 @@ async function autoSummarizeActiveTab() {
 loadButton.addEventListener("click", async () => {
   loadButton.disabled = true;
   modelSelect.disabled = true;
+  setShareVisible(false);
+  setThink("");
   setOutput("");
   try {
     await loadEngine(modelSelect.value);
@@ -580,11 +655,16 @@ unloadButton.addEventListener("click", async () => {
   }
 });
 
-clearButton.addEventListener("click", () => setOutput(""));
+clearButton.addEventListener("click", () => {
+  setShareVisible(false);
+  setThink("");
+  setOutput("");
+});
 
 stopButton.addEventListener("click", async () => {
   if (!engine || !generating) return;
   try {
+    generationInterrupted = true;
     engine.interruptGenerate();
     setStatus("Stopping…");
   } catch (err) {
@@ -603,6 +683,8 @@ copySystemButton?.addEventListener("click", async () => {
     await copyToClipboard(systemPrompt);
     setStatus("已複製系統提示詞");
   } catch (err) {
+    setShareVisible(false);
+    setThink("");
     setOutput(systemPrompt);
     setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
   }
@@ -617,6 +699,8 @@ copyUserButton?.addEventListener("click", async () => {
       const ctx = await prepareSummaryContextWithRetry();
       if (!ctx) {
         setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+        setShareVisible(false);
+        setThink("");
         setOutput(NO_SUMMARY_TEXT_MESSAGE);
         return;
       }
@@ -631,6 +715,8 @@ copyUserButton?.addEventListener("click", async () => {
     await copyToClipboard(cachedUserPrompt);
     setStatus("已複製用戶提示詞");
   } catch (err) {
+    setShareVisible(false);
+    setThink("");
     setOutput(cachedUserPrompt);
     setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
   }
@@ -669,10 +755,45 @@ summarizeButton.addEventListener("click", async () => {
     const ctx = await prepareSummaryContextWithRetry();
     if (!ctx) {
       setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+      setShareVisible(false);
+      setThink("");
       setOutput(NO_SUMMARY_TEXT_MESSAGE);
       return;
     }
     await streamChatWithRecovery(buildSummaryMessages(ctx));
+  } catch (err) {
+    setStatus(err?.message ? String(err.message) : String(err));
+  }
+});
+
+shareEl?.addEventListener("click", async (event) => {
+  event.preventDefault();
+  if (generating) return;
+
+  const text = String(outputEl?.textContent ?? "").trim();
+  if (!text || text === NO_SUMMARY_TEXT_MESSAGE) {
+    setShareVisible(false);
+    return;
+  }
+
+  try {
+    const tab = await getActiveTab().catch(() => null);
+    const url = tab?.url ? String(tab.url) : undefined;
+
+    if (typeof globalThis.navigator?.share === "function") {
+      try {
+        const shareData = { text };
+        if (url && url.startsWith("http")) shareData.url = url;
+        await globalThis.navigator.share(shareData);
+        setStatus("已開啟分享面板", 1);
+        return;
+      } catch (err) {
+        console.warn("[WebLLM Demo] navigator.share failed, fallback to copy:", err);
+      }
+    }
+
+    await copyToClipboard(text);
+    setStatus("已複製摘要內容", 1);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }
