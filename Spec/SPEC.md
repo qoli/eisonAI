@@ -22,6 +22,10 @@
 - 不提供遠端 API（OpenAI/Gemini）fallback（若需要再另開規格）。
 - 不做長期持久快取（iOS extension 儲存限制 + 可預期不穩定）。
 
+## 系統需求
+
+- iOS / iPadOS 18+（以確保 WebGPU + WebLLM 的可用性/穩定性）
+
 ## 系統架構
 
 ### Extension 構成

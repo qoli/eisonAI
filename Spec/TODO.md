@@ -4,6 +4,7 @@
 
 - ✅ Extension popup 改用 WebLLM（`webllm/popup.*` + `webllm/worker.js`）。
 - ✅ 模型與 wasm 以 **extension bundle assets** 提供（`Shared (Extension)/Resources/webllm-assets/`），popup 不做 runtime 下載。
+- ✅ 專案最低版本調整為 iOS / iPadOS 18+（deployment target）。
 - ✅ CSP 調整允許 wasm/worker（`manifest.json` 同時提供 `extension_page` / `extension_pages`）。
 - ✅ Safari `safari-web-extension://` scheme 相容：修正 `Request url is not HTTP/HTTPS`（`webllm/webllm.js` 對非 http(s) URL 避免走 Cache API）。
 - ✅ 移除 native messaging 推理 / 模型下載管線（專案全面轉向 WebLLM）。

@@ -4,6 +4,10 @@ EisonAI 是一個 iOS/macOS 的 Safari Web Extension：在 popup 內使用 **Web
 
 本專案採用 **bundled assets** 策略：模型與 wasm 會被打包進 extension bundle，popup 只讀取本地資源，不做 runtime 下載，也不依賴 iOS extension 的持久儲存。
 
+## 系統需求
+
+- iOS / iPadOS 18+
+
 ## 架構概覽
 
 - 內容擷取：`Shared (Extension)/Resources/contentReadability.js` + `Shared (Extension)/Resources/content.js`
