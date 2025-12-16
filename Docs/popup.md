@@ -22,6 +22,7 @@
 
 目前 demo UI 提供：
 
+- 開啟 popup 後會自動嘗試摘要 active tab（無正文則顯示「無可用總結正文」）
 - Model 選擇（目前只放 `Qwen3-0.6B-q4f16_1-MLC`）
 - `Load / Unload`
 - `Summarize active tab`（擷取目前分頁文章正文 → 生成摘要）

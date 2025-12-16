@@ -48,7 +48,9 @@ open eisonAI.xcodeproj
 
 - 在 Safari 開啟任一文章頁
 - 點工具列的 extension 圖示 → 進入 popup
-- 先按 `Load`（載入模型）→ 再按 `Summarize active tab`
+- popup 會先檢查 Readability 是否能取得正文：
+  - 有正文：自動載入模型並自動開始總結
+  - 無正文：顯示「無可用總結正文」
 
 ## 5) Debug/排障方式（最常用）
 

@@ -4,6 +4,7 @@ const browser = globalThis.browser ?? globalThis.chrome;
 
 const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
+const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
@@ -216,6 +217,7 @@ let worker = null;
 let generating = false;
 let cachedUserPrompt = "";
 let preparedMessagesForTokenEstimate = [];
+let autoSummarizeStarted = false;
 
 modelSelect.appendChild(new Option(MODEL_ID, MODEL_ID));
 modelSelect.value = MODEL_ID;
@@ -229,21 +231,51 @@ console.log("[WebLLM Demo] modelUrl =", demoModelUrl);
 console.log("[WebLLM Demo] wasmUrl  =", WASM_URL);
 enableControls(false);
 
-async function refreshCachedUserPrompt() {
+function hasReadableBodyText(text) {
+  return Boolean(String(text ?? "").trim());
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function prepareSummaryContext() {
   try {
     const ctx = await getArticleTextFromContentScript();
-    cachedUserPrompt = buildSummaryUserPrompt(ctx);
-    preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
+    const normalized = {
+      title: String(ctx.title ?? "").trim(),
+      text: String(ctx.text ?? "").trim(),
+      url: String(ctx.url ?? "").trim(),
+    };
+
+    if (!hasReadableBodyText(normalized.text)) {
+      cachedUserPrompt = "";
+      preparedMessagesForTokenEstimate = [];
+      setInputTokenEstimate(0);
+      return null;
+    }
+
+    cachedUserPrompt = buildSummaryUserPrompt(normalized);
+    preparedMessagesForTokenEstimate = buildSummaryMessages(normalized);
     setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
+    return normalized;
   } catch (err) {
     cachedUserPrompt = "";
     preparedMessagesForTokenEstimate = [];
     setInputTokenEstimate(0);
-    console.warn("[WebLLM Demo] Failed to prefetch user prompt:", err);
+    console.warn("[WebLLM Demo] Failed to prepare summary context:", err);
+    return null;
   }
 }
 
-refreshCachedUserPrompt();
+async function prepareSummaryContextWithRetry({ retries = 1, retryDelayMs = 250 } = {}) {
+  let ctx = await prepareSummaryContext();
+  for (let attempt = 0; attempt < retries && !ctx; attempt += 1) {
+    await delay(retryDelayMs);
+    ctx = await prepareSummaryContext();
+  }
+  return ctx;
+}
 
 async function loadEngine(modelId) {
   if (!hasWebGPU()) {
@@ -299,21 +331,24 @@ async function streamChat(messages) {
   runButton.disabled = true;
   summarizeButton.disabled = true;
   stopButton.disabled = false;
+  loadButton.disabled = true;
+  unloadButton.disabled = true;
+  modelSelect.disabled = true;
+  setStatus("Generating…");
   setOutput("");
 
-  await engine.resetChat();
-
   let acc = "";
-  const completion = await engine.chat.completions.create({
-    stream: true,
-    stream_options: { include_usage: true },
-    messages,
-    temperature: 0.4,
-    max_tokens: MAX_OUTPUT_TOKENS,
-    extra_body: { enable_thinking: true },
-  });
-
   try {
+    await engine.resetChat();
+    const completion = await engine.chat.completions.create({
+      stream: true,
+      stream_options: { include_usage: true },
+      messages,
+      temperature: 0.4,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      extra_body: { enable_thinking: true },
+    });
+
     for await (const chunk of completion) {
       const delta = chunk?.choices?.[0]?.delta?.content ?? "";
       if (delta) {
@@ -326,6 +361,49 @@ async function streamChat(messages) {
     stopButton.disabled = true;
     runButton.disabled = false;
     summarizeButton.disabled = false;
+    loadButton.disabled = false;
+    unloadButton.disabled = !engine;
+    modelSelect.disabled = false;
+    setStatus("Ready", 1);
+  }
+}
+
+async function autoSummarizeActiveTab() {
+  if (autoSummarizeStarted) return;
+  autoSummarizeStarted = true;
+
+  loadButton.disabled = true;
+  modelSelect.disabled = true;
+  setStatus("Reading page…", 0);
+  const ctx = await prepareSummaryContextWithRetry();
+  if (!ctx) {
+    setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+    setOutput(NO_SUMMARY_TEXT_MESSAGE);
+    loadButton.disabled = false;
+    modelSelect.disabled = false;
+    return;
+  }
+
+  if (!engine) {
+    loadButton.disabled = true;
+    modelSelect.disabled = true;
+    setOutput("");
+    try {
+      await loadEngine(modelSelect.value);
+    } catch (err) {
+      setStatus(err?.message ? String(err.message) : String(err), 0);
+      enableControls(false);
+      return;
+    } finally {
+      loadButton.disabled = false;
+      modelSelect.disabled = false;
+    }
+  }
+
+  try {
+    await streamChat(buildSummaryMessages(ctx));
+  } catch (err) {
+    setStatus(err?.message ? String(err.message) : String(err));
   }
 }
 
@@ -376,8 +454,13 @@ copyUserButton?.addEventListener("click", async () => {
     copyUserButton.disabled = true;
     try {
       setStatus("Preparing user prompt…");
-      await refreshCachedUserPrompt();
-      setStatus("已準備用戶提示詞，請再按一次「複製用戶提示詞」。");
+      const ctx = await prepareSummaryContextWithRetry();
+      if (!ctx) {
+        setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+        setOutput(NO_SUMMARY_TEXT_MESSAGE);
+        return;
+      }
+      setStatus("已準備用戶提示詞，請再按一次「複製用戶提示詞」。", 1);
     } finally {
       copyUserButton.disabled = false;
     }
@@ -421,13 +504,20 @@ inputEl.addEventListener("input", () => {
 
 summarizeButton.addEventListener("click", async () => {
   try {
-    setStatus("Reading page…");
-    const ctx = await getArticleTextFromContentScript();
-    cachedUserPrompt = buildSummaryUserPrompt(ctx);
-    preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
-    setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
+    setStatus("Reading page…", 0);
+    const ctx = await prepareSummaryContextWithRetry();
+    if (!ctx) {
+      setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+      setOutput(NO_SUMMARY_TEXT_MESSAGE);
+      return;
+    }
     await streamChat(buildSummaryMessages(ctx));
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }
+});
+
+autoSummarizeActiveTab().catch((err) => {
+  console.warn("[WebLLM Demo] autoSummarizeActiveTab failed:", err);
+  setStatus(err?.message ? String(err.message) : String(err));
 });
