@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
   <head>
     <meta charset="UTF-8" />
@@ -22,56 +22,17 @@
       /* Lab-only overrides (optional) */
     </style>
   </head>
+
   <body>
     <header class="header">
-      <div class="title">WebLLM Demo</div>
-      <div class="subtitle">Qwen3-0.6B (MLC) · Safari Extension Popup</div>
-    </header>
-
-    <section class="card">
-      <div id="env" class="env">
-        WebGPU: available · Assets: bundled · model: safari-web-extension: · wasm:
-        safari-web-extension:
-      </div>
-      <div class="row">
-        <label for="model">Model</label>
-        <select id="model">
-          <option selected>Qwen3-0.6B-q4f16_1-MLC</option>
-        </select>
-        <button id="load">Load</button>
-        <button id="unload">Unload</button>
-      </div>
       <div class="row">
         <div id="status" class="status">Ready</div>
         <progress id="progress" value="1" max="1"></progress>
       </div>
-    </section>
+    </header>
 
-    <section class="card">
-      <div class="row">
-        <button id="summarize">Summarize active tab</button>
-        <button id="copy-system" class="secondary">複製系統提示詞</button>
-        <button id="copy-user" class="secondary">複製用戶提示詞</button>
-        <button id="clear">Clear</button>
-      </div>
-
-      <textarea id="input" rows="4" placeholder="輸入問題，或點「Summarize active tab」">
-請用 3-4 句話摘要本文，並列出關鍵洞見。</textarea
-      >
-
-      <div class="meta">
-        <span class="meta-label">INPUT TOKENS（估算）</span>
-        <span id="input-tokens" class="meta-value">~842</span>
-      </div>
-
-      <div class="row">
-        <button id="run">Generate</button>
-        <button id="stop" disabled>Stop</button>
-      </div>
-
-      <pre id="output" class="output">
+    <pre id="output" class="output">
 這篇文章整理了在瀏覽器內執行本機 AI 的核心考量，包含模型載入方式、推理執行環境與效能/記憶體限制。作者強調將推理放進 WebWorker，能避免阻塞 UI 並提升互動體驗，同時需留意 WebGPU 可用性與裝置資源上限。文中指出資源載入與快取策略會直接影響可用性，建議採用預先打包 assets 與更穩健的錯誤復原流程。整體結論是：只要管線與隔離做得好，行動裝置也能提供實用的 in-browser AI 體驗。</pre
-      >
-    </section>
+    >
   </body>
 </html>
