@@ -7,6 +7,7 @@ EisonAI 是一個 iOS/macOS 的 Safari Web Extension：在 popup 內使用 **Web
 ## 系統需求
 
 - iOS / iPadOS 18+
+- 建議至少 iPhone 14 以上機型體驗較佳
 
 ## 架構概覽
 
