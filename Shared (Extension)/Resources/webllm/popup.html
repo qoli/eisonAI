@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebLLM Demo</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="title">WebLLM Demo</div>
+      <div class="subtitle">Qwen3-0.6B (MLC) · Safari Extension Popup</div>
+    </header>
+
+    <section class="card">
+      <div id="env" class="env">Checking environment…</div>
+      <div class="row">
+        <label for="model">Model</label>
+        <select id="model"></select>
+        <button id="load">Load</button>
+        <button id="unload" disabled>Unload</button>
+      </div>
+      <div class="row">
+        <div id="status" class="status">Idle</div>
+        <progress id="progress" value="0" max="1"></progress>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <button id="summarize" disabled>Summarize active tab</button>
+        <button id="clear" disabled>Clear</button>
+      </div>
+
+      <textarea
+        id="input"
+        rows="4"
+        placeholder="輸入問題，或點「Summarize active tab」"
+        disabled
+      ></textarea>
+
+      <div class="row">
+        <button id="run" disabled>Generate</button>
+        <button id="stop" disabled>Stop</button>
+      </div>
+
+      <pre id="output" class="output"></pre>
+    </section>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>
+

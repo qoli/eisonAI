@@ -12,7 +12,7 @@
     "512": "images/icon-512.png"
   },
   "content_security_policy": {
-    "extension_page": "script-src 'self';"
+    "extension_page": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; object-src 'self';"
   },
   "content_scripts": [
     {
@@ -25,7 +25,7 @@
     }
   ],
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "webllm/popup.html",
     "default_icon": {
       "16": "images/toolbar-icon-16.png",
       "19": "images/toolbar-icon-19.png",
