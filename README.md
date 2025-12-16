@@ -9,6 +9,16 @@ EisonAI 是一個 iOS/macOS 的 Safari Web Extension：在 popup 內使用 **Web
 項目展示：
 https://youtu.be/tC25imOO9GA
 
+## App Store & TestFlgiht
+
+### TestFlgiht
+
+https://testflight.apple.com/join/1nfTzlPS
+
+### App Store
+
+https://apps.apple.com/us/app/eison-ai/id6484502399
+
 ## 系統需求
 
 - iOS / iPadOS 18+
