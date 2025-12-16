@@ -43,3 +43,7 @@ fastlane/test_output
 ._*
 build/
 /Docs/MessagingAWebExtensionsNativeApp
+
+# WebLLM bundled assets (very large)
+Shared (Extension)/Resources/webllm-assets/models/
+Shared (Extension)/Resources/webllm-assets/wasm/
