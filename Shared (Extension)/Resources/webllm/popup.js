@@ -311,12 +311,9 @@ async function getArticleTextFromContentScript() {
 }
 
 function buildSummaryUserPrompt({ title, text, url }) {
-  const clippedText = clampText(text, 12000);
+  const clippedText = clampText(text, 11000);
   return [
-    "請摘要以下網頁內容：",
-    "",
-    `【標題】\n${title || "(no title)"}`,
-    `【URL】\n${url || "(no url)"}`,
+    `${title || "(no title)"}`,
     `【正文】\n${clippedText || "(empty)"}`,
   ].join("\n\n");
 }
