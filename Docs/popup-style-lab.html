@@ -105,6 +105,8 @@
   <pre id="output" class="output">
 這篇文章整理了在瀏覽器內執行本機 AI 的核心考量，包含模型載入方式、推理執行環境與效能/記憶體限制。作者強調將推理放進 WebWorker，能避免阻塞 UI 並提升互動體驗，同時需留意 WebGPU 可用性與裝置資源上限。文中指出資源載入與快取策略會直接影響可用性，建議採用預先打包 assets 與更穩健的錯誤復原流程。整體結論是：只要管線與隔離做得好，行動裝置也能提供實用的 in-browser AI 體驗。</pre>
 
+  <div class="token-footer">
+    INPUT TOKENS（估算）：<span id="input-tokens">~1240</span>
   </div>
 </body>
 
