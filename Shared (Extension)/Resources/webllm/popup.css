@@ -95,6 +95,7 @@ progress::-webkit-progress-value {
   font-size: 11px;
   font-weight: 600;
   color: var(--text);
+  flex: 1;
 }
 
 .link {
@@ -143,25 +144,9 @@ progress::-webkit-progress-value {
   z-index: 10;
   background: linear-gradient(
     to bottom,
-    var(--surface-transparent) 0%,
+    var(--surface-solid) 0% var(--surface-transparent) 50%,
     var(--surface-solid) 100%
   );
-}
-
-.linearGradient {
-  height: 10px;
-  margin: 10px 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0));
-}
-
-@media (prefers-color-scheme: dark) {
-  .linearGradient {
-    background: linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.08),
-      rgba(255, 255, 255, 0)
-    );
-  }
 }
 
 #output {
@@ -170,10 +155,10 @@ progress::-webkit-progress-value {
 }
 
 .token-footer {
-  margin-top: 10px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  margin: 10px 6px;
 }
 
 .legacy-hidden {

@@ -46,10 +46,6 @@
 
       <div class="flexColumn">
         <progress id="progress" value="0" max="1"></progress>
-        <div class="flexCenter">
-          <div id="status" class="status">Idle</div>
-          <a class="link" id="share" href="#share" hidden>Share</a>
-        </div>
       </div>
     </div>
   </header>
@@ -61,8 +57,10 @@
 
   <pre id="output" class="output"></pre>
 
-  <div class="token-footer">
-    INPUT TOKENS（估算）：<span id="input-tokens">—</span>
+  <div class="token-footer row">
+    <div id="status" class="status">Idle</div>
+    <span id="input-tokens">—</span>
+    <a class="link" id="share" href="#share" hidden>Share</a>
   </div>
 
   <div class="legacy-hidden" aria-hidden="true">
