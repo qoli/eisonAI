@@ -17,6 +17,8 @@ EisonAI 是一個 iOS/macOS 的 Safari Web Extension：在 popup 內使用 **Web
 
 ## 開發（必做：下載 assets）
 
+開發流程與排障細節請看：`Docs/DEVELOPMENT.md`
+
 1. 下載模型與 wasm 到 extension assets 目錄：
 
 ```bash

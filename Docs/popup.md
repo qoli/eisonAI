@@ -1,187 +1,83 @@
-# Popup 介面技術文檔
+# Popup（WebLLM）技術文檔
 
-## 檔案概述
+本專案的推理入口是 **Safari extension 的 popup**，以 **WebLLM（WebGPU + WebWorker）** 執行本機推理，並從 extension bundle 讀取已打包的模型/wasm assets。
 
-popup.js 和 popup.html 組成了擴展的彈出視窗介面，提供使用者控制面板功能。
+對應檔案：
 
-## HTML 結構 (popup.html)
+- `Shared (Extension)/Resources/webllm/popup.html`
+- `Shared (Extension)/Resources/webllm/popup.css`
+- `Shared (Extension)/Resources/webllm/popup.js`
+- `Shared (Extension)/Resources/webllm/worker.js`
+- `Shared (Extension)/Resources/webllm/webllm.js`（vendored）
+- `Shared (Extension)/Resources/webllm-assets/`（bundled assets）
 
-### 主要組件
+## 入口與 CSP
 
-1. 頂部標題欄
+- popup 入口由 `Shared (Extension)/Resources/manifest.json` 的 `action.default_popup` 指向 `webllm/popup.html`。
+- 為了讓 WebAssembly / WebWorker 正常運作，`manifest.json` 的 `content_security_policy` 需要允許：
+  - `script-src`：`'wasm-unsafe-eval'`（並保留 `'unsafe-eval'` 做 Safari 兼容）
+  - `worker-src`：`blob:`（以及 `'self'`）
 
-```html
-<div class="flexLeft">
-  <!-- Logo 和狀態指示器 -->
-  <div id="StatusIcon" class="statusBox"></div>
-  <div id="StatusText">{Status Text}</div>
-</div>
+## UI（popup.html）
+
+目前 demo UI 提供：
+
+- Model 選擇（目前只放 `Qwen3-0.6B-q4f16_1-MLC`）
+- `Load / Unload`
+- `Summarize active tab`（擷取目前分頁文章正文 → 生成摘要）
+- `Generate / Stop`（手動輸入 prompt 生成）
+- 狀態文字 + 進度條 + 輸出區
+
+## 推理核心（popup.js）
+
+### WebGPU 檢查
+
+popup 會先檢查 `navigator.gpu`，若 WebGPU 不可用則阻止載入模型。
+
+### WebWorker + Engine
+
+- 以 module worker 建立 `worker.js`
+- 透過 `CreateWebWorkerMLCEngine(worker, modelId, { appConfig, initProgressCallback })` 建立 engine
+
+### 使用 bundled assets（關鍵）
+
+- `appConfig.useIndexedDBCache = false`（避免依賴持久儲存）
+- model/wasm URL 使用 `new URL(..., import.meta.url)` 組成 extension bundle URL
+- `model_list` 內指定：
+  - `model_id`
+  - `model`（指向 `webllm-assets/models/.../resolve/main/`）
+  - `model_lib`（指向 `webllm-assets/wasm/*.wasm`）
+
+### 取得文章正文（popup → content script）
+
+popup 透過 `browser.tabs.query` 取得 active tab，再以：
+
+```js
+browser.tabs.sendMessage(tab.id, { command: "getArticleText" });
 ```
 
-2. 功能區域
+向 `content.js` 請求 Readability 解析結果（詳見 `Docs/content.js.md`）。
 
-- 網站資訊顯示
-- AI 摘要按鈕
-- 模式選擇面板
-- 設置連結
+### Streaming 輸出
 
-3. 底部區域
+`Summarize` 與 `Generate` 都使用 streaming：
 
-- 版本資訊
-- Logo 顯示
+- `engine.chat.completions.create({ stream: true, ... })`
+- 逐段把 `delta.content` append 到 output
+- `Stop` 會呼叫 `engine.interruptGenerate()`
 
-### 關鍵 UI 元素
+## Safari 特殊相容（safari-web-extension://）
 
-1. AI 摘要按鈕
+Safari extension 的資源 URL 通常是 `safari-web-extension://...`。
 
-```html
-<div
-  id="SendRunSummaryMessage"
-  class="mainButton clickListen"
-  data-function="sendRunSummaryMessage"
-></div>
-```
+WebLLM 在某些 Cache API 路徑會對非 http(s) URL 丟出：
 
-2. 模式選擇框
+`TypeError: Request url is not HTTP/HTTPS`
 
-- Mini icon 模式
-- Hidden 模式
+本專案已在 vendored `Shared (Extension)/Resources/webllm/webllm.js` 內做 workaround（避免 Cache API + `new Request(url)` 對非 http(s) URL），若你更新 WebLLM runtime 記得保留此 patch。
 
-```html
-<div class="flexCenter gap10">
-  <div id="ModeMiniIconBox" class="modeSelectBox">...</div>
-  <div id="ModeHiddenBox" class="modeSelectBox">...</div>
-</div>
-```
+## 如何繼續開發
 
-### 特殊效果
-
-1. 跳躍動畫
-
-```css
-@keyframes jump {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
-  100% {
-    transform: translateY(0);
-  }
-}
-```
-
-## JavaScript 功能 (popup.js)
-
-### 核心功能
-
-1. 訊息傳遞
-
-```javascript
-function sendMessageToContent(message) {
-  browser.tabs.query({ active: true }).then(function (currentTabs) {
-    if (currentTabs[0].id >= 0) {
-      browser.tabs.sendMessage(currentTabs[0].id, message);
-    }
-  });
-}
-```
-
-2. 事件監聽器綁定
-
-```javascript
-function addClickListeners() {
-  const buttons = document.querySelectorAll(".clickListen");
-  buttons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const functionName = button.getAttribute("data-function");
-      // 動態執行對應函數
-    });
-  });
-}
-```
-
-### 主要功能模組
-
-1. API 配置管理
-
-```javascript
-function saveAPIConfig() {
-  (async () => {
-    let url = document.querySelector("#APIURL").value;
-    let key = document.querySelector("#APIKEY").value;
-    let model = document.querySelector("#APIMODEL").value;
-    // 保存 API 配置
-  })();
-}
-```
-
-2. 顯示模式控制
-
-```javascript
-function selectMode(modeName) {
-  saveData("AppMODE", modeName);
-  sendMessageToContent("setMode");
-}
-```
-
-3. 狀態管理
-
-```javascript
-function setupStatus() {
-  // 檢查 API 配置
-  // 測試 API 連接
-  // 更新狀態顯示
-}
-```
-
-### 平台適配
-
-```javascript
-function setPlatformClassToBody() {
-  if (isIOS()) {
-    document.body.classList.add("ios");
-  } else if (isMacOS()) {
-    document.body.classList.add("macos");
-  } else {
-    document.body.classList.add("other-platform");
-  }
-}
-```
-
-## 交互流程
-
-1. 初始化
-
-- 加載模式設置
-- 設置按鈕監聽器
-- 檢查 API 狀態
-- 設置平台相關樣式
-
-2. 用戶操作
-
-- 點擊 AI 摘要按鈕
-- 切換顯示模式
-- 配置 API 設置
-- 查看當前狀態
-
-3. 狀態反饋
-
-- API 狀態指示
-- 模式選擇反饋
-- 錯誤提示
-
-## 技術特點
-
-1. 動態函數調用
-2. 異步操作處理
-3. 平台自適應
-4. 模組化設計
-5. 響應式 UI
-
-## 依賴項
-
-- browser API
-- contentGPT.js
-- popup.css
+- 修改摘要 prompt：調整 `Shared (Extension)/Resources/webllm/popup.js` 的 `buildSummaryMessages(...)`
+- 長文策略：改成 chunk + reduce（避免目前單次截斷）
+- 模型切換：更新 `MODEL_ID` / `WASM_FILE` 與 `getLocalAppConfig(...)`，並同步調整 `webllm-assets/` 下載與 layout
