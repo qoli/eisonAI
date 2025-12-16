@@ -24,6 +24,8 @@
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
 		EA7726702BC5B6B3005A194D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = EA7726272BC5B6B3005A194D /* _locales */; };
 		EA7726722BC5B6B3005A194D /* images in Resources */ = {isa = PBXBuildFile; fileRef = EA7726282BC5B6B3005A194D /* images */; };
+		EA0278213DC3F61993F76C75 /* webllm in Resources */ = {isa = PBXBuildFile; fileRef = EA233CDB0BB9C50619870079 /* webllm */; };
+		EAABBF4275B22294E241D37A /* webllm-assets in Resources */ = {isa = PBXBuildFile; fileRef = EA15C09267F344141676CD68 /* webllm-assets */; };
 		EA7726742BC5B6B3005A194D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = EA7726292BC5B6B3005A194D /* manifest.json */; };
 		EA7726762BC5B6B3005A194D /* background.js in Resources */ = {isa = PBXBuildFile; fileRef = EA77262A2BC5B6B3005A194D /* background.js */; };
 		EA7726782BC5B6B3005A194D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = EA77262B2BC5B6B3005A194D /* content.js */; };
@@ -77,6 +79,8 @@
 		EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		EA7726272BC5B6B3005A194D /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; path = _locales; sourceTree = "<group>"; };
 		EA7726282BC5B6B3005A194D /* images */ = {isa = PBXFileReference; lastKnownFileType = folder; path = images; sourceTree = "<group>"; };
+		EA233CDB0BB9C50619870079 /* webllm */ = {isa = PBXFileReference; lastKnownFileType = folder; path = webllm; sourceTree = "<group>"; };
+		EA15C09267F344141676CD68 /* webllm-assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "webllm-assets"; sourceTree = "<group>"; };
 		EA7726292BC5B6B3005A194D /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
 		EA77262A2BC5B6B3005A194D /* background.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = background.js; sourceTree = "<group>"; };
 		EA77262B2BC5B6B3005A194D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
@@ -172,6 +176,8 @@
 				EA7726A82BC5B91C005A194D /* contentMarked.js */,
 				EA7726A62BC5B91C005A194D /* contentReadability.js */,
 				EA7726282BC5B6B3005A194D /* images */,
+				EA233CDB0BB9C50619870079 /* webllm */,
+				EA15C09267F344141676CD68 /* webllm-assets */,
 				EA7726292BC5B6B3005A194D /* manifest.json */,
 				EA77262D2BC5B6B3005A194D /* popup.css */,
 				EA77262C2BC5B6B3005A194D /* popup.html */,
@@ -320,6 +326,8 @@
 				EA77267C2BC5B6B3005A194D /* popup.css in Resources */,
 				EA77267A2BC5B6B3005A194D /* popup.html in Resources */,
 				EA7726722BC5B6B3005A194D /* images in Resources */,
+				EA0278213DC3F61993F76C75 /* webllm in Resources */,
+				EAABBF4275B22294E241D37A /* webllm-assets in Resources */,
 				EA7726A92BC5B91D005A194D /* contentGPT.js in Resources */,
 				EA7726742BC5B6B3005A194D /* manifest.json in Resources */,
 				EA7726702BC5B6B3005A194D /* _locales in Resources */,
