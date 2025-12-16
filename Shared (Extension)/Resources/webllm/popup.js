@@ -778,22 +778,24 @@ shareEl?.addEventListener("click", async (event) => {
 
   try {
     const tab = await getActiveTab().catch(() => null);
-    const url = tab?.url ? String(tab.url) : undefined;
+    const url = tab?.url ? String(tab.url) : "";
+    const httpUrl = url && url.startsWith("http") ? url : "";
+    const shareText = httpUrl ? `${text}\n\n${httpUrl}` : text;
 
     if (typeof globalThis.navigator?.share === "function") {
+      const shareData = { text: shareText };
+      // if (httpUrl) shareData.url = httpUrl;
+      // 不能傳遞 URL，會導致文本信息消失
       try {
-        const shareData = { text };
-        if (url && url.startsWith("http")) shareData.url = url;
         await globalThis.navigator.share(shareData);
-        setStatus("已開啟分享面板", 1);
-        return;
-      } catch (err) {
-        console.warn("[WebLLM Demo] navigator.share failed, fallback to copy:", err);
+      } catch {
+        // Ignore share cancellations / platform rejections.
       }
+      return;
     }
 
-    await copyToClipboard(text);
-    setStatus("已複製摘要內容", 1);
+    await copyToClipboard(shareText);
+    setStatus("已複製摘要與連結", 1);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }

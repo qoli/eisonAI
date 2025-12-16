@@ -13,7 +13,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --surface: rgba(255, 255, 255, 0.06);
-    --surface-solid: rgb(32, 32, 32, 1);
+    --surface-solid: rgb(32, 32, 32, 0.5);
     --surface-transparent: rgba(255, 255, 255, 0);
     --text: rgba(255, 255, 255, 0.92);
     --muted: rgba(255, 255, 255, 0.6);
@@ -98,10 +98,10 @@ progress::-webkit-progress-value {
   flex: 1;
 }
 
-.link {
+.link,
+#input-tokens {
   font-size: 11px;
   color: var(--link);
-  text-decoration: underline;
 }
 
 .container {
@@ -162,6 +162,8 @@ progress::-webkit-progress-value {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   margin: 10px 6px;
+  align-items: flex-start !important;
+  line-height: 1em;
 }
 
 .legacy-hidden {
