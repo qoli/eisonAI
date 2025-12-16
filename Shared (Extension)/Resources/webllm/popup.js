@@ -339,6 +339,8 @@ let engineLoading = false;
 let cachedUserPrompt = "";
 let preparedMessagesForTokenEstimate = [];
 let autoSummarizeStarted = false;
+let autoSummarizeRunning = false;
+let autoSummarizeQueued = false;
 
 modelSelect.appendChild(new Option(MODEL_ID, MODEL_ID));
 modelSelect.value = MODEL_ID;
@@ -364,6 +366,34 @@ let systemPrompt = DEFAULT_SYSTEM_PROMPT;
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitUntil(predicate, { timeoutMs = 8000, intervalMs = 50 } = {}) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate()) return true;
+    await delay(intervalMs);
+  }
+  return Boolean(predicate());
+}
+
+async function stopGenerationForRestart() {
+  if (!engine || !generating) return true;
+  try {
+    generationInterrupted = true;
+    engine.interruptGenerate();
+    setStatus("Stopping…");
+  } catch (err) {
+    if (isTokenizerDeletedBindingError(err)) {
+      setStatus("Tokenizer crashed, restarting…", 0);
+      await recoverEngine(err);
+      return true;
+    }
+    setStatus(err?.message ? String(err.message) : String(err));
+    return false;
+  }
+
+  return waitUntil(() => !generating, { timeoutMs: 10000, intervalMs: 50 });
 }
 
 async function refreshSystemPromptFromNative() {
@@ -585,47 +615,82 @@ async function streamChatWithRecovery(messages, { retry = true } = {}) {
   }
 }
 
-async function autoSummarizeActiveTab() {
-  if (autoSummarizeStarted) return;
-  autoSummarizeStarted = true;
-
-  loadButton.disabled = true;
-  modelSelect.disabled = true;
-  await refreshSystemPromptFromNative();
-  setStatus("Reading page…", 0);
-  const ctx = await prepareSummaryContextWithRetry();
-  if (!ctx) {
-    setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
-    setShareVisible(false);
-    setThink("");
-    setOutput(NO_SUMMARY_TEXT_MESSAGE);
-    loadButton.disabled = false;
-    modelSelect.disabled = false;
+async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
+  if (autoSummarizeRunning) {
+    if (force || restart) {
+      autoSummarizeQueued = true;
+      if (restart) {
+        stopGenerationForRestart().catch((err) => {
+          console.warn("[WebLLM Demo] stopGenerationForRestart failed:", err);
+        });
+      }
+    }
     return;
   }
 
-  if (!engine) {
+  if (autoSummarizeStarted && !force) return;
+  autoSummarizeStarted = true;
+  autoSummarizeRunning = true;
+  autoSummarizeQueued = false;
+
+  try {
+    if (restart) {
+      const stopped = await stopGenerationForRestart();
+      if (!stopped) return;
+    }
+
     loadButton.disabled = true;
     modelSelect.disabled = true;
+    await refreshSystemPromptFromNative();
+    setStatus("Reading page…", 0);
     setShareVisible(false);
     setThink("");
     setOutput("");
-    try {
-      await loadEngine(modelSelect.value);
-    } catch (err) {
-      setStatus(err?.message ? String(err.message) : String(err), 0);
-      enableControls(false);
-      return;
-    } finally {
-      loadButton.disabled = false;
-      modelSelect.disabled = false;
-    }
-  }
 
-  try {
-    await streamChatWithRecovery(buildSummaryMessages(ctx));
-  } catch (err) {
-    setStatus(err?.message ? String(err.message) : String(err));
+    const ctx = await prepareSummaryContextWithRetry();
+    if (!ctx) {
+      setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
+      setShareVisible(false);
+      setThink("");
+      setOutput(NO_SUMMARY_TEXT_MESSAGE);
+      return;
+    }
+
+    if (!engine) {
+      loadButton.disabled = true;
+      modelSelect.disabled = true;
+      setShareVisible(false);
+      setThink("");
+      setOutput("");
+      try {
+        await loadEngine(modelSelect.value);
+      } catch (err) {
+        setStatus(err?.message ? String(err.message) : String(err), 0);
+        enableControls(false);
+        return;
+      } finally {
+        loadButton.disabled = false;
+        modelSelect.disabled = false;
+      }
+    }
+
+    try {
+      await streamChatWithRecovery(buildSummaryMessages(ctx));
+    } catch (err) {
+      setStatus(err?.message ? String(err.message) : String(err));
+    }
+  } finally {
+    autoSummarizeRunning = false;
+    loadButton.disabled = false;
+    modelSelect.disabled = false;
+
+    if (autoSummarizeQueued) {
+      autoSummarizeQueued = false;
+      autoSummarizeActiveTab({ force: true }).catch((err) => {
+        console.warn("[WebLLM Demo] autoSummarizeActiveTab queued run failed:", err);
+        setStatus(err?.message ? String(err.message) : String(err));
+      });
+    }
   }
 }
 
@@ -798,6 +863,20 @@ shareEl?.addEventListener("click", async (event) => {
     setStatus("已複製摘要與連結", 1);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
+  }
+});
+
+statusEl.addEventListener("click", () => {
+  autoSummarizeActiveTab({ force: true, restart: true }).catch((err) => {
+    console.warn("[WebLLM Demo] status click autoSummarizeActiveTab failed:", err);
+    setStatus(err?.message ? String(err.message) : String(err));
+  });
+});
+
+statusEl.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    statusEl.click();
   }
 });
 

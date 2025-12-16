@@ -95,7 +95,20 @@ progress::-webkit-progress-value {
   font-weight: 600;
   color: var(--text);
   flex: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 120ms ease, text-decoration-color 120ms ease;
 }
+
+.status:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--link);
+}
+
 
 .link,
 #input-tokens {
@@ -161,7 +174,7 @@ progress::-webkit-progress-value {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   margin: 10px 6px;
-  align-items: flex-start !important;
+  align-items: first baseline !important;
   line-height: 1em;
 }
 
@@ -171,4 +184,8 @@ progress::-webkit-progress-value {
 
 .flex1 {
   flex: 1;
+}
+
+.hideScrollbar::-webkit-scrollbar {
+  display: none; /* Safari / Chrome */
 }
