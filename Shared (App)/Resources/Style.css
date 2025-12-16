@@ -17,12 +17,14 @@ html {
 body {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     flex-direction: column;
 
     gap: var(--spacing);
     margin: 0 calc(var(--spacing) * 2);
     height: 100%;
+    overflow-y: auto;
+    padding: var(--spacing) 0;
 
     font: -apple-system-short-body;
     text-align: center;
@@ -59,4 +61,50 @@ body.state-off :is(.state-on, .state-unknown) {
 
 button {
     font-size: 1em;
+    cursor: pointer;
+}
+
+.prompt-editor {
+    width: 100%;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    box-sizing: border-box;
+}
+
+.prompt-title {
+    margin: 0;
+    font-size: 1.05em;
+}
+
+.row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+textarea#system-prompt {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    font: -apple-system-body;
+    line-height: 1.3;
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+}
+
+button.secondary {
+    opacity: 0.9;
 }

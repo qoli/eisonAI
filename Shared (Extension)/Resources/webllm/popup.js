@@ -188,11 +188,8 @@ async function getArticleTextFromContentScript() {
   return { title: resp.title ?? "", text: resp.body ?? "", url: tab.url ?? "" };
 }
 
-const SUMMARY_SYSTEM_PROMPT =
-  "你是一個網頁總結助手，請執行網頁總結任務。\n只需要輸出簡短的摘要內容，以繁體中文輸出。";
-
 function buildSummaryUserPrompt({ title, text, url }) {
-  const clippedText = clampText(text, 14000);
+  const clippedText = clampText(text, 15000);
   return [
     "請摘要以下網頁內容：",
     "",
@@ -203,7 +200,7 @@ function buildSummaryUserPrompt({ title, text, url }) {
 }
 
 function buildSummaryMessages({ title, text, url }) {
-  const system = SUMMARY_SYSTEM_PROMPT;
+  const system = systemPrompt;
   const user = buildSummaryUserPrompt({ title, text, url });
 
   return [
@@ -235,8 +232,44 @@ function hasReadableBodyText(text) {
   return Boolean(String(text ?? "").trim());
 }
 
+const DEFAULT_SYSTEM_PROMPT =
+  "你是一個資料整理員。\n\nSummarize this post in 3-4 sentences.\nEmphasize the key insights and main takeaways.\n\n以繁體中文輸出。";
+
+let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function refreshSystemPromptFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    return systemPrompt;
+  }
+
+  try {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "getSystemPrompt",
+    });
+
+    const prompt =
+      resp?.payload?.prompt ??
+      resp?.prompt ??
+      resp?.echo?.payload?.prompt ??
+      resp?.echo?.prompt;
+
+    if (typeof prompt === "string" && prompt.trim()) {
+      systemPrompt = prompt;
+    } else {
+      systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    }
+  } catch (err) {
+    systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    console.warn("[WebLLM Demo] Failed to load system prompt from native:", err);
+  }
+
+  return systemPrompt;
 }
 
 async function prepareSummaryContext() {
@@ -374,6 +407,7 @@ async function autoSummarizeActiveTab() {
 
   loadButton.disabled = true;
   modelSelect.disabled = true;
+  await refreshSystemPromptFromNative();
   setStatus("Reading page…", 0);
   const ctx = await prepareSummaryContextWithRetry();
   if (!ctx) {
@@ -441,10 +475,11 @@ stopButton.addEventListener("click", () => {
 
 copySystemButton?.addEventListener("click", async () => {
   try {
-    await copyToClipboard(SUMMARY_SYSTEM_PROMPT);
+    await refreshSystemPromptFromNative();
+    await copyToClipboard(systemPrompt);
     setStatus("已複製系統提示詞");
   } catch (err) {
-    setOutput(SUMMARY_SYSTEM_PROMPT);
+    setOutput(systemPrompt);
     setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
   }
 });
@@ -454,6 +489,7 @@ copyUserButton?.addEventListener("click", async () => {
     copyUserButton.disabled = true;
     try {
       setStatus("Preparing user prompt…");
+      await refreshSystemPromptFromNative();
       const ctx = await prepareSummaryContextWithRetry();
       if (!ctx) {
         setStatus(NO_SUMMARY_TEXT_MESSAGE, 0);
@@ -504,6 +540,7 @@ inputEl.addEventListener("input", () => {
 
 summarizeButton.addEventListener("click", async () => {
   try {
+    await refreshSystemPromptFromNative();
     setStatus("Reading page…", 0);
     const ctx = await prepareSummaryContextWithRetry();
     if (!ctx) {

@@ -5,6 +5,7 @@
 //  Created by 黃佁媛 on 2024/4/10.
 //
 
+import Foundation
 import WebKit
 import os.log
 
@@ -18,6 +19,17 @@ typealias PlatformViewController = NSViewController
 #endif
 
 let extensionBundleIdentifier = "com.qoli.eisonAI.Extension"
+let appGroupIdentifier = "group.com.qoli.eisonAI"
+let systemPromptKey = "eison.systemPrompt"
+
+let defaultSystemPrompt = """
+你是一個資料整理員。
+
+Summarize this post in 3-4 sentences.
+Emphasize the key insights and main takeaways.
+
+以繁體中文輸出。
+"""
 
 class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
@@ -29,7 +41,7 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         self.webView.navigationDelegate = self
 
 #if os(iOS)
-        self.webView.scrollView.isScrollEnabled = false
+        self.webView.scrollView.isScrollEnabled = true
 #endif
 
         self.webView.configuration.userContentController.add(self, name: "controller")
@@ -37,11 +49,51 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         self.webView.loadFileURL(Bundle.main.url(forResource: "Main", withExtension: "html")!, allowingReadAccessTo: Bundle.main.resourceURL!)
     }
 
+    private func sharedDefaults() -> UserDefaults? {
+        UserDefaults(suiteName: appGroupIdentifier)
+    }
+
+    private func loadSystemPrompt() -> String {
+        guard let stored = sharedDefaults()?.string(forKey: systemPromptKey) else {
+            return defaultSystemPrompt
+        }
+        if stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return defaultSystemPrompt
+        }
+        return stored
+    }
+
+    private func saveSystemPrompt(_ value: String?) {
+        guard let defaults = sharedDefaults() else { return }
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            defaults.removeObject(forKey: systemPromptKey)
+        } else {
+            defaults.set(trimmed, forKey: systemPromptKey)
+        }
+    }
+
+    private func sendSystemPromptToWebView(status: String? = nil) {
+        var payload: [String: Any] = ["prompt": loadSystemPrompt()]
+        if let status {
+            payload["status"] = status
+        }
+
+        guard
+            let data = try? JSONSerialization.data(withJSONObject: payload, options: []),
+            let json = String(data: data, encoding: .utf8)
+        else { return }
+
+        webView.evaluateJavaScript("setSystemPromptFromNative(\(json))")
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
 #if os(iOS)
         webView.evaluateJavaScript("show('ios')")
+        sendSystemPromptToWebView()
 #elseif os(macOS)
         webView.evaluateJavaScript("show('mac')")
+        sendSystemPromptToWebView()
 
         SFSafariExtensionManager.getStateOfSafariExtension(withIdentifier: extensionBundleIdentifier) { (state, error) in
             guard let state = state, error == nil else {
@@ -76,6 +128,23 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
             }
 #endif
             return
+        }
+
+        guard
+            let dict = message.body as? [String: Any],
+            let command = dict["command"] as? String
+        else { return }
+
+        switch command {
+        case "setSystemPrompt":
+            let prompt = dict["prompt"] as? String
+            saveSystemPrompt(prompt)
+            sendSystemPromptToWebView(status: "Saved.")
+        case "resetSystemPrompt":
+            saveSystemPrompt(nil)
+            sendSystemPromptToWebView(status: "Reset to default.")
+        default:
+            os_log(.default, "[Eison-App] Unknown command: %@", command)
         }
     }
 

@@ -80,7 +80,9 @@ popup/worker 內會 `console.log`（例如 model/wasm URL、載入進度等）�
 
 ### 6.1 修改摘要 prompt
 
-在 `Shared (Extension)/Resources/webllm/popup.js` 的 `buildSummaryMessages(...)` 修改 system/user prompt。
+- 預設 system prompt：`Shared (Extension)/Resources/webllm/popup.js` 的 `DEFAULT_SYSTEM_PROMPT`
+- popup 會先透過 native messaging（`browser.runtime.sendNativeMessage`）讀取主 App 設定；若未設定則使用預設值
+- user prompt（正文格式/截斷策略）：`Shared (Extension)/Resources/webllm/popup.js` 的 `buildSummaryUserPrompt(...)`
 
 ### 6.2 修改 chat template（MLC conv_template）
 
@@ -116,7 +118,7 @@ WebLLM/MLC 會從模型目錄的 `mlc-chat-config.json` 讀取 `conv_template` �
 ## 7) 與舊架構的差異（避免走回頭路）
 
 - 舊的 `settings` / 遠端 API / native messaging 推理已移除。
-- `SafariWebExtensionHandler.swift` 只保留 stub（不做推理、不做下載）。
+- `SafariWebExtensionHandler.swift` 只用於輕量設定（例如 system prompt），不做推理、不做下載。
 
 ## 8) 延伸閱讀
 
