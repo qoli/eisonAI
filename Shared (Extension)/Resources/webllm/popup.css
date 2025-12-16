@@ -13,7 +13,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --surface: rgba(255, 255, 255, 0.06);
-    --surface-solid: rgba(255, 255, 255, 0.06);
+    --surface-solid: rgb(32, 32, 32, 1);
     --surface-transparent: rgba(255, 255, 255, 0);
     --text: rgba(255, 255, 255, 0.92);
     --muted: rgba(255, 255, 255, 0.6);
@@ -128,23 +128,26 @@ progress::-webkit-progress-value {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  height: 32px;
+  height: 24px;
   overflow-y: auto;
   color: var(--muted);
   border-radius: 16px;
 }
 
 .fade-overlay {
+  border-radius: 16px;
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 56px;
+  bottom: 1px;
+  height: 48px;
   pointer-events: none;
   z-index: 10;
   background: linear-gradient(
     to bottom,
-    var(--surface-solid) 0% var(--surface-transparent) 50%,
+    var(--surface-solid) 0%,
+    var(--surface-transparent) 30%,
+    var(--surface-transparent) 70%,
     var(--surface-solid) 100%
   );
 }

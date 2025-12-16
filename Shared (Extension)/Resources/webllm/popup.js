@@ -52,9 +52,9 @@ function setThink(text) {
   }
 }
 
-function setShareVisible(visible) {
+function setShareVisible(_visible) {
   if (!shareEl) return;
-  shareEl.hidden = !visible;
+  shareEl.hidden = false;
 }
 
 const THINK_OPEN_TAG = "<think>";
@@ -772,7 +772,7 @@ shareEl?.addEventListener("click", async (event) => {
 
   const text = String(outputEl?.textContent ?? "").trim();
   if (!text || text === NO_SUMMARY_TEXT_MESSAGE) {
-    setShareVisible(false);
+    setStatus("沒有可分享的內容", 1);
     return;
   }
 
