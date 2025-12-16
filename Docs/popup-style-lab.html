@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EisonAI Popup Style Lab</title>
-    <!--
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EisonAI Popup Style Lab</title>
+  <!--
       Style playground for the Safari extension popup.
 
       - No Safari extension APIs
@@ -17,22 +18,52 @@
       If you want to prototype overrides without touching the real popup,
       put CSS into the <style id="lab-overrides"> block below, then port it back.
     -->
-    <link rel="stylesheet" href="./popup-style-lab.css" />
-    <style id="lab-overrides">
-      /* Lab-only overrides (optional) */
-    </style>
-  </head>
+  <link rel="stylesheet" href="./popup-style-lab.css" />
+  <style id="lab-overrides">
+    /* Lab-only overrides (optional) */
+  </style>
+</head>
 
-  <body>
-    <header class="header">
-      <div class="row">
-        <div id="status" class="status">Ready</div>
-        <progress id="progress" value="1" max="1"></progress>
-      </div>
-    </header>
+<body>
+  <header class="header">
+    <div class="row">
 
-    <pre id="output" class="output">
-這篇文章整理了在瀏覽器內執行本機 AI 的核心考量，包含模型載入方式、推理執行環境與效能/記憶體限制。作者強調將推理放進 WebWorker，能避免阻塞 UI 並提升互動體驗，同時需留意 WebGPU 可用性與裝置資源上限。文中指出資源載入與快取策略會直接影響可用性，建議採用預先打包 assets 與更穩健的錯誤復原流程。整體結論是：只要管線與隔離做得好，行動裝置也能提供實用的 in-browser AI 體驗。</pre
-    >
-  </body>
+      <div id="status" class="status">Ready</div>
+
+      <!-- 當 LLM 完成輸出，才顯示 Share 按鈕-->
+      <a class="link" href="#share">Share</a>
+
+      <div class="block"></div>
+
+      <progress id="progress" value="1" max="1"></progress>
+
+    </div>
+
+  </header>
+
+  <div class="container">
+    <!-- LLM Think output: -->
+    <pre id="think" class="output content">
+嗯，用户让我以繁体中文输出这个音频总结任务。首先，我需要确认用户的需求：他们要的是一个繁体中文的摘要或总结。
+
+接下来，我得仔细阅读音频内容。这是一段政治经济相关的对话，涉及多个政治人物和他们的观点。比如，George Parker和Anna Gross讨论了英国经济政策，特别是2025年预算的影响。
+
+用户可能希望我总结这些讨论的重点。需要识别出主要话题：经济政策、财政责任、就业和福利政策的变化，以及外部竞争的反应。同时，要确保翻译准确，并保持专业性。
+
+另外，要注意时间线和关键点的概括。例如，预算执行的问题、市场反应以及后续的领导挑战等。可能需要将每个主要话题简明扼要地总结出来，突出关键信息。
+
+最后，确保保持口语化和自然的中文表达，同时遵循用户的要求。这样用户就能得到一份结构清晰、内容全面的总结，用于他们的新闻报道或报告使用。</pre>
+
+    <div class="fade-overlay"></div>
+  </div>
+
+  <div class="linearGradient"></div>
+
+  <!-- LLM output(after think): -->
+  <pre id="output" class="output">
+這篇文章整理了在瀏覽器內執行本機 AI 的核心考量，包含模型載入方式、推理執行環境與效能/記憶體限制。作者強調將推理放進 WebWorker，能避免阻塞 UI 並提升互動體驗，同時需留意 WebGPU 可用性與裝置資源上限。文中指出資源載入與快取策略會直接影響可用性，建議採用預先打包 assets 與更穩健的錯誤復原流程。整體結論是：只要管線與隔離做得好，行動裝置也能提供實用的 in-browser AI 體驗。</pre>
+
+  </div>
+</body>
+
 </html>
