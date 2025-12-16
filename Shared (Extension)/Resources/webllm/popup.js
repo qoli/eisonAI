@@ -40,6 +40,70 @@ function setOutput(text) {
   outputEl.textContent = text;
 }
 
+function getErrorMessage(err) {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (typeof err?.message === "string") return err.message;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+function isTokenizerDeletedBindingError(err) {
+  const msg = getErrorMessage(err);
+  return (
+    msg.includes("Cannot pass deleted object as a pointer") &&
+    (msg.includes("Tokenizer") || msg.includes("Tokenizer*"))
+  );
+}
+
+let recoverPromise = null;
+
+function hardResetEngineState() {
+  generating = false;
+  try {
+    worker?.terminate();
+  } catch (err) {
+    console.warn("[WebLLM Demo] Failed to terminate worker:", err);
+  }
+  worker = null;
+  engine = null;
+  enableControls(false);
+  stopButton.disabled = true;
+  unloadButton.disabled = true;
+}
+
+async function recoverEngine(err) {
+  if (recoverPromise) return recoverPromise;
+  if (engineLoading) {
+    console.warn("[WebLLM Demo] Skip recovery while engine is loading:", err);
+    return;
+  }
+
+  recoverPromise = (async () => {
+    console.warn("[WebLLM Demo] Recovering engine due to error:", err);
+    setStatus("Engine crashed, restarting…", 0);
+    hardResetEngineState();
+
+    loadButton.disabled = true;
+    modelSelect.disabled = true;
+    try {
+      await loadEngine(modelSelect.value);
+    } finally {
+      loadButton.disabled = false;
+      modelSelect.disabled = false;
+    }
+  })();
+
+  try {
+    await recoverPromise;
+  } finally {
+    recoverPromise = null;
+  }
+}
+
 const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
 
 function estimateTokensFromText(text) {
@@ -212,6 +276,7 @@ function buildSummaryMessages({ title, text, url }) {
 let engine = null;
 let worker = null;
 let generating = false;
+let engineLoading = false;
 let cachedUserPrompt = "";
 let preparedMessagesForTokenEstimate = [];
 let autoSummarizeStarted = false;
@@ -310,11 +375,35 @@ async function prepareSummaryContextWithRetry({ retries = 1, retryDelayMs = 250 
   return ctx;
 }
 
+function installWorkerCrashHandlers(currentWorker) {
+  currentWorker.addEventListener("error", (event) => {
+    const err = event?.error ?? new Error(event?.message ?? "Worker error");
+    console.warn("[WebLLM Demo] Worker error:", err);
+    if (engineLoading) return;
+    recoverEngine(err).catch((recoverErr) => {
+      console.warn("[WebLLM Demo] Failed to recover after worker error:", recoverErr);
+    });
+  });
+
+  currentWorker.addEventListener("messageerror", (event) => {
+    console.warn("[WebLLM Demo] Worker messageerror:", event);
+    if (engineLoading) return;
+    recoverEngine(new Error("Worker messageerror")).catch((recoverErr) => {
+      console.warn("[WebLLM Demo] Failed to recover after worker messageerror:", recoverErr);
+    });
+  });
+}
+
 async function loadEngine(modelId) {
   if (!hasWebGPU()) {
     throw new Error("WebGPU is unavailable in this environment.");
   }
 
+  if (engineLoading) {
+    throw new Error("Engine is already loading.");
+  }
+
+  engineLoading = true;
   setStatus("Creating worker…", 0);
   worker?.terminate();
   try {
@@ -322,19 +411,32 @@ async function loadEngine(modelId) {
       type: "module",
     });
   } catch (err) {
+    engineLoading = false;
     throw new Error(
       `Worker init failed: ${err?.message ? String(err.message) : String(err)}`,
     );
   }
 
-  setStatus("Loading model…", 0);
-  engine = await CreateWebWorkerMLCEngine(worker, modelId, {
-    initProgressCallback,
-    appConfig: getLocalAppConfig(modelId),
-  });
+  installWorkerCrashHandlers(worker);
 
-  enableControls(true);
-  setStatus("Ready", 1);
+  try {
+    setStatus("Loading model…", 0);
+    engine = await CreateWebWorkerMLCEngine(worker, modelId, {
+      initProgressCallback,
+      appConfig: getLocalAppConfig(modelId),
+    });
+
+    enableControls(true);
+    setStatus("Ready", 1);
+  } catch (err) {
+    engine = null;
+    worker?.terminate();
+    worker = null;
+    enableControls(false);
+    throw err;
+  } finally {
+    engineLoading = false;
+  }
 }
 
 async function unloadEngine() {
@@ -401,6 +503,19 @@ async function streamChat(messages) {
   }
 }
 
+async function streamChatWithRecovery(messages, { retry = true } = {}) {
+  try {
+    await streamChat(messages);
+  } catch (err) {
+    if (retry && isTokenizerDeletedBindingError(err)) {
+      setStatus("Tokenizer crashed, restarting…", 0);
+      await recoverEngine(err);
+      return streamChatWithRecovery(messages, { retry: false });
+    }
+    throw err;
+  }
+}
+
 async function autoSummarizeActiveTab() {
   if (autoSummarizeStarted) return;
   autoSummarizeStarted = true;
@@ -435,7 +550,7 @@ async function autoSummarizeActiveTab() {
   }
 
   try {
-    await streamChat(buildSummaryMessages(ctx));
+    await streamChatWithRecovery(buildSummaryMessages(ctx));
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }
@@ -467,10 +582,19 @@ unloadButton.addEventListener("click", async () => {
 
 clearButton.addEventListener("click", () => setOutput(""));
 
-stopButton.addEventListener("click", () => {
+stopButton.addEventListener("click", async () => {
   if (!engine || !generating) return;
-  engine.interruptGenerate();
-  setStatus("Stopping…");
+  try {
+    engine.interruptGenerate();
+    setStatus("Stopping…");
+  } catch (err) {
+    if (isTokenizerDeletedBindingError(err)) {
+      setStatus("Tokenizer crashed, restarting…", 0);
+      await recoverEngine(err);
+      return;
+    }
+    setStatus(err?.message ? String(err.message) : String(err));
+  }
 });
 
 copySystemButton?.addEventListener("click", async () => {
@@ -521,7 +645,7 @@ runButton.addEventListener("click", async () => {
     }
     preparedMessagesForTokenEstimate = [{ role: "user", content: prompt }];
     setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
-    await streamChat([{ role: "user", content: prompt }]);
+    await streamChatWithRecovery([{ role: "user", content: prompt }]);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }
@@ -548,10 +672,28 @@ summarizeButton.addEventListener("click", async () => {
       setOutput(NO_SUMMARY_TEXT_MESSAGE);
       return;
     }
-    await streamChat(buildSummaryMessages(ctx));
+    await streamChatWithRecovery(buildSummaryMessages(ctx));
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }
+});
+
+globalThis.addEventListener("unhandledrejection", (event) => {
+  if (!isTokenizerDeletedBindingError(event?.reason)) return;
+  console.warn("[WebLLM Demo] Unhandled tokenizer BindingError:", event.reason);
+  event?.preventDefault?.();
+  recoverEngine(event.reason).catch((err) => {
+    console.warn("[WebLLM Demo] Failed to recover after unhandled rejection:", err);
+  });
+});
+
+globalThis.addEventListener("error", (event) => {
+  const err = event?.error ?? event?.message;
+  if (!isTokenizerDeletedBindingError(err)) return;
+  console.warn("[WebLLM Demo] Tokenizer BindingError:", err);
+  recoverEngine(err).catch((recoverErr) => {
+    console.warn("[WebLLM Demo] Failed to recover after error event:", recoverErr);
+  });
 });
 
 autoSummarizeActiveTab().catch((err) => {
