@@ -1,79 +1,23 @@
-# TODO / 里程碑進度
+# TODO：WebLLM Popup 方案（Safari iOS Extension）
 
-> 目標：讓 Codex 可「一次性」把開發推到可用里程碑；此檔作為進度與待決事項的單一來源。
+## ✅ 已完成
 
-## 狀態總覽
+- ✅ Extension popup 改用 WebLLM（`webllm/popup.*` + `webllm/worker.js`）。
+- ✅ 模型與 wasm 以 **extension bundle assets** 提供（`Shared (Extension)/Resources/webllm-assets/`），popup 不做 runtime 下載。
+- ✅ CSP 調整允許 wasm/worker（`manifest.json` 同時提供 `extension_page` / `extension_pages`）。
+- ✅ Safari `safari-web-extension://` scheme 相容：修正 `Request url is not HTTP/HTTPS`（`webllm/webllm.js` 對非 http(s) URL 避免走 Cache API）。
+- ✅ 移除 native messaging 推理 / 模型下載管線（專案全面轉向 WebLLM）。
 
-- ✅ M1：Readability 擷取 → Native 回傳原文（echo）→ Popup 顯示
-- ✅ M2：模型下載（App）+ 模型狀態（Extension）+ 未就緒提示
-- ⏭️ M3：真正使用本地模型產生摘要（Qwen3 MLX 4bit）（已實作 M3a 非串流，待 iOS Safari E2E 驗證）
-- ⏸️ M10（未來）：Share Extension + App Intent
+## 🔜 下一步
 
-## M1（已完成）
-
-- ✅ Extension：`content.js` 只做 Readability 擷取
-- ✅ Extension：`popup.js` 直接呼叫 native `summarize.start`（避免 Safari MV3 `background.service_worker` 的 native messaging 不穩）
-- ✅ Native：`SafariWebExtensionHandler.swift` 在 M1 以 echo mode 回傳正文
-- ✅ UI：`popup.js` 顯示狀態與結果；移除 `contentGPT.js` fallback 與 settings 面板引用
-
-## M2（已完成）
-
-- ✅ App Group：`group.com.qoli.eisonAI`（App / iOS Extension entitlements 已更新）
-- ✅ 模型固定 revision：`75429955681c1850a9c8723767fe4252da06eb57`
-- ✅ 模型下載與落盤：`iOS (App)/ModelDownloadManager.swift`
-  - ✅ 修正 CFNetworkDownload tmp 檔案搬移時機（必須在 `didFinishDownloadingTo` 內 move）
-- ✅ App 最小 UI：只提供下載按鈕與進度/狀態（WebView UI）
-- ✅ Extension gating：
-  - ✅ `model.getStatus` 顯示 `notInstalled/downloading/verifying/ready/failed`
-  - ✅ `MODEL_NOT_READY` 提示使用者打開 App 下載模型
-- ✅ 修正 `popup.js` 語法錯誤（避免 popup 直接白屏 / 顯示 `{Status Text}`）
-- ✅ App 端 LLM Ping 測試（WebView UI 內 `llm.ping` → 回傳結果顯示）
-- ✅ Qwen3 關閉 think：下載完成後 patch `tokenizer_config.json:chat_template`，讓模板永遠插入空 `<think></think>`（等價於 vLLM `enable_thinking=false`）
-
-## M3（下一步：本地推理產生摘要）
-
-### 3.1 需要先決策（缺的資料/決策）
-
-- [x] 推理 runtime：`AnyLanguageModel`
-- [x] `AnyLanguageModel`：本地 package reference（`../AnyLanguageModel`）
-- [x] 目標行為：先做「非串流一次性回傳」(M3a)
-- [x] 生成參數預設值（暫定）：`temperature=0.4`、`maxOutputTokens=512`（iOS 預設 256）
-- [ ] Prompt 預設內容：
-  - [ ] `APPSystemText`
-  - [ ] `APPPromptText`（user template；含 `{{title}}` / `{{text}}` 之類 placeholder）
-  - [x]（暫時）native 內建 fallback prompt（後續再改由 App 管理並落 App Group）
-
-### 3.2 主要工作項目
-
-- [x] Native 端產生摘要（M3a）：
-  - [x] `SafariWebExtensionHandler.swift`：改為 async，使用 `mlx-swift-lm`（`MLXLLM`/`MLXLMCommon`）從 App Group 模型目錄做本地推理
-  - [x] 產生符合 `eison.summary.v1` 格式輸出（`總結：` + `要點：`）
-  - [x] 長文保護：先用字元截斷（16k chars）避免 prompt 過大
-  - [x] iOS Simulator guard：避免 MLX/Metal 初始化 `abort` 造成 Safari 端 `sendNativeMessage` 報 `Could not acquire startup assertion`
-  - [x] Native inference timeout（iOS 25s / macOS 120s）+ iOS 輸入/輸出上限（6k chars / 256 tokens），降低 Safari 端「卡住/Invalid call」機率
-- [x] 使用 App Group 模型路徑載入 MLX 模型（repoId + revision）
-- [ ] 長文處理（chunk + reduce）：
-  - [ ] 先以字元長度 chunk（MVP），後續可改 tokenizer-based
-- [ ] Extension ↔︎ Native 串流：
-  - [ ] 先確認 iOS Safari `connectNative` 是否可用；否則走 `summarize.poll`
-  - [ ] `background.js` 支援 `stream/done/error` 並 forward 到 `popup.js`
-- [ ] 快取策略：
-  - [x] M3 恢復快取（`background.js` 會寫入 `Receipt*`；`popup.js` 會 cache）
-
-## M10（未來實現）
-
-- [ ] Share Extension（分享 URL/文字）→ 呼叫同一套 `LocalLLMService`
-- [ ] App Intent（Shortcuts）`SummarizeTextIntent` / `SummarizeURLIntent`
-- [ ] 每站客製 prompt（regex rule；根域名輸入是 regex 簡寫；不匹配子域名）
-
-## 已知風險 / 觀察
-
-- `swift-huggingface` 在 iOS 編譯會踩到 `homeDirectoryForCurrentUser`（因此 M2 已改用 `URLSession` 直接 resolve 下載）。
-- AnyLanguageModel 的 MLX 支援需要啟用 `MLX`（trait / build 設定）。
-- 目前用 local shim package `EisonAIKit` 來啟用 traits，並集中管理 MLX 相關依賴（避免 Xcode 無法直接設定 traits）。
-- iOS Simulator 上 MLX/Metal 初始化可能直接 `abort`；`llm.ping` 與 extension `summarize.*` 已加 guard，Simulator 會回傳「請用真機」錯誤避免崩潰（避免 Safari 端出現 `Could not acquire startup assertion`）。
-- Safari 對 `sendNativeMessage` 的錯誤回報不穩（常被包成 `Invalid call to runtime.sendNativeMessage()`）；popup 端對此類錯誤做重試，並在大 payload（`requestBytes > 8000`）時直接走 chunked（`summarize.begin/chunk/end`）。
-- `sendNativeMessage` 的 `applicationId`：目前固定使用 `application.id`（Apple sample 寫法）。
-- `sendNativeMessage` 可能不允許同時多筆未完成請求；popup 端已用 mutex 序列化 native 呼叫。
-- 若 popup 停留在「載入中... / `{Status Text}`」通常代表 `popup.js` 解析失敗（SyntaxError）；優先看 Safari Develop Console 的錯誤行號。
-- AnyLanguageModel README 提到 Xcode 26 + iOS 18/更早 可能會有 build bug（必要時改用 Xcode 16 toolchain）。
+- [ ] 長文處理：chunk + reduce（避免目前 `popup.js` 以字元截斷 6k 的資訊流失）。
+- [ ] popup UX：
+  - [ ] 顯示「目前頁面標題/URL」與截斷提示
+  - [ ] 加入「複製結果」/「一鍵清除」的小工具
+- [ ] WebGPU 不可用時的引導（Safari 設定/裝置限制提示）。
+- [ ] 開發流程：
+  - [ ] 在 `README.md` 加入「下載 assets」與「常見錯誤（CSP / WebGPU / 缺檔）」排障段落
+  - [ ] 在 `Scripts/download_webllm_assets.py` 加上缺檔校驗/輸出摘要（避免漏抓）
+- [ ] 可選清理：
+  - [ ] 若不再需要 App Group，移除 `iOS.entitlements` / `eisonAI Extension (iOS).entitlements` 的相關 capability
+  - [ ] 盤點並移除未使用的資源（icon/locale 除外）
