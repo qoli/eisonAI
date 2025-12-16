@@ -191,7 +191,7 @@ const SUMMARY_SYSTEM_PROMPT =
   "你是一個網頁總結助手，請執行網頁總結任務。\n只需要輸出簡短的摘要內容，以繁體中文輸出。";
 
 function buildSummaryUserPrompt({ title, text, url }) {
-  const clippedText = clampText(text, 10000);
+  const clippedText = clampText(text, 18000);
   return [
     "請摘要以下網頁內容：",
     "",
