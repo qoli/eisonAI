@@ -311,7 +311,7 @@ async function getArticleTextFromContentScript() {
 }
 
 function buildSummaryUserPrompt({ title, text, url }) {
-  const clippedText = clampText(text, 11000);
+  const clippedText = clampText(text, 8000);
   return [
     `${title || "(no title)"}`,
     `【正文】\n${clippedText || "(empty)"}`,
