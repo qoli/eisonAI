@@ -16,7 +16,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private let defaultSystemPrompt = """
 你是一個資料整理員。
 
-Summarize this post in 3-4 sentences.
+Summarize this post in 5-6 sentences.
 Emphasize the key insights and main takeaways.
 
 以繁體中文輸出。

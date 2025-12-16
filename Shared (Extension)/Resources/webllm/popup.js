@@ -357,7 +357,7 @@ function hasReadableBodyText(text) {
 }
 
 const DEFAULT_SYSTEM_PROMPT =
-  "你是一個資料整理員。\n\nSummarize this post in 3-4 sentences.\nEmphasize the key insights and main takeaways.\n\n以繁體中文輸出。";
+  "你是一個資料整理員。\n\nSummarize this post in 5-6 sentences.\nEmphasize the key insights and main takeaways.\n\n以繁體中文輸出。";
 
 let systemPrompt = DEFAULT_SYSTEM_PROMPT;
 
