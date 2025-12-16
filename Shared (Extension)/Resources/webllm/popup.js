@@ -157,7 +157,7 @@ const SUMMARY_SYSTEM_PROMPT = [
 ].join("\n");
 
 function buildSummaryUserPrompt({ title, text, url }) {
-  const clippedText = clampText(text, 6000);
+  const clippedText = clampText(text, 30000);
   return [
     "請摘要以下網頁內容：",
     "",
