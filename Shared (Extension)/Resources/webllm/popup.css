@@ -61,6 +61,7 @@ body {
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 label {
@@ -85,6 +86,12 @@ button {
   background: var(--btn);
   color: var(--btnText);
   cursor: pointer;
+}
+
+button.secondary {
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
 }
 
 button:disabled {
@@ -131,4 +138,3 @@ textarea {
   background: rgba(0, 0, 0, 0.18);
   min-height: 90px;
 }
-

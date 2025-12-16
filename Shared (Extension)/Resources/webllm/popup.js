@@ -11,6 +11,8 @@ const modelSelect = document.getElementById("model");
 const loadButton = document.getElementById("load");
 const unloadButton = document.getElementById("unload");
 const summarizeButton = document.getElementById("summarize");
+const copySystemButton = document.getElementById("copy-system");
+const copyUserButton = document.getElementById("copy-user");
 const clearButton = document.getElementById("clear");
 const runButton = document.getElementById("run");
 const stopButton = document.getElementById("stop");
@@ -46,6 +48,51 @@ function enableControls(loaded) {
 
 function initProgressCallback(report) {
   setStatus(report.text, report.progress);
+}
+
+function tryExecCommandCopy(value) {
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.readOnly = true;
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.left = "0";
+    textarea.style.width = "1px";
+    textarea.style.height = "1px";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    textarea.style.userSelect = "text";
+    textarea.style.webkitUserSelect = "text";
+    document.body.appendChild(textarea);
+
+    textarea.focus({ preventScroll: true });
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+
+    const ok = document.execCommand("copy");
+    textarea.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyToClipboard(text) {
+  const value = String(text ?? "");
+  if (!value) throw new Error("Nothing to copy.");
+
+  if (tryExecCommandCopy(value)) {
+    return { method: "execCommand" };
+  }
+
+  const clipboard = globalThis.navigator?.clipboard;
+  if (clipboard?.writeText) {
+    await clipboard.writeText(value);
+    return { method: "clipboard" };
+  }
+
+  throw new Error("Clipboard is unavailable in this environment.");
 }
 
 function getLocalAppConfig(modelId) {
@@ -98,26 +145,31 @@ async function getArticleTextFromContentScript() {
   return { title: resp.title ?? "", text: resp.body ?? "", url: tab.url ?? "" };
 }
 
-function buildSummaryMessages({ title, text, url }) {
-  const clippedText = clampText(text, 6000);
-  const system = [
-    "你是一個網頁文章摘要助手。請用繁體中文輸出，並嚴格遵守格式：",
-    "",
-    "總結：<一行>",
-    "要點：",
-    "- <每行一個要點，開頭請用 emoji>",
-    "",
-    "除了以上格式，不要輸出任何多餘文字。",
-    "禁止輸出任何推理過程或標籤（例如 <think>、<analysis>）。",
-  ].join("\n");
+const SUMMARY_SYSTEM_PROMPT = [
+  "你是一個網頁文章摘要助手。請用繁體中文輸出，並嚴格遵守格式：",
+  "",
+  "總結：<一行>",
+  "要點：",
+  "- <每行一個要點，開頭請用 emoji>",
+  "",
+  "除了以上格式，不要輸出任何多餘文字。",
+  "禁止輸出任何推理過程或標籤（例如 <think>、<analysis>）。",
+].join("\n");
 
-  const user = [
+function buildSummaryUserPrompt({ title, text, url }) {
+  const clippedText = clampText(text, 6000);
+  return [
     "請摘要以下網頁內容：",
     "",
     `【標題】\n${title || "(no title)"}`,
     `【URL】\n${url || "(no url)"}`,
     `【正文】\n${clippedText || "(empty)"}`,
   ].join("\n\n");
+}
+
+function buildSummaryMessages({ title, text, url }) {
+  const system = SUMMARY_SYSTEM_PROMPT;
+  const user = buildSummaryUserPrompt({ title, text, url });
 
   return [
     { role: "system", content: system },
@@ -128,6 +180,7 @@ function buildSummaryMessages({ title, text, url }) {
 let engine = null;
 let worker = null;
 let generating = false;
+let cachedUserPrompt = "";
 
 modelSelect.appendChild(new Option(MODEL_ID, MODEL_ID));
 modelSelect.value = MODEL_ID;
@@ -140,6 +193,18 @@ envEl.textContent = `WebGPU: ${hasWebGPU() ? "available" : "unavailable"} · Ass
 console.log("[WebLLM Demo] modelUrl =", demoModelUrl);
 console.log("[WebLLM Demo] wasmUrl  =", WASM_URL);
 enableControls(false);
+
+async function refreshCachedUserPrompt() {
+  try {
+    const ctx = await getArticleTextFromContentScript();
+    cachedUserPrompt = buildSummaryUserPrompt(ctx);
+  } catch (err) {
+    cachedUserPrompt = "";
+    console.warn("[WebLLM Demo] Failed to prefetch user prompt:", err);
+  }
+}
+
+refreshCachedUserPrompt();
 
 async function loadEngine(modelId) {
   if (!hasWebGPU()) {
@@ -254,6 +319,38 @@ stopButton.addEventListener("click", () => {
   setStatus("Stopping…");
 });
 
+copySystemButton?.addEventListener("click", async () => {
+  try {
+    await copyToClipboard(SUMMARY_SYSTEM_PROMPT);
+    setStatus("已複製系統提示詞");
+  } catch (err) {
+    setOutput(SUMMARY_SYSTEM_PROMPT);
+    setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
+  }
+});
+
+copyUserButton?.addEventListener("click", async () => {
+  if (!cachedUserPrompt) {
+    copyUserButton.disabled = true;
+    try {
+      setStatus("Preparing user prompt…");
+      await refreshCachedUserPrompt();
+      setStatus("已準備用戶提示詞，請再按一次「複製用戶提示詞」。");
+    } finally {
+      copyUserButton.disabled = false;
+    }
+    return;
+  }
+
+  try {
+    await copyToClipboard(cachedUserPrompt);
+    setStatus("已複製用戶提示詞");
+  } catch (err) {
+    setOutput(cachedUserPrompt);
+    setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
+  }
+});
+
 runButton.addEventListener("click", async () => {
   try {
     const prompt = inputEl.value.trim();
@@ -271,6 +368,7 @@ summarizeButton.addEventListener("click", async () => {
   try {
     setStatus("Reading page…");
     const ctx = await getArticleTextFromContentScript();
+    cachedUserPrompt = buildSummaryUserPrompt(ctx);
     await streamChat(buildSummaryMessages(ctx));
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));

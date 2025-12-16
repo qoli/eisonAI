@@ -25,6 +25,7 @@
 - Model 選擇（目前只放 `Qwen3-0.6B-q4f16_1-MLC`）
 - `Load / Unload`
 - `Summarize active tab`（擷取目前分頁文章正文 → 生成摘要）
+- `複製系統提示詞` / `複製用戶提示詞`（方便檢查送入模型的 prompts）
 - `Generate / Stop`（手動輸入 prompt 生成）
 - 狀態文字 + 進度條 + 輸出區
 
