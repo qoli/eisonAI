@@ -145,16 +145,8 @@ async function getArticleTextFromContentScript() {
   return { title: resp.title ?? "", text: resp.body ?? "", url: tab.url ?? "" };
 }
 
-const SUMMARY_SYSTEM_PROMPT = [
-  "你是一個網頁文章摘要助手。請用繁體中文輸出，並嚴格遵守格式：",
-  "",
-  "總結：<一行>",
-  "要點：",
-  "- <每行一個要點，開頭請用 emoji>",
-  "",
-  "除了以上格式，不要輸出任何多餘文字。",
-  "禁止輸出任何推理過程或標籤（例如 <think>、<analysis>）。",
-].join("\n");
+const SUMMARY_SYSTEM_PROMPT =
+  "你是一個網頁總結助手，請執行網頁總結任務。\n以繁體中文輸出。";
 
 function buildSummaryUserPrompt({ title, text, url }) {
   const clippedText = clampText(text, 30000);
@@ -268,7 +260,7 @@ async function streamChat(messages) {
     messages,
     temperature: 0.4,
     max_tokens: 512,
-    extra_body: { enable_thinking: false },
+    extra_body: { enable_thinking: true },
   });
 
   try {
