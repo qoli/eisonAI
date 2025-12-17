@@ -117,6 +117,10 @@ function isTokenizerDeletedBindingError(err) {
   );
 }
 
+function isDisposedObjectError(err) {
+  return getErrorMessage(err).includes("has already been disposed");
+}
+
 let recoverPromise = null;
 
 function hardResetEngineState() {
@@ -381,8 +385,8 @@ async function stopGenerationForRestart() {
     engine.interruptGenerate();
     setStatus("Stopping…");
   } catch (err) {
-    if (isTokenizerDeletedBindingError(err)) {
-      setStatus("Tokenizer crashed, restarting…", 0);
+    if (isTokenizerDeletedBindingError(err) || isDisposedObjectError(err)) {
+      setStatus("Engine crashed, restarting…", 0);
       await recoverEngine(err);
       return true;
     }
@@ -534,6 +538,8 @@ async function unloadEngine() {
 
   try {
     await engine?.unload?.();
+  } catch (err) {
+    console.warn("[WebLLM Demo] engine.unload failed (ignored):", err);
   } finally {
     engine = null;
     worker?.terminate();
@@ -545,6 +551,8 @@ async function unloadEngine() {
 
 async function streamChat(messages) {
   if (!engine) throw new Error("Engine is not loaded.");
+  if (engineLoading) throw new Error("Engine is still loading.");
+  if (generating) throw new Error("Generation is already running.");
 
   preparedMessagesForTokenEstimate = messages;
   setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
@@ -603,8 +611,8 @@ async function streamChatWithRecovery(messages, { retry = true } = {}) {
   try {
     await streamChat(messages);
   } catch (err) {
-    if (retry && isTokenizerDeletedBindingError(err)) {
-      setStatus("Tokenizer crashed, restarting…", 0);
+    if (retry && (isTokenizerDeletedBindingError(err) || isDisposedObjectError(err))) {
+      setStatus("Engine crashed, restarting…", 0);
       await recoverEngine(err);
       return streamChatWithRecovery(messages, { retry: false });
     }
@@ -730,8 +738,8 @@ stopButton.addEventListener("click", async () => {
     engine.interruptGenerate();
     setStatus("Stopping…");
   } catch (err) {
-    if (isTokenizerDeletedBindingError(err)) {
-      setStatus("Tokenizer crashed, restarting…", 0);
+    if (isTokenizerDeletedBindingError(err) || isDisposedObjectError(err)) {
+      setStatus("Engine crashed, restarting…", 0);
       await recoverEngine(err);
       return;
     }
@@ -878,18 +886,22 @@ statusEl.addEventListener("keydown", (event) => {
 });
 
 globalThis.addEventListener("unhandledrejection", (event) => {
-  if (!isTokenizerDeletedBindingError(event?.reason)) return;
-  console.warn("[WebLLM Demo] Unhandled tokenizer BindingError:", event.reason);
+  const err = event?.reason;
+  if (!isTokenizerDeletedBindingError(err) && !isDisposedObjectError(err)) return;
+  console.warn("[WebLLM Demo] Unhandled engine error:", err);
   event?.preventDefault?.();
-  recoverEngine(event.reason).catch((err) => {
-    console.warn("[WebLLM Demo] Failed to recover after unhandled rejection:", err);
+  recoverEngine(err).catch((recoverErr) => {
+    console.warn(
+      "[WebLLM Demo] Failed to recover after unhandled rejection:",
+      recoverErr,
+    );
   });
 });
 
 globalThis.addEventListener("error", (event) => {
   const err = event?.error ?? event?.message;
-  if (!isTokenizerDeletedBindingError(err)) return;
-  console.warn("[WebLLM Demo] Tokenizer BindingError:", err);
+  if (!isTokenizerDeletedBindingError(err) && !isDisposedObjectError(err)) return;
+  console.warn("[WebLLM Demo] Engine error:", err);
   recoverEngine(err).catch((recoverErr) => {
     console.warn("[WebLLM Demo] Failed to recover after error event:", recoverErr);
   });
