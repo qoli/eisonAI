@@ -428,7 +428,11 @@ function hasReadableBodyText(text) {
 }
 
 const DEFAULT_SYSTEM_PROMPT =
-  "";
+  `將內容整理為簡短簡報，包含重點摘要。
+
+輸出要求：
+- 合適的格式結構
+- 使用繁體中文。`;
 
 const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
 let bundledDefaultSystemPrompt = null;

@@ -21,6 +21,12 @@ enum AppConfig {
             if !trimmed.isEmpty { return trimmed }
         }
 
-        return "你是一個資料整理員。\n\n以繁體中文輸出。"
+        return """
+        將內容整理為簡短簡報，包含重點摘要。
+
+        輸出要求：
+        - 合適的格式結構
+        - 使用繁體中文。
+        """
     }()
 }
