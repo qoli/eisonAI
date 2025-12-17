@@ -1,4 +1,4 @@
-# Spec：Safari iOS Web Extension · WebLLM（Popup 推理 + Bundled Assets）
+# Spec：EisonAI（Safari Web Extension + iOS 主 App）
 
 ## 背景
 
@@ -9,16 +9,20 @@
 - **推理移到 popup 頁面**，使用 `mlc-ai/web-llm`（WebGPU + WebWorker）。
 - **模型與 wasm 以本地 assets 打包進 extension bundle**，popup 僅讀取本地資源，不做 runtime 下載、也不依賴 iOS extension 的持久儲存。
 
+同時，iOS 主 App 是 Safari Web Extension 的 container（負責上架、承載 extension、提供設定 UI）。原本主 App 以 UIKit + storyboard + `WKWebView` 載入本地 HTML 做設定頁；為了後續主 App 更容易擴充功能與維護，規劃改為 **SwiftUI 驅動** 的原生 UI。
+
 ## 目標（to-be）
 
 - iOS/iPadOS Safari extension：popup 一鍵取得「目前分頁」文章摘要（繁體中文）。
 - 模型：`mlc-ai/Qwen3-0.6B-q4f16_1-MLC`（本地 assets）。
 - 離線優先：popup 不做 runtime 下載；`IndexedDB` cache 關閉（避免依賴持久儲存）。
 - 同一套 popup 亦可用於 macOS Safari（包含 “My Mac (Designed for iPad)”）。
+- iOS 主 App：以 SwiftUI 提供 onboarding 與輕量設定（例如 System Prompt），資料透過 App Group 與 extension 共用。
 
 ## 非目標（non-goals）
 
 - 不再在 native handler 內做推理或模型下載。
+- 不把 Safari extension popup UI 改成 SwiftUI（popup 仍必須是 HTML/JS）。
 - 不提供遠端 API（OpenAI/Gemini）fallback（若需要再另開規格）。
 - 不做長期持久快取（iOS extension 儲存限制 + 可預期不穩定）。
 
@@ -28,7 +32,18 @@
 
 ## 系統架構
 
-### Extension 構成
+### iOS 主 App（SwiftUI）
+
+- App lifecycle：SwiftUI `@main App`，不依賴 storyboard/`SceneDelegate`。
+- 主要功能：
+  - Onboarding：引導使用者到「設定 → Safari → Extensions」開啟擴充功能。
+  - 設定：編輯/儲存/重置 System Prompt（給 popup 摘要用）。
+- 資料儲存（與 extension 共用）：
+  - App Group：`group.com.qoli.eisonAI`
+  - Key：`eison.systemPrompt`
+  - 規則：空字串/全空白視為「回到預設 prompt」。
+
+### Safari Web Extension（WebLLM popup）
 
 - `contentReadability.js` + `content.js`：使用 Readability 解析頁面正文，回傳 `{ title, body }`。
 - `webllm/popup.html`、`webllm/popup.js`、`webllm/worker.js`：popup UI + WebLLM engine（worker 內跑）。

@@ -1,4 +1,4 @@
-# TODO：WebLLM Popup 方案（Safari iOS Extension）
+# TODO：EisonAI（Safari Web Extension + iOS 主 App）
 
 ## ✅ 已完成
 
@@ -10,6 +10,16 @@
 - ✅ 移除 native messaging 推理 / 模型下載管線（專案全面轉向 WebLLM）。
 
 ## 🔜 下一步
+
+### iOS 主 App（SwiftUI 驅動）
+
+- [x] 以 SwiftUI `App` lifecycle 取代 storyboard/SceneDelegate（移除對 `Main.storyboard` 的依賴）。
+- [x] SwiftUI Onboarding：提示「設定 → Safari → Extensions」開啟擴充功能（保留現有文案重點）。
+- [x] SwiftUI 設定頁：System Prompt 編輯/儲存/重置（使用 App Group：`group.com.qoli.eisonAI`、key：`eison.systemPrompt`）。
+- [x] UI/UX：儲存狀態提示（Saved/Reset），並處理空字串視為「回到預設」。
+- [ ] 清理：移除不再使用的 `Shared (App)` WebView/HTML 設定頁（或降級為 legacy/備用）。
+
+### Safari Extension popup（WebLLM）
 
 - [ ] 長文處理：chunk + reduce（避免目前 `popup.js` 以字元截斷 6k 的資訊流失）。
 - [ ] popup UX：
