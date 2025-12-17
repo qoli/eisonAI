@@ -428,7 +428,27 @@ function hasReadableBodyText(text) {
 }
 
 const DEFAULT_SYSTEM_PROMPT =
-  "你是一個資料整理員。\n\nSummarize this post in 5-6 sentences.\nEmphasize the key insights and main takeaways.\n\n以繁體中文輸出。";
+  "";
+
+const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
+let bundledDefaultSystemPrompt = null;
+
+async function loadBundledDefaultSystemPrompt() {
+  if (typeof bundledDefaultSystemPrompt === "string") return bundledDefaultSystemPrompt;
+  try {
+    const resp = await fetch(DEFAULT_SYSTEM_PROMPT_URL);
+    const text = resp?.ok ? await resp.text() : "";
+    bundledDefaultSystemPrompt = String(text ?? "").trim();
+  } catch {
+    bundledDefaultSystemPrompt = "";
+  }
+  return bundledDefaultSystemPrompt;
+}
+
+async function getDefaultSystemPromptFallback() {
+  const bundled = await loadBundledDefaultSystemPrompt();
+  return bundled || DEFAULT_SYSTEM_PROMPT;
+}
 
 let systemPrompt = DEFAULT_SYSTEM_PROMPT;
 
@@ -466,7 +486,7 @@ async function stopGenerationForRestart() {
 
 async function refreshSystemPromptFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
-    systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    systemPrompt = await getDefaultSystemPromptFallback();
     return systemPrompt;
   }
 
@@ -485,10 +505,10 @@ async function refreshSystemPromptFromNative() {
     if (typeof prompt === "string" && prompt.trim()) {
       systemPrompt = prompt;
     } else {
-      systemPrompt = DEFAULT_SYSTEM_PROMPT;
+      systemPrompt = await getDefaultSystemPromptFallback();
     }
   } catch (err) {
-    systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    systemPrompt = await getDefaultSystemPromptFallback();
     console.warn("[WebLLM Demo] Failed to load system prompt from native:", err);
   }
 

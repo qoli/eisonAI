@@ -19,17 +19,6 @@ typealias PlatformViewController = NSViewController
 #endif
 
 let extensionBundleIdentifier = "com.qoli.eisonAI.Extension"
-let appGroupIdentifier = "group.com.qoli.eisonAI"
-let systemPromptKey = "eison.systemPrompt"
-
-let defaultSystemPrompt = """
-你是一個資料整理員。
-
-Summarize this post in 5-6 sentences.
-Emphasize the key insights and main takeaways.
-
-以繁體中文輸出。
-"""
 
 class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMessageHandler {
 
@@ -50,15 +39,15 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
     }
 
     private func sharedDefaults() -> UserDefaults? {
-        UserDefaults(suiteName: appGroupIdentifier)
+        UserDefaults(suiteName: AppConfig.appGroupIdentifier)
     }
 
     private func loadSystemPrompt() -> String {
-        guard let stored = sharedDefaults()?.string(forKey: systemPromptKey) else {
-            return defaultSystemPrompt
+        guard let stored = sharedDefaults()?.string(forKey: AppConfig.systemPromptKey) else {
+            return AppConfig.defaultSystemPrompt
         }
         if stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return defaultSystemPrompt
+            return AppConfig.defaultSystemPrompt
         }
         return stored
     }
@@ -67,9 +56,9 @@ class ViewController: PlatformViewController, WKNavigationDelegate, WKScriptMess
         guard let defaults = sharedDefaults() else { return }
         let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            defaults.removeObject(forKey: systemPromptKey)
+            defaults.removeObject(forKey: AppConfig.systemPromptKey)
         } else {
-            defaults.set(trimmed, forKey: systemPromptKey)
+            defaults.set(trimmed, forKey: AppConfig.systemPromptKey)
         }
     }
 

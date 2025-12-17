@@ -12,12 +12,15 @@ enum AppConfig {
     static let systemPromptKey = "eison.systemPrompt"
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
 
-    static let defaultSystemPrompt = """
-你是一個資料整理員。
+    static let defaultSystemPrompt: String = {
+        if
+            let url = Bundle.main.url(forResource: "default_system_prompt", withExtension: "txt"),
+            let text = try? String(contentsOf: url, encoding: .utf8)
+        {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
 
-Summarize this post in 5-6 sentences.
-Emphasize the key insights and main takeaways.
-
-以繁體中文輸出。
-"""
+        return "你是一個資料整理員。\n\n以繁體中文輸出。"
+    }()
 }

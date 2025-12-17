@@ -16,17 +16,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private static let nativeLog = OSLog(subsystem: logSubsystem, category: "Native")
     private static let rawLibraryLog = OSLog(subsystem: logSubsystem, category: "RawLibrary")
 
-    private let appGroupIdentifier = "group.com.qoli.eisonAI"
-    private let systemPromptKey = "eison.systemPrompt"
+    private let appGroupIdentifier = AppConfig.appGroupIdentifier
+    private let systemPromptKey = AppConfig.systemPromptKey
     private let rawLibraryMaxItems = 200
-    private let defaultSystemPrompt = """
-你是一個資料整理員。
-
-Summarize this post in 5-6 sentences.
-Emphasize the key insights and main takeaways.
-
-以繁體中文輸出。
-"""
 
     private struct RawHistoryItem: Codable {
         var v: Int = 1
@@ -72,9 +64,11 @@ Emphasize the key insights and main takeaways.
             )
         }
 
-        return containerURL
-            .appendingPathComponent("RawLibrary", isDirectory: true)
-            .appendingPathComponent("Items", isDirectory: true)
+        var directoryURL = containerURL
+        for component in AppConfig.rawLibraryItemsPathComponents {
+            directoryURL = directoryURL.appendingPathComponent(component, isDirectory: true)
+        }
+        return directoryURL
     }
 
     private func sha256Hex(_ value: String) -> String {
@@ -196,10 +190,10 @@ Emphasize the key insights and main takeaways.
 
     private func loadSystemPrompt() -> String {
         guard let stored = sharedDefaults()?.string(forKey: systemPromptKey) else {
-            return defaultSystemPrompt
+            return AppConfig.defaultSystemPrompt
         }
         if stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return defaultSystemPrompt
+            return AppConfig.defaultSystemPrompt
         }
         return stored
     }
