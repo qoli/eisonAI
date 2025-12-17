@@ -28,7 +28,7 @@ const outputEl = document.getElementById("output");
 const shareEl = document.getElementById("share");
 
 let lastModelOutputMarkdown = "";
-let markdownConverter = null;
+let markdownParser = null;
 
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
@@ -52,23 +52,40 @@ function setModelOutputMarkdown(text) {
   setOutput(lastModelOutputMarkdown);
 }
 
-function getShowdownConverter() {
-  if (markdownConverter) return markdownConverter;
-  const showdown = globalThis.showdown;
-  if (!showdown || typeof showdown.Converter !== "function") return null;
+function getMarkdownParser() {
+  if (markdownParser) return markdownParser;
 
-  markdownConverter = new showdown.Converter({
-    simplifiedAutoLink: true,
-    strikethrough: true,
-    tables: true,
-    tablesHeaderId: true,
-    tasklists: true,
-    simpleLineBreaks: true,
-    ghCompatibleHeaderId: true,
-    openLinksInNewWindow: true,
-  });
+  const marked = globalThis.marked;
+  if (!marked) return null;
 
-  return markdownConverter;
+  const parse =
+    (typeof marked.parse === "function" && marked.parse.bind(marked)) ||
+    (typeof marked.marked === "function" && marked.marked.bind(marked)) ||
+    (typeof marked.marked?.parse === "function" &&
+      marked.marked.parse.bind(marked.marked)) ||
+    (typeof marked === "function" && marked.bind(marked));
+
+  if (!parse) return null;
+
+  const setOptions =
+    (typeof marked.setOptions === "function" && marked.setOptions.bind(marked)) ||
+    (typeof marked.options === "function" && marked.options.bind(marked)) ||
+    (typeof marked.marked?.setOptions === "function" &&
+      marked.marked.setOptions.bind(marked.marked)) ||
+    (typeof marked.marked?.options === "function" &&
+      marked.marked.options.bind(marked.marked));
+
+  try {
+    setOptions?.({
+      gfm: true,
+      breaks: true,
+    });
+  } catch {
+    // ignore
+  }
+
+  markdownParser = parse;
+  return markdownParser;
 }
 
 function isPossiblyDangerousUrl(url) {
@@ -88,6 +105,9 @@ function ensureAnchorSafe(anchorEl) {
   parts.add("noopener");
   parts.add("noreferrer");
   anchorEl.setAttribute("rel", Array.from(parts).join(" "));
+  if (!anchorEl.getAttribute("target")) {
+    anchorEl.setAttribute("target", "_blank");
+  }
 }
 
 function sanitizeHtml(html) {
@@ -143,11 +163,11 @@ function renderModelOutputAsHtml() {
   const markdown = String(lastModelOutputMarkdown ?? "").trim();
   if (!markdown || markdown === NO_SUMMARY_TEXT_MESSAGE) return;
 
-  const converter = getShowdownConverter();
-  if (!converter) return;
+  const parse = getMarkdownParser();
+  if (!parse) return;
 
   try {
-    const html = converter.makeHtml(markdown);
+    const html = parse(markdown);
     outputEl.classList.add("rendered");
     outputEl.innerHTML = sanitizeHtml(html);
   } catch (err) {
