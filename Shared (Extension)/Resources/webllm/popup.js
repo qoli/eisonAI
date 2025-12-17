@@ -27,6 +27,9 @@ const thinkEl = document.getElementById("think");
 const outputEl = document.getElementById("output");
 const shareEl = document.getElementById("share");
 
+let lastModelOutputMarkdown = "";
+let markdownConverter = null;
+
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
 }
@@ -39,7 +42,117 @@ function setStatus(text, progress) {
 }
 
 function setOutput(text) {
+  if (!outputEl) return;
+  outputEl.classList.remove("rendered");
   outputEl.textContent = text;
+}
+
+function setModelOutputMarkdown(text) {
+  lastModelOutputMarkdown = String(text ?? "");
+  setOutput(lastModelOutputMarkdown);
+}
+
+function getShowdownConverter() {
+  if (markdownConverter) return markdownConverter;
+  const showdown = globalThis.showdown;
+  if (!showdown || typeof showdown.Converter !== "function") return null;
+
+  markdownConverter = new showdown.Converter({
+    simplifiedAutoLink: true,
+    strikethrough: true,
+    tables: true,
+    tablesHeaderId: true,
+    tasklists: true,
+    simpleLineBreaks: true,
+    ghCompatibleHeaderId: true,
+    openLinksInNewWindow: true,
+  });
+
+  return markdownConverter;
+}
+
+function isPossiblyDangerousUrl(url) {
+  const value = String(url ?? "").trim().toLowerCase();
+  if (!value) return false;
+  return (
+    value.startsWith("javascript:") ||
+    value.startsWith("vbscript:") ||
+    value.startsWith("data:text/html")
+  );
+}
+
+function ensureAnchorSafe(anchorEl) {
+  if (!anchorEl) return;
+  const current = String(anchorEl.getAttribute("rel") ?? "");
+  const parts = new Set(current.split(/\s+/).filter(Boolean));
+  parts.add("noopener");
+  parts.add("noreferrer");
+  anchorEl.setAttribute("rel", Array.from(parts).join(" "));
+}
+
+function sanitizeHtml(html) {
+  const template = document.createElement("template");
+  template.innerHTML = String(html ?? "");
+
+  const disallowed = new Set([
+    "SCRIPT",
+    "STYLE",
+    "IFRAME",
+    "OBJECT",
+    "EMBED",
+    "LINK",
+    "META",
+    "BASE",
+    "FORM",
+    "INPUT",
+    "BUTTON",
+    "TEXTAREA",
+    "SELECT",
+    "OPTION",
+  ]);
+
+  for (const el of template.content.querySelectorAll("*")) {
+    if (disallowed.has(el.tagName)) {
+      el.remove();
+      continue;
+    }
+
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith("on")) {
+        el.removeAttribute(attr.name);
+        continue;
+      }
+      if (name === "href" || name === "src" || name === "xlink:href") {
+        if (isPossiblyDangerousUrl(attr.value)) {
+          el.removeAttribute(attr.name);
+        }
+      }
+    }
+
+    if (el.tagName === "A") {
+      ensureAnchorSafe(el);
+    }
+  }
+
+  return template.innerHTML;
+}
+
+function renderModelOutputAsHtml() {
+  if (!outputEl) return;
+  const markdown = String(lastModelOutputMarkdown ?? "").trim();
+  if (!markdown || markdown === NO_SUMMARY_TEXT_MESSAGE) return;
+
+  const converter = getShowdownConverter();
+  if (!converter) return;
+
+  try {
+    const html = converter.makeHtml(markdown);
+    outputEl.classList.add("rendered");
+    outputEl.innerHTML = sanitizeHtml(html);
+  } catch (err) {
+    console.warn("[WebLLM Demo] Failed to render markdown:", err);
+  }
 }
 
 function setThink(text) {
@@ -95,7 +208,7 @@ function splitModelThinking(rawText) {
 function renderModelOutput(rawText) {
   const { think, final } = splitModelThinking(rawText);
   setThink(stripTrailingWhitespace(stripLeadingBlankLines(think)));
-  setOutput(stripTrailingWhitespace(stripLeadingBlankLines(final)));
+  setModelOutputMarkdown(stripTrailingWhitespace(stripLeadingBlankLines(final)));
 }
 
 function getErrorMessage(err) {
@@ -522,7 +635,7 @@ async function refreshSystemPromptFromNative() {
 async function saveRawHistoryItem({ title, text, url }) {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") return null;
 
-  const summaryText = String(outputEl?.textContent ?? "").trim();
+  const summaryText = String(lastModelOutputMarkdown ?? "").trim();
   if (!summaryText || summaryText === NO_SUMMARY_TEXT_MESSAGE) return null;
   if (generationInterrupted) return null;
 
@@ -691,6 +804,7 @@ async function streamChat(messages) {
   setShareVisible(false);
   setThink("");
   setOutput("");
+  lastModelOutputMarkdown = "";
 
   let acc = "";
   let completed = false;
@@ -723,8 +837,9 @@ async function streamChat(messages) {
     modelSelect.disabled = false;
     setStatus("Ready", 1);
     if (completed && !generationInterrupted) {
-      const text = String(outputEl?.textContent ?? "").trim();
-      setShareVisible(Boolean(text) && text !== NO_SUMMARY_TEXT_MESSAGE);
+      const markdown = String(lastModelOutputMarkdown ?? "").trim();
+      renderModelOutputAsHtml();
+      setShareVisible(Boolean(markdown) && markdown !== NO_SUMMARY_TEXT_MESSAGE);
     }
   }
 }
@@ -852,6 +967,7 @@ clearButton.addEventListener("click", () => {
   setShareVisible(false);
   setThink("");
   setOutput("");
+  lastModelOutputMarkdown = "";
 });
 
 stopButton.addEventListener("click", async () => {

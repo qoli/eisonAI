@@ -8,6 +8,9 @@
   --border: rgba(0, 0, 0, 0.08);
   --link: rgba(0, 0, 0, 0.42);
   --accent: #ffd86d;
+  --code-bg: rgba(0, 0, 0, 0.04);
+  --quote-bg: rgba(0, 0, 0, 0.03);
+  --table-header-bg: rgba(0, 0, 0, 0.03);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -19,6 +22,9 @@
     --muted: rgba(255, 255, 255, 0.6);
     --border: rgba(255, 255, 255, 0.12);
     --link: rgba(255, 255, 255, 0.55);
+    --code-bg: rgba(255, 255, 255, 0.08);
+    --quote-bg: rgba(255, 255, 255, 0.06);
+    --table-header-bg: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -167,6 +173,133 @@ progress::-webkit-progress-value {
 #output {
   margin-top: 12px;
   min-height: 120px;
+}
+
+#output.rendered {
+  white-space: normal;
+  line-height: 1.55;
+}
+
+#output.rendered > :first-child {
+  margin-top: 0;
+}
+
+#output.rendered > :last-child {
+  margin-bottom: 0;
+}
+
+#output.rendered h1,
+#output.rendered h2,
+#output.rendered h3,
+#output.rendered h4,
+#output.rendered h5,
+#output.rendered h6 {
+  margin: 0.9em 0 0.45em;
+  line-height: 1.25;
+}
+
+#output.rendered h1 {
+  font-size: 16px;
+}
+
+#output.rendered h2 {
+  font-size: 14px;
+}
+
+#output.rendered h3 {
+  font-size: 13px;
+}
+
+#output.rendered h4,
+#output.rendered h5,
+#output.rendered h6 {
+  font-size: 12px;
+}
+
+#output.rendered p {
+  margin: 0 0 0.85em;
+}
+
+#output.rendered a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#output.rendered ul,
+#output.rendered ol {
+  margin: 0 0 0.85em;
+  padding-left: 1.35em;
+}
+
+#output.rendered li {
+  margin: 0.25em 0;
+}
+
+#output.rendered blockquote {
+  margin: 0 0 0.85em;
+  padding: 0.5em 0.85em;
+  border-left: 3px solid var(--border);
+  background: var(--quote-bg);
+  color: var(--muted);
+  border-radius: 12px;
+}
+
+#output.rendered code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 11px;
+  padding: 0.15em 0.35em;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+}
+
+#output.rendered pre {
+  margin: 0 0 0.85em;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--code-bg);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+#output.rendered pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+#output.rendered table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
+#output.rendered th,
+#output.rendered td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+#output.rendered th {
+  background: var(--table-header-bg);
+  font-weight: 700;
+}
+
+#output.rendered hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 1em 0;
+}
+
+#output.rendered img {
+  max-width: 100%;
+  height: auto;
 }
 
 .token-footer {
