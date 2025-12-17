@@ -94,7 +94,7 @@ AppGroup/
 注意：
 
 - handler 內只做「組 JSON + 寫檔」即可，避免做重計算。
-- `articleText` 可能很長：必要時可先做上限截斷（MVP 常用）。
+- `articleText` 可能很長：依目前設計 Raw Library **不截斷原文**。
 
 ---
 
@@ -119,3 +119,24 @@ MVP 最簡單做法：
 
 - 參考 TracklyReborn 的模式：`DatabasePool` + `busyMode = .timeout(2~5)` + migrator
 - 讓 sqlite-data 只處理「可重建」的衍生資料（embedding/FTS/索引），Raw Library 仍是 source of truth
+
+---
+
+## 8) Debug：如何看 native 的 os_log（macOS / iOS）
+
+### macOS（My Mac / Designed for iPad）
+
+- **Console.app**：在搜尋框輸入 `subsystem:com.qoli.eisonAI`，可再加 `category:RawLibrary` / `category:Native`
+- **Terminal**（注意用 `/usr/bin/log`）：
+  - 即時串流：`/usr/bin/log stream --style syslog --level info --predicate 'subsystem == "com.qoli.eisonAI"'`
+  - 只看 RawLibrary：`/usr/bin/log stream --style syslog --level debug --predicate 'subsystem == "com.qoli.eisonAI" && category == "RawLibrary"'`
+  - 看最近 10 分鐘：`/usr/bin/log show --last 10m --style syslog --predicate 'subsystem == "com.qoli.eisonAI"'`
+
+### iOS（真機/模擬器）
+
+- Xcode → `Window` → `Devices and Simulators` → 選裝置 → `Open Console`
+- 或 macOS `Console.app` 選對應裝置再過濾 `subsystem`
+
+### 不依賴 OSLog 的檢查法（建議先看這個）
+
+- `popup.js` 成功儲存會 `console.log("Saved raw history item", resp)`，其中包含 `directoryPath` / `savedPath`，用這個路徑去確認檔案實際寫到哪裡。

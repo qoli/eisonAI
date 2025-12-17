@@ -12,6 +12,10 @@ import CryptoKit
 import os.log
 
 final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
+    private static let logSubsystem = "com.qoli.eisonAI"
+    private static let nativeLog = OSLog(subsystem: logSubsystem, category: "Native")
+    private static let rawLibraryLog = OSLog(subsystem: logSubsystem, category: "RawLibrary")
+
     private let appGroupIdentifier = "group.com.qoli.eisonAI"
     private let systemPromptKey = "eison.systemPrompt"
     private let rawLibraryMaxItems = 200
@@ -55,6 +59,12 @@ Emphasize the key insights and main takeaways.
                 forSecurityApplicationGroupIdentifier: appGroupIdentifier
             )
         else {
+            os_log(
+                "[Eison-Native] App Group container unavailable for id=%{public}@",
+                log: Self.rawLibraryLog,
+                type: .error,
+                appGroupIdentifier
+            )
             throw NSError(
                 domain: "EisonAI.RawLibrary",
                 code: 1,
@@ -142,7 +152,13 @@ Emphasize the key insights and main takeaways.
             }
         }
         if removedForURL > 0 {
-            os_log(.default, "[Eison-Native] RawLibrary removed %d old item(s) for urlHash=%@", removedForURL, urlHash)
+            os_log(
+                "[Eison-Native] RawLibrary removed %d old item(s) for urlHash=%{public}@",
+                log: Self.rawLibraryLog,
+                type: .info,
+                removedForURL,
+                urlHash
+            )
         }
 
         let item = RawHistoryItem(
@@ -167,7 +183,13 @@ Emphasize the key insights and main takeaways.
 
         let trimmed = try enforceRawLibraryLimit(in: directoryURL)
         if trimmed > 0 {
-            os_log(.default, "[Eison-Native] RawLibrary trimmed %d old item(s) to max=%d", trimmed, rawLibraryMaxItems)
+            os_log(
+                "[Eison-Native] RawLibrary trimmed %d old item(s) to max=%d",
+                log: Self.rawLibraryLog,
+                type: .info,
+                trimmed,
+                rawLibraryMaxItems
+            )
         }
         return (id, filename)
     }
@@ -209,7 +231,26 @@ Emphasize the key insights and main takeaways.
             message = request?.userInfo?["message"]
         }
 
-        os_log(.default, "[Eison-Native] Received native message: %@ (profile: %@)", String(describing: message), profile?.uuidString ?? "none")
+        let profileString = profile?.uuidString ?? "none"
+        if let dict = message as? [String: Any] {
+            let command = (dict["command"] as? String) ?? (dict["name"] as? String) ?? ""
+            os_log(
+                "[Eison-Native] Received native message command=%{public}@ (profile: %{public}@)",
+                log: Self.nativeLog,
+                type: .info,
+                command,
+                profileString
+            )
+        } else {
+            let messageType = message.map { String(describing: type(of: $0)) } ?? "nil"
+            os_log(
+                "[Eison-Native] Received native message (non-dict) (profile: %{public}@) type=%{public}@",
+                log: Self.nativeLog,
+                type: .error,
+                profileString,
+                messageType
+            )
+        }
 
         let responseMessage: [String: Any]
         if let dict = message as? [String: Any] {
@@ -258,8 +299,9 @@ Emphasize the key insights and main takeaways.
 
                     let urlHash = sha256Hex(url)
                     os_log(
-                        .default,
-                        "[Eison-Native] saveRawItem requested (profile: %@) urlHash=%@ urlLen=%d titleLen=%d articleLen=%d summaryLen=%d model=%@",
+                        "[Eison-Native] saveRawItem requested (profile: %{public}@) urlHash=%{public}@ urlLen=%d titleLen=%d articleLen=%d summaryLen=%d model=%{public}@",
+                        log: Self.rawLibraryLog,
+                        type: .info,
                         profile?.uuidString ?? "none",
                         urlHash,
                         url.count,
@@ -277,11 +319,22 @@ Emphasize the key insights and main takeaways.
                         )
                     }
 
+                    let directoryURL: URL
                     do {
-                        let directoryURL = try rawLibraryItemsDirectoryURL()
-                        os_log(.default, "[Eison-Native] RawLibrary directory: %@", directoryURL.path)
+                        directoryURL = try rawLibraryItemsDirectoryURL()
+                        os_log(
+                            "[Eison-Native] RawLibrary directory: %{public}@",
+                            log: Self.rawLibraryLog,
+                            type: .info,
+                            directoryURL.path
+                        )
                     } catch {
-                        os_log(.error, "[Eison-Native] RawLibrary directory unavailable: %@", error.localizedDescription)
+                        os_log(
+                            "[Eison-Native] RawLibrary directory unavailable: %{public}@",
+                            log: Self.rawLibraryLog,
+                            type: .error,
+                            error.localizedDescription
+                        )
                         throw error
                     }
 
@@ -296,7 +349,6 @@ Emphasize the key insights and main takeaways.
                     )
 
                     do {
-                        let directoryURL = try rawLibraryItemsDirectoryURL()
                         let savedURL = directoryURL.appendingPathComponent(result.filename)
                         let items = try FileManager.default.contentsOfDirectory(
                             at: directoryURL,
@@ -305,33 +357,55 @@ Emphasize the key insights and main takeaways.
                         )
                         let jsonCount = items.filter { $0.pathExtension.lowercased() == "json" }.count
                         os_log(
-                            .default,
-                            "[Eison-Native] saveRawItem saved id=%@ file=%@ path=%@ totalJSON=%d",
+                            "[Eison-Native] saveRawItem saved id=%{public}@ file=%{public}@ path=%{public}@ totalJSON=%d",
+                            log: Self.rawLibraryLog,
+                            type: .info,
                             result.id,
                             result.filename,
                             savedURL.path,
                             jsonCount
                         )
+
+                        responseMessage = [
+                            "v": 1,
+                            "type": "response",
+                            "name": "saveRawItem",
+                            "payload": [
+                                "ok": true,
+                                "id": result.id,
+                                "filename": result.filename,
+                                "directoryPath": directoryURL.path,
+                                "savedPath": savedURL.path,
+                                "totalJSON": jsonCount,
+                            ],
+                        ]
                     } catch {
                         os_log(
-                            .error,
-                            "[Eison-Native] saveRawItem post-save listing failed: %@",
+                            "[Eison-Native] saveRawItem post-save listing failed: %{public}@",
+                            log: Self.rawLibraryLog,
+                            type: .error,
                             error.localizedDescription
                         )
-                    }
 
-                    responseMessage = [
-                        "v": 1,
-                        "type": "response",
-                        "name": "saveRawItem",
-                        "payload": [
-                            "ok": true,
-                            "id": result.id,
-                            "filename": result.filename,
-                        ],
-                    ]
+                        responseMessage = [
+                            "v": 1,
+                            "type": "response",
+                            "name": "saveRawItem",
+                            "payload": [
+                                "ok": true,
+                                "id": result.id,
+                                "filename": result.filename,
+                                "directoryPath": directoryURL.path,
+                            ],
+                        ]
+                    }
                 } catch {
-                    os_log(.error, "[Eison-Native] saveRawItem failed: %@", error.localizedDescription)
+                    os_log(
+                        "[Eison-Native] saveRawItem failed: %{public}@",
+                        log: Self.rawLibraryLog,
+                        type: .error,
+                        error.localizedDescription
+                    )
                     responseMessage = [
                         "v": 1,
                         "type": "error",
