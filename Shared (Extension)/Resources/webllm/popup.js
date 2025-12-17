@@ -495,6 +495,35 @@ async function refreshSystemPromptFromNative() {
   return systemPrompt;
 }
 
+async function saveRawHistoryItem({ title, text, url }) {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") return null;
+
+  const summaryText = String(outputEl?.textContent ?? "").trim();
+  if (!summaryText || summaryText === NO_SUMMARY_TEXT_MESSAGE) return null;
+  if (generationInterrupted) return null;
+
+  const payload = {
+    url: String(url ?? ""),
+    title: String(title ?? ""),
+    articleText: String(text ?? ""),
+    summaryText,
+    systemPrompt: String(systemPrompt ?? ""),
+    userPrompt: String(cachedUserPrompt || buildSummaryUserPrompt({ title, text, url }) || ""),
+    modelId: String(modelSelect?.value ?? MODEL_ID),
+  };
+
+  try {
+    return await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "saveRawItem",
+      payload,
+    });
+  } catch (err) {
+    console.warn("[WebLLM Demo] Failed to save raw history item:", err);
+    return null;
+  }
+}
+
 async function prepareSummaryContext() {
   try {
     const ctx = await getArticleTextFromContentScript();
@@ -748,6 +777,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
 
     try {
       await streamChatWithRecovery(buildSummaryMessages(ctx));
+      await saveRawHistoryItem(ctx);
     } catch (err) {
       setStatus(err?.message ? String(err.message) : String(err));
     }
@@ -898,6 +928,7 @@ summarizeButton.addEventListener("click", async () => {
       return;
     }
     await streamChatWithRecovery(buildSummaryMessages(ctx));
+    await saveRawHistoryItem(ctx);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));
   }

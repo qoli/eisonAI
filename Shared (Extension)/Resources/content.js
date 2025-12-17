@@ -1,13 +1,5 @@
 const browser = globalThis.browser ?? globalThis.chrome;
 
-const BODY_CHAR_LIMIT = 8000;
-
-function clampBodyText(text, limit) {
-  const normalized = String(text ?? "").trim();
-  if (normalized.length <= limit) return normalized;
-  return normalized.slice(0, limit) + "\n\n（內容過長，已截斷）";
-}
-
 browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const command =
     request && typeof request === "object" && "command" in request ? request.command : undefined;
@@ -21,7 +13,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
     try {
       const article = new Readability(document.cloneNode(true), {}).parse();
       if (article && article.textContent) {
-        const body = clampBodyText(article.textContent, BODY_CHAR_LIMIT);
+        const body = String(article.textContent ?? "").trim();
         response = { command: "articleTextResponse", title: article.title, body };
         console.log(
           `[Eison-Content] Successfully parsed article. Title: "${article.title}", Length: ${body.length}`,
