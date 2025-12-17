@@ -9,6 +9,15 @@
 /* Begin PBXBuildFile section */
 		EA0278213DC3F61993F76C75 /* webllm in Resources */ = {isa = PBXBuildFile; fileRef = EA233CDB0BB9C50619870079 /* webllm */; };
 		EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
+		0ED262F202D646C1ABB261B6 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0F6977794D43728A68AF46 /* AppConfig.swift */; };
+		5CE612A08D63418AA1D15A05 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D94A5CDEF26F40E8BB4C9515 /* HistoryView.swift */; };
+		24FDAABA18A84077B00FEC13 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12E040C99394A7FA73D3C2E /* RootView.swift */; };
+		29DA54C5F46345A99482FBFD /* EisonAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4445E1BFA14B079B390DA5 /* EisonAIApp.swift */; };
+		B78FEFBD915940D38DF2AF55 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 857B38F79C9F4133A67B88C3 /* HistoryViewModel.swift */; };
+		D01ABC44DA2649DFB2A14C65 /* SystemPromptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667C15152AC144F691F229F1 /* SystemPromptStore.swift */; };
+		E996381800E7492EBFC306CE /* HistoryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43D3E5695967406683CFE393 /* HistoryDetailView.swift */; };
+		F2995DD77365465B8C0F1502 /* RawLibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6881858D915E4DA0AD1FF419 /* RawLibraryStore.swift */; };
+		F2D5A122178741A6B41059E1 /* HistoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A9C5A8E38A496EA000A248 /* HistoryModels.swift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA7726622BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77261E2BC5B6B2005A194D /* Base */; };
@@ -70,6 +79,15 @@
 		EA77262B2BC5B6B3005A194D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
 		EA7726332BC5B6B3005A194D /* eisonAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eisonAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726362BC5B6B3005A194D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		2A0F6977794D43728A68AF46 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		43D3E5695967406683CFE393 /* HistoryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryDetailView.swift; sourceTree = "<group>"; };
+		65A9C5A8E38A496EA000A248 /* HistoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryModels.swift; sourceTree = "<group>"; };
+		667C15152AC144F691F229F1 /* SystemPromptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemPromptStore.swift; sourceTree = "<group>"; };
+		6881858D915E4DA0AD1FF419 /* RawLibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawLibraryStore.swift; sourceTree = "<group>"; };
+		857B38F79C9F4133A67B88C3 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		C12E040C99394A7FA73D3C2E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		CC4445E1BFA14B079B390DA5 /* EisonAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EisonAIApp.swift; sourceTree = "<group>"; };
+		D94A5CDEF26F40E8BB4C9515 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		EA77263B2BC5B6B3005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		EA7726402BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "eisonAI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -168,6 +186,15 @@
 			isa = PBXGroup;
 			children = (
 				EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
+				CC4445E1BFA14B079B390DA5 /* EisonAIApp.swift */,
+				2A0F6977794D43728A68AF46 /* AppConfig.swift */,
+				667C15152AC144F691F229F1 /* SystemPromptStore.swift */,
+				C12E040C99394A7FA73D3C2E /* RootView.swift */,
+				65A9C5A8E38A496EA000A248 /* HistoryModels.swift */,
+				6881858D915E4DA0AD1FF419 /* RawLibraryStore.swift */,
+				857B38F79C9F4133A67B88C3 /* HistoryViewModel.swift */,
+				D94A5CDEF26F40E8BB4C9515 /* HistoryView.swift */,
+				43D3E5695967406683CFE393 /* HistoryDetailView.swift */,
 				EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
 				EA7726402BC5B6B3005A194D /* Info.plist */,
 			);
@@ -299,6 +326,15 @@
 			files = (
 				EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
 				EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
+				29DA54C5F46345A99482FBFD /* EisonAIApp.swift in Sources */,
+				0ED262F202D646C1ABB261B6 /* AppConfig.swift in Sources */,
+				D01ABC44DA2649DFB2A14C65 /* SystemPromptStore.swift in Sources */,
+				24FDAABA18A84077B00FEC13 /* RootView.swift in Sources */,
+				F2D5A122178741A6B41059E1 /* HistoryModels.swift in Sources */,
+				F2995DD77365465B8C0F1502 /* RawLibraryStore.swift in Sources */,
+				B78FEFBD915940D38DF2AF55 /* HistoryViewModel.swift in Sources */,
+				5CE612A08D63418AA1D15A05 /* HistoryView.swift in Sources */,
+				E996381800E7492EBFC306CE /* HistoryDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
