@@ -290,28 +290,95 @@ function clampText(text, limit) {
   return normalized.slice(0, limit) + "\n\n（內容過長，已截斷）";
 }
 
-async function getActiveTab() {
-  if (typeof browser?.tabs?.query !== "function") {
+function isThenable(value) {
+  return Boolean(value) && typeof value.then === "function";
+}
+
+async function tabsQuery(queryInfo) {
+  const fn = browser?.tabs?.query;
+  if (typeof fn !== "function") {
     throw new Error("browser.tabs.query is unavailable");
   }
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-  return tabs?.[0] ?? null;
+
+  try {
+    const result = fn.call(browser.tabs, queryInfo);
+    if (isThenable(result)) return await result;
+  } catch {
+    // fall back to callback style
+  }
+
+  return new Promise((resolve, reject) => {
+    fn.call(browser.tabs, queryInfo, (tabs) => {
+      const err = browser?.runtime?.lastError;
+      if (err) {
+        reject(new Error(err.message ? String(err.message) : String(err)));
+        return;
+      }
+      resolve(tabs);
+    });
+  });
+}
+
+async function tabsSendMessage(tabId, message) {
+  const fn = browser?.tabs?.sendMessage;
+  if (typeof fn !== "function") {
+    throw new Error("browser.tabs.sendMessage is unavailable");
+  }
+
+  try {
+    const result = fn.call(browser.tabs, tabId, message);
+    if (isThenable(result)) return await result;
+  } catch {
+    // fall back to callback style
+  }
+
+  return new Promise((resolve, reject) => {
+    fn.call(browser.tabs, tabId, message, (resp) => {
+      const err = browser?.runtime?.lastError;
+      if (err) {
+        reject(new Error(err.message ? String(err.message) : String(err)));
+        return;
+      }
+      resolve(resp);
+    });
+  });
+}
+
+async function getActiveTab() {
+  const primary = await tabsQuery({ active: true, currentWindow: true }).catch(() => null);
+  if (Array.isArray(primary) && primary[0]) return primary[0];
+  const fallback = await tabsQuery({ active: true }).catch(() => null);
+  return Array.isArray(fallback) ? fallback[0] ?? null : null;
 }
 
 async function getArticleTextFromContentScript() {
-  if (typeof browser?.tabs?.sendMessage !== "function") {
-    throw new Error("browser.tabs.sendMessage is unavailable");
-  }
   const tab = await getActiveTab();
   if (!tab?.id) throw new Error("No active tab found");
-  const resp = await browser.tabs.sendMessage(tab.id, {
-    command: "getArticleText",
-  });
-  if (!resp || resp.command !== "articleTextResponse") {
-    throw new Error("Unexpected content script response");
+  const resp = await tabsSendMessage(tab.id, { command: "getArticleText" });
+
+  if (!resp) {
+    throw new Error("Content script did not respond");
   }
-  if (resp.error) throw new Error(resp.error);
-  return { title: resp.title ?? "", text: resp.body ?? "", url: tab.url ?? "" };
+
+  if (typeof resp !== "object") {
+    throw new Error(`Unexpected content script response: ${typeof resp}`);
+  }
+
+  const command = resp.command;
+  if (command && command !== "articleTextResponse") {
+    throw new Error(`Unexpected content script response command: ${String(command)}`);
+  }
+
+  if (resp.error) throw new Error(String(resp.error));
+
+  const title = typeof resp.title === "string" ? resp.title : "";
+  const body =
+    typeof resp.body === "string"
+      ? resp.body
+      : typeof resp.text === "string"
+        ? resp.text
+        : "";
+  return { title, text: body, url: tab.url ?? "" };
 }
 
 function buildSummaryUserPrompt({ title, text, url }) {
