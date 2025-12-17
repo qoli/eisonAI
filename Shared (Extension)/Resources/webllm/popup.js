@@ -513,11 +513,13 @@ async function saveRawHistoryItem({ title, text, url }) {
   };
 
   try {
-    return await browser.runtime.sendNativeMessage({
+    const resp = await browser.runtime.sendNativeMessage({
       v: 1,
       command: "saveRawItem",
       payload,
     });
+    console.log("[WebLLM Demo] Saved raw history item:", resp);
+    return resp;
   } catch (err) {
     console.warn("[WebLLM Demo] Failed to save raw history item:", err);
     return null;

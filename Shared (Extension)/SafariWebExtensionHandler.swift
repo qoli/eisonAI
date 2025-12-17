@@ -80,7 +80,8 @@ Emphasize the key insights and main takeaways.
         return Self.filenameTimestampFormatter.date(from: timestamp)
     }
 
-    private func enforceRawLibraryLimit(in directoryURL: URL) throws {
+    @discardableResult
+    private func enforceRawLibraryLimit(in directoryURL: URL) throws -> Int {
         let items = try FileManager.default.contentsOfDirectory(
             at: directoryURL,
             includingPropertiesForKeys: nil,
@@ -88,7 +89,7 @@ Emphasize the key insights and main takeaways.
         )
         let jsonFiles = items
             .filter { $0.pathExtension.lowercased() == "json" }
-        guard jsonFiles.count > rawLibraryMaxItems else { return }
+        guard jsonFiles.count > rawLibraryMaxItems else { return 0 }
 
         let sorted = jsonFiles.sorted { lhs, rhs in
             let leftDate = parseTimestampFromRawLibraryFilename(lhs.lastPathComponent) ?? .distantPast
@@ -101,6 +102,7 @@ Emphasize the key insights and main takeaways.
         for fileURL in sorted.prefix(deleteCount) {
             try? FileManager.default.removeItem(at: fileURL)
         }
+        return deleteCount
     }
 
     private func saveRawHistoryItem(
@@ -132,10 +134,15 @@ Emphasize the key insights and main takeaways.
             options: [.skipsHiddenFiles]
         )
         let prefix = "\(urlHash)__"
+        var removedForURL = 0
         for fileURL in existing where fileURL.pathExtension.lowercased() == "json" {
             if fileURL.lastPathComponent.hasPrefix(prefix) {
                 try? FileManager.default.removeItem(at: fileURL)
+                removedForURL += 1
             }
+        }
+        if removedForURL > 0 {
+            os_log(.default, "[Eison-Native] RawLibrary removed %d old item(s) for urlHash=%@", removedForURL, urlHash)
         }
 
         let item = RawHistoryItem(
@@ -158,7 +165,10 @@ Emphasize the key insights and main takeaways.
         let fileURL = directoryURL.appendingPathComponent(filename)
         try data.write(to: fileURL, options: [.atomic])
 
-        try enforceRawLibraryLimit(in: directoryURL)
+        let trimmed = try enforceRawLibraryLimit(in: directoryURL)
+        if trimmed > 0 {
+            os_log(.default, "[Eison-Native] RawLibrary trimmed %d old item(s) to max=%d", trimmed, rawLibraryMaxItems)
+        }
         return (id, filename)
     }
 
@@ -246,12 +256,33 @@ Emphasize the key insights and main takeaways.
                     let userPrompt = (payload?["userPrompt"] as? String) ?? ""
                     let modelId = (payload?["modelId"] as? String) ?? ""
 
+                    let urlHash = sha256Hex(url)
+                    os_log(
+                        .default,
+                        "[Eison-Native] saveRawItem requested (profile: %@) urlHash=%@ urlLen=%d titleLen=%d articleLen=%d summaryLen=%d model=%@",
+                        profile?.uuidString ?? "none",
+                        urlHash,
+                        url.count,
+                        title.count,
+                        articleText.count,
+                        summaryText.count,
+                        modelId
+                    )
+
                     if summaryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         throw NSError(
                             domain: "EisonAI.RawLibrary",
                             code: 2,
                             userInfo: [NSLocalizedDescriptionKey: "summaryText is required."]
                         )
+                    }
+
+                    do {
+                        let directoryURL = try rawLibraryItemsDirectoryURL()
+                        os_log(.default, "[Eison-Native] RawLibrary directory: %@", directoryURL.path)
+                    } catch {
+                        os_log(.error, "[Eison-Native] RawLibrary directory unavailable: %@", error.localizedDescription)
+                        throw error
                     }
 
                     let result = try saveRawHistoryItem(
@@ -264,6 +295,31 @@ Emphasize the key insights and main takeaways.
                         modelId: modelId
                     )
 
+                    do {
+                        let directoryURL = try rawLibraryItemsDirectoryURL()
+                        let savedURL = directoryURL.appendingPathComponent(result.filename)
+                        let items = try FileManager.default.contentsOfDirectory(
+                            at: directoryURL,
+                            includingPropertiesForKeys: nil,
+                            options: [.skipsHiddenFiles]
+                        )
+                        let jsonCount = items.filter { $0.pathExtension.lowercased() == "json" }.count
+                        os_log(
+                            .default,
+                            "[Eison-Native] saveRawItem saved id=%@ file=%@ path=%@ totalJSON=%d",
+                            result.id,
+                            result.filename,
+                            savedURL.path,
+                            jsonCount
+                        )
+                    } catch {
+                        os_log(
+                            .error,
+                            "[Eison-Native] saveRawItem post-save listing failed: %@",
+                            error.localizedDescription
+                        )
+                    }
+
                     responseMessage = [
                         "v": 1,
                         "type": "response",
@@ -275,6 +331,7 @@ Emphasize the key insights and main takeaways.
                         ],
                     ]
                 } catch {
+                    os_log(.error, "[Eison-Native] saveRawItem failed: %@", error.localizedDescription)
                     responseMessage = [
                         "v": 1,
                         "type": "error",
