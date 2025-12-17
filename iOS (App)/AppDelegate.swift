@@ -9,9 +9,69 @@ import SwiftUI
 import UIKit
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
+#if targetEnvironment(macCatalyst)
+    private var sceneObserverTokens: [NSObjectProtocol] = []
+#endif
+
+    deinit {
+#if targetEnvironment(macCatalyst)
+        for token in sceneObserverTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
+#endif
+    }
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+#if targetEnvironment(macCatalyst)
+        sceneObserverTokens.append(
+            NotificationCenter.default.addObserver(
+                forName: UIScene.willConnectNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let windowScene = notification.object as? UIWindowScene else { return }
+                self?.configureMacCatalystTitlebar(for: windowScene)
+            }
+        )
+
+        sceneObserverTokens.append(
+            NotificationCenter.default.addObserver(
+                forName: UIScene.didActivateNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                guard let windowScene = notification.object as? UIWindowScene else { return }
+                self?.configureMacCatalystTitlebar(for: windowScene)
+            }
+        )
+
+        DispatchQueue.main.async { [weak self] in
+            self?.configureMacCatalystTitlebars(for: application)
+        }
+#endif
         true
     }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+#if targetEnvironment(macCatalyst)
+        configureMacCatalystTitlebars(for: application)
+#endif
+    }
+
+#if targetEnvironment(macCatalyst)
+    private func configureMacCatalystTitlebars(for application: UIApplication) {
+        for scene in application.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            configureMacCatalystTitlebar(for: windowScene)
+        }
+    }
+
+    private func configureMacCatalystTitlebar(for windowScene: UIWindowScene) {
+        guard let titlebar = windowScene.titlebar else { return }
+        titlebar.titleVisibility = .hidden
+        titlebar.toolbar = nil
+    }
+#endif
 }
 
 @main
