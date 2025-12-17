@@ -8,9 +8,7 @@
 
 	/* Begin PBXBuildFile section */
 			EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
-			EA7726392BC5B6B3005A194D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726382BC5B6B3005A194D /* SceneDelegate.swift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
-		EA77263F2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263E2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA7726622BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77261E2BC5B6B2005A194D /* Base */; };
 		EA7726642BC5B6B3005A194D /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = EA77261F2BC5B6B2005A194D /* Icon.png */; };
@@ -71,9 +69,7 @@
 			EA77262B2BC5B6B3005A194D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
 		EA7726332BC5B6B3005A194D /* eisonAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eisonAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726362BC5B6B3005A194D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		EA7726382BC5B6B3005A194D /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		EA77263B2BC5B6B3005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		EA77263E2BC5B6B3005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		EA7726402BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "eisonAI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726562BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -170,11 +166,9 @@
 				isa = PBXGroup;
 				children = (
 					EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
-					EA7726382BC5B6B3005A194D /* SceneDelegate.swift */,
 					EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
-					EA77263D2BC5B6B3005A194D /* Main.storyboard */,
-				EA7726402BC5B6B3005A194D /* Info.plist */,
-			);
+					EA7726402BC5B6B3005A194D /* Info.plist */,
+				);
 			path = "iOS (App)";
 			sourceTree = "<group>";
 		};
@@ -272,7 +266,6 @@
 				EA7726622BC5B6B3005A194D /* Base in Resources */,
 				EA7726682BC5B6B3005A194D /* Script.js in Resources */,
 				EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */,
-				EA77263F2BC5B6B3005A194D /* Base in Resources */,
 				EA7726662BC5B6B3005A194D /* Style.css in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -301,7 +294,6 @@
 				files = (
 					EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
 					EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
-					EA7726392BC5B6B3005A194D /* SceneDelegate.swift in Sources */,
 				);
 				runOnlyForDeploymentPostprocessing = 0;
 			};
@@ -323,7 +315,7 @@
 		};
 /* End PBXTargetDependency section */
 
-/* Begin PBXVariantGroup section */
+	/* Begin PBXVariantGroup section */
 		EA77261D2BC5B6B2005A194D /* Main.html */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -338,14 +330,6 @@
 				EA77263B2BC5B6B3005A194D /* Base */,
 			);
 			name = LaunchScreen.storyboard;
-			sourceTree = "<group>";
-		};
-		EA77263D2BC5B6B3005A194D /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				EA77263E2BC5B6B3005A194D /* Base */,
-			);
-			name = Main.storyboard;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
