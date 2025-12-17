@@ -93,6 +93,7 @@ AppGroup/
 
 注意：
 
+- `manifest.json` 需包含 `permissions: ["nativeMessaging"]` 才能在 Safari 使用 `browser.runtime.sendNativeMessage`。
 - handler 內只做「組 JSON + 寫檔」即可，避免做重計算。
 - `articleText` 可能很長：依目前設計 Raw Library **不截斷原文**。
 
