@@ -1,0 +1,1 @@
+/usr/bin/log stream --style compact --level info --predicate 'subsystem == "com.qoli.eisonAI"'
