@@ -3,11 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 56;
 	objects = {
 
-	/* Begin PBXBuildFile section */
-			EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
+/* Begin PBXBuildFile section */
+		EA0278213DC3F61993F76C75 /* webllm in Resources */ = {isa = PBXBuildFile; fileRef = EA233CDB0BB9C50619870079 /* webllm */; };
+		EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA7726622BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77261E2BC5B6B2005A194D /* Base */; };
@@ -19,13 +20,13 @@
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
 		EA7726702BC5B6B3005A194D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = EA7726272BC5B6B3005A194D /* _locales */; };
 		EA7726722BC5B6B3005A194D /* images in Resources */ = {isa = PBXBuildFile; fileRef = EA7726282BC5B6B3005A194D /* images */; };
-			EA0278213DC3F61993F76C75 /* webllm in Resources */ = {isa = PBXBuildFile; fileRef = EA233CDB0BB9C50619870079 /* webllm */; };
-			EAABBF4275B22294E241D37A /* webllm-assets in Resources */ = {isa = PBXBuildFile; fileRef = EA15C09267F344141676CD68 /* webllm-assets */; };
-			EA7726742BC5B6B3005A194D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = EA7726292BC5B6B3005A194D /* manifest.json */; };
-			EA7726782BC5B6B3005A194D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = EA77262B2BC5B6B3005A194D /* content.js */; };
-			EA7726A32BC5B71D005A194D /* readability.css in Resources */ = {isa = PBXBuildFile; fileRef = EA77269C2BC5B71D005A194D /* readability.css */; };
-			EA7726AB2BC5B91D005A194D /* contentReadability.js in Resources */ = {isa = PBXBuildFile; fileRef = EA7726A62BC5B91C005A194D /* contentReadability.js */; };
-	/* End PBXBuildFile section */
+		EA7726742BC5B6B3005A194D /* manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = EA7726292BC5B6B3005A194D /* manifest.json */; };
+		EA7726782BC5B6B3005A194D /* content.js in Resources */ = {isa = PBXBuildFile; fileRef = EA77262B2BC5B6B3005A194D /* content.js */; };
+		EA7726A32BC5B71D005A194D /* readability.css in Resources */ = {isa = PBXBuildFile; fileRef = EA77269C2BC5B71D005A194D /* readability.css */; };
+		EA7726AB2BC5B91D005A194D /* contentReadability.js in Resources */ = {isa = PBXBuildFile; fileRef = EA7726A62BC5B91C005A194D /* contentReadability.js */; };
+		EAABBF4275B22294E241D37A /* webllm-assets in Resources */ = {isa = PBXBuildFile; fileRef = EA15C09267F344141676CD68 /* webllm-assets */; };
+		EAE2A7552EF2A2C900C3902A /* SQLiteData in Frameworks */ = {isa = PBXBuildFile; productRef = EAE2A7542EF2A2C900C3902A /* SQLiteData */; };
+/* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		EA7726532BC5B6B3005A194D /* PBXContainerItemProxy */ = {
@@ -51,11 +52,13 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
-	/* Begin PBXFileReference section */
+/* Begin PBXFileReference section */
+		EA15C09267F344141676CD68 /* webllm-assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "webllm-assets"; sourceTree = "<group>"; };
+		EA233CDB0BB9C50619870079 /* webllm */ = {isa = PBXFileReference; lastKnownFileType = folder; path = webllm; sourceTree = "<group>"; };
 		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
 		EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "eisonAI Extension (iOS).entitlements"; sourceTree = "<group>"; };
-			EA77261E2BC5B6B2005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = ../Base.lproj/Main.html; sourceTree = "<group>"; };
-			EA77261F2BC5B6B2005A194D /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
+		EA77261E2BC5B6B2005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = ../Base.lproj/Main.html; sourceTree = "<group>"; };
+		EA77261F2BC5B6B2005A194D /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
 		EA7726202BC5B6B2005A194D /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
 		EA7726212BC5B6B2005A194D /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
 		EA7726222BC5B6B2005A194D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -63,38 +66,37 @@
 		EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		EA7726272BC5B6B3005A194D /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; path = _locales; sourceTree = "<group>"; };
 		EA7726282BC5B6B3005A194D /* images */ = {isa = PBXFileReference; lastKnownFileType = folder; path = images; sourceTree = "<group>"; };
-		EA233CDB0BB9C50619870079 /* webllm */ = {isa = PBXFileReference; lastKnownFileType = folder; path = webllm; sourceTree = "<group>"; };
-		EA15C09267F344141676CD68 /* webllm-assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "webllm-assets"; sourceTree = "<group>"; };
-			EA7726292BC5B6B3005A194D /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
-			EA77262B2BC5B6B3005A194D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
+		EA7726292BC5B6B3005A194D /* manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = manifest.json; sourceTree = "<group>"; };
+		EA77262B2BC5B6B3005A194D /* content.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = content.js; sourceTree = "<group>"; };
 		EA7726332BC5B6B3005A194D /* eisonAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eisonAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726362BC5B6B3005A194D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		EA77263B2BC5B6B3005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		EA7726402BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "eisonAI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726562BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-			EA77269C2BC5B71D005A194D /* readability.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = readability.css; sourceTree = "<group>"; };
-			EA7726A62BC5B91C005A194D /* contentReadability.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = contentReadability.js; sourceTree = "<group>"; };
-	/* End PBXFileReference section */
+		EA77269C2BC5B71D005A194D /* readability.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = readability.css; sourceTree = "<group>"; };
+		EA7726A62BC5B91C005A194D /* contentReadability.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = contentReadability.js; sourceTree = "<group>"; };
+/* End PBXFileReference section */
 
-	/* Begin PBXFrameworksBuildPhase section */
-			EA7726302BC5B6B3005A194D /* Frameworks */ = {
-				isa = PBXFrameworksBuildPhase;
-				buildActionMask = 2147483647;
-				files = (
-				);
-				runOnlyForDeploymentPostprocessing = 0;
-			};
-			EA77264E2BC5B6B3005A194D /* Frameworks */ = {
-				isa = PBXFrameworksBuildPhase;
-				buildActionMask = 2147483647;
-				files = (
-				);
-				runOnlyForDeploymentPostprocessing = 0;
-			};
-	/* End PBXFrameworksBuildPhase section */
+/* Begin PBXFrameworksBuildPhase section */
+		EA7726302BC5B6B3005A194D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EAE2A7552EF2A2C900C3902A /* SQLiteData in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EA77264E2BC5B6B3005A194D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
-	/* Begin PBXGroup section */
+/* Begin PBXGroup section */
 		EA7726162BC5B6B2005A194D = {
 			isa = PBXGroup;
 			children = (
@@ -138,21 +140,21 @@
 			path = "Shared (Extension)";
 			sourceTree = "<group>";
 		};
-			EA7726262BC5B6B3005A194D /* Resources */ = {
-				isa = PBXGroup;
-				children = (
-					EA7726272BC5B6B3005A194D /* _locales */,
-					EA77262B2BC5B6B3005A194D /* content.js */,
-					EA7726A62BC5B91C005A194D /* contentReadability.js */,
-					EA7726282BC5B6B3005A194D /* images */,
-					EA233CDB0BB9C50619870079 /* webllm */,
-					EA15C09267F344141676CD68 /* webllm-assets */,
-					EA7726292BC5B6B3005A194D /* manifest.json */,
-					EA77269C2BC5B71D005A194D /* readability.css */,
-				);
-				path = Resources;
-				sourceTree = "<group>";
-			};
+		EA7726262BC5B6B3005A194D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EA7726272BC5B6B3005A194D /* _locales */,
+				EA77262B2BC5B6B3005A194D /* content.js */,
+				EA7726A62BC5B91C005A194D /* contentReadability.js */,
+				EA7726282BC5B6B3005A194D /* images */,
+				EA233CDB0BB9C50619870079 /* webllm */,
+				EA15C09267F344141676CD68 /* webllm-assets */,
+				EA7726292BC5B6B3005A194D /* manifest.json */,
+				EA77269C2BC5B71D005A194D /* readability.css */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		EA7726342BC5B6B3005A194D /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -162,13 +164,13 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-			EA7726352BC5B6B3005A194D /* iOS (App) */ = {
-				isa = PBXGroup;
-				children = (
-					EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
-					EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
-					EA7726402BC5B6B3005A194D /* Info.plist */,
-				);
+		EA7726352BC5B6B3005A194D /* iOS (App) */ = {
+			isa = PBXGroup;
+			children = (
+				EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
+				EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
+				EA7726402BC5B6B3005A194D /* Info.plist */,
+			);
 			path = "iOS (App)";
 			sourceTree = "<group>";
 		};
@@ -221,8 +223,8 @@
 		};
 /* End PBXNativeTarget section */
 
-	/* Begin PBXProject section */
-			EA7726172BC5B6B2005A194D /* Project object */ = {
+/* Begin PBXProject section */
+		EA7726172BC5B6B2005A194D /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
@@ -246,9 +248,12 @@
 				Base,
 			);
 			mainGroup = EA7726162BC5B6B2005A194D;
-				productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
-				projectDirPath = "";
-				projectRoot = "";
+			packageReferences = (
+				EAE2A7532EF2A2C900C3902A /* XCRemoteSwiftPackageReference "sqlite-data" */,
+			);
+			productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				EA7726322BC5B6B3005A194D /* iOS */,
 				EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */,
@@ -256,7 +261,7 @@
 		};
 /* End PBXProject section */
 
-	/* Begin PBXResourcesBuildPhase section */
+/* Begin PBXResourcesBuildPhase section */
 		EA7726312BC5B6B3005A194D /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -270,33 +275,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-			EA77264F2BC5B6B3005A194D /* Resources */ = {
-				isa = PBXResourcesBuildPhase;
-				buildActionMask = 2147483647;
-				files = (
-					EA7726AB2BC5B91D005A194D /* contentReadability.js in Resources */,
-					EA7726A32BC5B71D005A194D /* readability.css in Resources */,
-					EA7726722BC5B6B3005A194D /* images in Resources */,
-					EA0278213DC3F61993F76C75 /* webllm in Resources */,
-					EAABBF4275B22294E241D37A /* webllm-assets in Resources */,
-					EA7726742BC5B6B3005A194D /* manifest.json in Resources */,
-					EA7726702BC5B6B3005A194D /* _locales in Resources */,
-					EA7726782BC5B6B3005A194D /* content.js in Resources */,
-				);
-				runOnlyForDeploymentPostprocessing = 0;
-			};
-	/* End PBXResourcesBuildPhase section */
+		EA77264F2BC5B6B3005A194D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA7726AB2BC5B91D005A194D /* contentReadability.js in Resources */,
+				EA7726A32BC5B71D005A194D /* readability.css in Resources */,
+				EA7726722BC5B6B3005A194D /* images in Resources */,
+				EA0278213DC3F61993F76C75 /* webllm in Resources */,
+				EAABBF4275B22294E241D37A /* webllm-assets in Resources */,
+				EA7726742BC5B6B3005A194D /* manifest.json in Resources */,
+				EA7726702BC5B6B3005A194D /* _locales in Resources */,
+				EA7726782BC5B6B3005A194D /* content.js in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
-	/* Begin PBXSourcesBuildPhase section */
-			EA77262F2BC5B6B3005A194D /* Sources */ = {
-				isa = PBXSourcesBuildPhase;
-				buildActionMask = 2147483647;
-				files = (
-					EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
-					EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
-				);
-				runOnlyForDeploymentPostprocessing = 0;
-			};
+/* Begin PBXSourcesBuildPhase section */
+		EA77262F2BC5B6B3005A194D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
+				EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EA77264D2BC5B6B3005A194D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -315,7 +320,7 @@
 		};
 /* End PBXTargetDependency section */
 
-	/* Begin PBXVariantGroup section */
+/* Begin PBXVariantGroup section */
 		EA77261D2BC5B6B2005A194D /* Main.html */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -465,7 +470,7 @@
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-					IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -496,7 +501,7 @@
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-					IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -534,7 +539,7 @@
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-					IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -571,7 +576,7 @@
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-					IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -625,6 +630,24 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		EAE2A7532EF2A2C900C3902A /* XCRemoteSwiftPackageReference "sqlite-data" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/sqlite-data.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.0;
+			};
 		};
-		rootObject = EA7726172BC5B6B2005A194D /* Project object */;
-	}
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		EAE2A7542EF2A2C900C3902A /* SQLiteData */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EAE2A7532EF2A2C900C3902A /* XCRemoteSwiftPackageReference "sqlite-data" */;
+			productName = SQLiteData;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = EA7726172BC5B6B2005A194D /* Project object */;
+}
