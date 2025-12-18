@@ -18,6 +18,7 @@
 - 離線優先：popup 不做 runtime 下載；`IndexedDB` cache 關閉（避免依賴持久儲存）。
 - 同一套 popup 亦可用於 macOS Safari（包含 “My Mac (Designed for iPad)”）。
 - iOS 主 App：以 SwiftUI 提供 onboarding 與輕量設定（例如 System Prompt），資料透過 App Group 與 extension 共用。
+- iOS 主 App（dev/demo）：新增一個 **原生 MLC Swift SDK**（`MLCSwift`/`MLCEngine`）的 Qwen3 0.6B 單輪 streaming demo，用於驗證模型打包與推理鏈路（不依賴 WebView / WebLLM）。
 
 ## 非目標（non-goals）
 
@@ -38,10 +39,28 @@
 - 主要功能：
   - Onboarding：引導使用者到「設定 → Safari → Extensions」開啟擴充功能。
   - 設定：編輯/儲存/重置 System Prompt（給 popup 摘要用）。
+  - Demo（dev）：`MLCQwenDemoView` 單輪 streaming chat（入口 `NavigationLink`）。
 - 資料儲存（與 extension 共用）：
   - App Group：`group.com.qoli.eisonAI`
   - Key：`eison.systemPrompt`
   - 規則：空字串/全空白視為「回到預設 prompt」。
+
+#### iOS 原生 MLC Swift Demo（MLCSwift）
+
+- 依賴來源：`/Volumes/Data/Github/mlc-llm/ios/MLCSwift`（Xcode 以 local package 引入）。
+- 模型/權重/設定來源：App bundle 的 `bundle/`（由 `mlc_llm package` 產生並複製進 app）。
+- Demo 尋找模型方式：
+  - 讀取 `bundle/mlc-app-config.json`
+  - 從 `model_list` 找到符合 `model_id` 且有 `model_path` 的紀錄
+  - 以 `MLCEngine.reload(modelPath:modelLib:)` 載入，並用 `engine.chat.completions.create(...)` streaming 輸出
+
+#### MLC LLM 打包產物（dist）
+
+- 專案內路徑（不進 Git）：`dist/`
+  - `dist/bundle/`：包含 `mlc-app-config.json`、模型目錄（內含 `mlc-chat-config.json`、tokenizer、weights 等）
+  - `dist/lib/`：包含 iOS 連結所需靜態庫（供 `LIBRARY_SEARCH_PATHS` + `OTHER_LDFLAGS`）
+- 打包設定檔：repo 根目錄 `mlc-package-config.json`（供 `mlc_llm package` 使用）
+- 產生方式（開發者在本機執行）：`MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm mlc_llm package`
 
 ### Safari Web Extension（WebLLM popup）
 
@@ -49,6 +68,7 @@
 - `webllm/popup.html`、`webllm/popup.js`、`webllm/worker.js`：popup UI + WebLLM engine（worker 內跑）。
 - `webllm/webllm.js`：vendor 的 WebLLM runtime（含 Safari `safari-web-extension://` scheme workaround patch）。
 - `webllm-assets/`：模型與 wasm 檔案（由 Xcode 打包進 extension）。
+- Markdown 渲染：popup 使用本地 `marked.umd.js`（避免遠端 CDN 及 CSP/上架限制）。
 
 ### 通訊流程（摘要）
 

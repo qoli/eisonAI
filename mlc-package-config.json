@@ -2,8 +2,8 @@
   "device": "iphone",
   "model_list": [
     {
-      "model": "HF://mlc-ai/Qwen3-0.6B-q0f16-MLC",
-      "model_id": "Qwen3-0.6B-q0f16-MLC",
+      "model": "Shared (Extension)/Resources/webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main",
+      "model_id": "Qwen3-0.6B-q4f16_1-MLC",
       "estimated_vram_bytes": 3000000000,
       "overrides": {
         "prefill_chunk_size": 128,
@@ -13,4 +13,3 @@
     }
   ]
 }
-
