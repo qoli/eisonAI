@@ -29,6 +29,7 @@ final class MLCQwenDemoViewModel: ObservableObject {
         "Qwen3-0.6B-q4f16_1-MLC",
         "Qwen3-0.6B-q0f16-MLC",
     ]
+    private let embeddedExtensionBundleID = "com.qoli.eisonAI.Extension"
 
     func onAppear() {
         guard loadTask == nil else { return }
@@ -148,21 +149,33 @@ final class MLCQwenDemoViewModel: ObservableObject {
     private enum DemoError: LocalizedError {
         case missingBundledConfig(URL)
         case missingBundledModel(String)
+        case missingEmbeddedExtension(String)
+        case missingModelDirectory(String)
+        case missingModelFile(String)
 
         var errorDescription: String? {
             switch self {
             case .missingBundledConfig(let url):
-                return "Missing bundled config: \(url.lastPathComponent). Did you add `dist/bundle` to app resources?"
+                return "Missing bundled config: \(url.lastPathComponent). Did you add `iOS (App)/mlc-app-config.json` to app resources?"
             case .missingBundledModel(let modelID):
                 return "Model not found in `mlc-app-config.json`: \(modelID)"
+            case .missingEmbeddedExtension(let bundleID):
+                return "Embedded extension not found: \(bundleID). Is the Safari extension target embedded into the app?"
+            case .missingModelDirectory(let dir):
+                return "Missing model directory: \(dir)"
+            case .missingModelFile(let path):
+                return "Missing model file: \(path)"
             }
         }
     }
 
     private func resolveBundledModel() throws -> BundledModel {
-        let configURL = Bundle.main.bundleURL.appending(path: "bundle/mlc-app-config.json")
-        guard FileManager.default.fileExists(atPath: configURL.path()) else {
-            throw DemoError.missingBundledConfig(configURL)
+        let configCandidates = [
+            Bundle.main.bundleURL.appending(path: "mlc-app-config.json"),
+            Bundle.main.bundleURL.appending(path: "bundle/mlc-app-config.json"),
+        ]
+        guard let configURL = configCandidates.first(where: { FileManager.default.fileExists(atPath: $0.path()) }) else {
+            throw DemoError.missingBundledConfig(configCandidates[0])
         }
 
         let data = try Data(contentsOf: configURL)
@@ -170,15 +183,81 @@ final class MLCQwenDemoViewModel: ObservableObject {
 
         for modelID in modelIDCandidates {
             if let record = config.modelList.first(where: { $0.modelID == modelID && $0.modelPath != nil }) {
-                let modelDir = Bundle.main.bundleURL
+                let modelDirName = record.modelPath ?? modelID
+                if let url = resolveModelDirFromWebLLMAssets(modelDirName: modelDirName) {
+                    try validateModelDir(url)
+                    return BundledModel(modelID: modelID, modelPath: url.path(), modelLib: record.modelLib)
+                }
+
+                let appBundledURL = Bundle.main.bundleURL
                     .appending(path: "bundle")
-                    .appending(path: record.modelPath!)
-                    .path()
-                return BundledModel(modelID: modelID, modelPath: modelDir, modelLib: record.modelLib)
+                    .appending(path: modelDirName)
+                if FileManager.default.fileExists(atPath: appBundledURL.path()) {
+                    try validateModelDir(appBundledURL)
+                    return BundledModel(modelID: modelID, modelPath: appBundledURL.path(), modelLib: record.modelLib)
+                }
+
+                throw DemoError.missingModelDirectory(modelDirName)
             }
         }
 
         throw DemoError.missingBundledModel(modelIDCandidates.first ?? "(unknown)")
+    }
+
+    private func validateModelDir(_ url: URL) throws {
+        let config = url.appending(path: "mlc-chat-config.json")
+        guard FileManager.default.fileExists(atPath: config.path()) else {
+            throw DemoError.missingModelFile(config.path())
+        }
+
+        let tokenizer = url.appending(path: "tokenizer.json")
+        guard FileManager.default.fileExists(atPath: tokenizer.path()) else {
+            throw DemoError.missingModelFile(tokenizer.path())
+        }
+
+        guard
+            let items = try? FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: nil
+            ),
+            items.contains(where: { $0.lastPathComponent.hasPrefix("params_shard_") && $0.pathExtension == "bin" })
+        else {
+            throw DemoError.missingModelFile(url.appending(path: "params_shard_*.bin").path())
+        }
+    }
+
+    private func resolveModelDirFromWebLLMAssets(modelDirName: String) -> URL? {
+        let modelDirCandidates = [
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: resolveEmbeddedExtensionBundleURL()),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: resolveEmbeddedExtensionBundleURL()),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: Bundle.main.bundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: Bundle.main.bundleURL),
+        ]
+
+        for url in modelDirCandidates {
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path(), isDirectory: &isDir), isDir.boolValue {
+                return url
+            }
+        }
+        return nil
+    }
+
+    private func resolveEmbeddedExtensionBundleURL() -> URL? {
+        guard let pluginsURL = Bundle.main.builtInPlugInsURL else { return nil }
+        guard
+            let pluginURLs = try? FileManager.default.contentsOfDirectory(
+                at: pluginsURL,
+                includingPropertiesForKeys: nil
+            )
+        else { return nil }
+
+        let extensionBundle = pluginURLs
+            .filter { $0.pathExtension == "appex" }
+            .compactMap(Bundle.init(url:))
+            .first(where: { $0.bundleIdentifier == embeddedExtensionBundleID })
+
+        return extensionBundle?.bundleURL
     }
 }
 
