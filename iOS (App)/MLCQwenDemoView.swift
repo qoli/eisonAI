@@ -170,12 +170,9 @@ final class MLCQwenDemoViewModel: ObservableObject {
     }
 
     private func resolveBundledModel() throws -> BundledModel {
-        let configCandidates = [
-            Bundle.main.bundleURL.appending(path: "mlc-app-config.json"),
-            Bundle.main.bundleURL.appending(path: "bundle/mlc-app-config.json"),
-        ]
-        guard let configURL = configCandidates.first(where: { FileManager.default.fileExists(atPath: $0.path()) }) else {
-            throw DemoError.missingBundledConfig(configCandidates[0])
+        let configURL = Bundle.main.bundleURL.appending(path: "mlc-app-config.json")
+        guard FileManager.default.fileExists(atPath: configURL.path()) else {
+            throw DemoError.missingBundledConfig(configURL)
         }
 
         let data = try Data(contentsOf: configURL)

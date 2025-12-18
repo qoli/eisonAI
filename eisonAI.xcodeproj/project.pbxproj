@@ -20,11 +20,6 @@
 		EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726362BC5B6B3005A194D /* AppDelegate.swift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		EA7726622BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77261E2BC5B6B2005A194D /* Base */; };
-		EA7726642BC5B6B3005A194D /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = EA77261F2BC5B6B2005A194D /* Icon.png */; };
-		EA7726662BC5B6B3005A194D /* Style.css in Resources */ = {isa = PBXBuildFile; fileRef = EA7726202BC5B6B2005A194D /* Style.css */; };
-		EA7726682BC5B6B3005A194D /* Script.js in Resources */ = {isa = PBXBuildFile; fileRef = EA7726212BC5B6B2005A194D /* Script.js */; };
-		EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726222BC5B6B2005A194D /* ViewController.swift */; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
 		EA7726702BC5B6B3005A194D /* _locales in Resources */ = {isa = PBXBuildFile; fileRef = EA7726272BC5B6B3005A194D /* _locales */; };
@@ -83,11 +78,6 @@
 		EA233CDB0BB9C50619870079 /* webllm */ = {isa = PBXFileReference; lastKnownFileType = folder; path = webllm; sourceTree = "<group>"; };
 		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
 		EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "eisonAI Extension (iOS).entitlements"; sourceTree = "<group>"; };
-		EA77261E2BC5B6B2005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = Base; path = ../Base.lproj/Main.html; sourceTree = "<group>"; };
-		EA77261F2BC5B6B2005A194D /* Icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Icon.png; sourceTree = "<group>"; };
-		EA7726202BC5B6B2005A194D /* Style.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = Style.css; sourceTree = "<group>"; };
-		EA7726212BC5B6B2005A194D /* Script.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = Script.js; sourceTree = "<group>"; };
-		EA7726222BC5B6B2005A194D /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		EA7726232BC5B6B3005A194D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		EA7726272BC5B6B3005A194D /* _locales */ = {isa = PBXFileReference; lastKnownFileType = folder; path = _locales; sourceTree = "<group>"; };
@@ -142,22 +132,9 @@
 		EA77261B2BC5B6B2005A194D /* Shared (App) */ = {
 			isa = PBXGroup;
 			children = (
-				EA7726222BC5B6B2005A194D /* ViewController.swift */,
 				EA7726232BC5B6B3005A194D /* Assets.xcassets */,
-				EA77261C2BC5B6B2005A194D /* Resources */,
 			);
 			path = "Shared (App)";
-			sourceTree = "<group>";
-		};
-		EA77261C2BC5B6B2005A194D /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				EA77261D2BC5B6B2005A194D /* Main.html */,
-				EA77261F2BC5B6B2005A194D /* Icon.png */,
-				EA7726202BC5B6B2005A194D /* Style.css */,
-				EA7726212BC5B6B2005A194D /* Script.js */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		EA7726242BC5B6B3005A194D /* Shared (Extension) */ = {
@@ -309,13 +286,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				EAF756E72EF3C61900CA34C3 /* webllm-assets in Resources */,
-				EA7726642BC5B6B3005A194D /* Icon.png in Resources */,
 				EA77263C2BC5B6B3005A194D /* Base in Resources */,
-				EA7726622BC5B6B3005A194D /* Base in Resources */,
-				EA7726682BC5B6B3005A194D /* Script.js in Resources */,
 				EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */,
 				EAF756E92EF3C82700CA34C3 /* mlc-app-config.json in Resources */,
-				EA7726662BC5B6B3005A194D /* Style.css in Resources */,
 				F0A1B2C3D4E5F60718293A4C /* default_system_prompt.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -343,7 +316,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EA77266A2BC5B6B3005A194D /* ViewController.swift in Sources */,
 				EA7726372BC5B6B3005A194D /* AppDelegate.swift in Sources */,
 				29DA54C5F46345A99482FBFD /* EisonAIApp.swift in Sources */,
 				0ED262F202D646C1ABB261B6 /* AppConfig.swift in Sources */,
@@ -378,14 +350,6 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
-		EA77261D2BC5B6B2005A194D /* Main.html */ = {
-			isa = PBXVariantGroup;
-			children = (
-				EA77261E2BC5B6B2005A194D /* Base */,
-			);
-			name = Main.html;
-			sourceTree = "<group>";
-		};
 		EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -543,7 +507,7 @@
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos macosx";
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -577,7 +541,7 @@
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos macosx";
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -615,8 +579,6 @@
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
-					"-framework",
-					WebKit,
 					"-Wl,-all_load",
 					"-lmodel_iphone",
 					"-lmlc_llm",
@@ -630,7 +592,7 @@
 				PRODUCT_NAME = eisonAI;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos macosx";
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -667,8 +629,6 @@
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
-					"-framework",
-					WebKit,
 					"-Wl,-all_load",
 					"-lmodel_iphone",
 					"-lmlc_llm",
@@ -682,7 +642,7 @@
 				PRODUCT_NAME = eisonAI;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = iphoneos;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SUPPORTED_PLATFORMS = "iphoneos macosx";
 				SUPPORTS_MACCATALYST = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
