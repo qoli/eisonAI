@@ -47,3 +47,9 @@ build/
 # WebLLM bundled assets (very large)
 Shared (Extension)/Resources/webllm-assets/models/
 Shared (Extension)/Resources/webllm-assets/wasm/
+
+# MLC LLM packaging output (very large)
+dist/*
+!dist/.gitkeep
+!dist/bundle/.gitkeep
+!dist/lib/.gitkeep

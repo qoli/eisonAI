@@ -31,6 +31,14 @@ struct RootView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Demos") {
+                    NavigationLink("Qwen3 0.6B (MLC Swift)") {
+                        MLCQwenDemoView()
+                    }
+                    Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
+                        .foregroundStyle(.secondary)
+                }
+
                 Section("System prompt") {
                     Text("Used by the Safari extension popup summary.")
                         .foregroundStyle(.secondary)
