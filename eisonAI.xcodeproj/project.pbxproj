@@ -60,19 +60,19 @@
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
-		EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = EA7726322BC5B6B3005A194D /* iOS */;
-		};
 		EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Config/AppConfig.swift,
 			);
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;
+		};
+		EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -643,9 +643,6 @@
 			relativePath = "../mlc-llm/ios/MLCSwift";
 		};
 /* End XCLocalSwiftPackageReference section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		69E3C302CAE70743D02A6776 /* MLCSwift */ = {
