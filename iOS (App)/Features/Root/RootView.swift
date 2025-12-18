@@ -13,13 +13,16 @@ struct RootView: View {
     @State private var draftPrompt = ""
     @State private var status = ""
     @State private var didLoad = false
+    @State private var showClipboardKeyPoint = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Safari Extension") {
-                    Text("Enable eisonAI’s Safari extension in Settings → Safari → Extensions.")
-                    Text("Summaries run in the extension popup via WebLLM (bundled assets).")
+                Section("Clipboard") {
+                    Button("Key-point from Clipboard") {
+                        showClipboardKeyPoint = true
+                    }
+                    Text("Reads URL or text from clipboard, generates key points, and saves to History.")
                         .foregroundStyle(.secondary)
                 }
 
@@ -69,8 +72,17 @@ struct RootView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                Section("Safari Extension") {
+                    Text("Enable eisonAI’s Safari extension in Settings → Safari → Extensions.")
+                    Text("Summaries run in the extension popup via WebLLM (bundled assets).")
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("eisonAI")
+            .sheet(isPresented: $showClipboardKeyPoint) {
+                ClipboardKeyPointSheet()
+            }
         }
         .onAppear {
             guard !didLoad else { return }

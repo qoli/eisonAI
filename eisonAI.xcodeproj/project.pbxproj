@@ -529,6 +529,8 @@
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
+					"-framework",
+					WebKit,
 					"-Wl,-all_load",
 					"-lmodel_iphone",
 					"-lmlc_llm",
@@ -580,6 +582,8 @@
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
+					"-framework",
+					WebKit,
 					"-Wl,-all_load",
 					"-lmodel_iphone",
 					"-lmlc_llm",

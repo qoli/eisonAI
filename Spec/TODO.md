@@ -31,6 +31,20 @@
 - [ ] 真機驗證（進階）：首次載入時間、streaming 是否順暢、記憶體峰值與退場處理（clear / cancel / reset / background ↔ foreground）。
 - [ ] Demo UX：加入 Stop/Cancel、顯示「目前載入的 model_id」、以及更明確的錯誤訊息（缺檔/路徑不符時不崩潰）。
 - [ ] 開發流程：將 `iOS (App)/Config/mlc-app-config.json` 的更新流程文件化（從 `dist/bundle/mlc-app-config.json` 同步 `model_lib`），避免重新 `mlc_llm package` 後 hash 變更造成載入失敗。
+- [ ] RawLibrary「收藏」功能（未來）：
+  - [ ] 資料模型：Raw item 增加 `isFavorite`（或獨立 favorites index），並確保舊檔案可向後相容
+  - [ ] UI：History list 支援收藏/取消收藏、只看收藏篩選
+  - [ ] 同步策略：收藏屬於使用者資料，不應被自動 trim/覆蓋
+- [x] Clipboard「Key-point 整理」模式（RootView 新增入口）：
+  - [x] 讀取剪貼簿文字（`UIPasteboard.general.string`），以 `http`/`https` 開頭判斷 URL vs 純文字
+  - [x] URL：用 `WKWebView` 載入頁面，注入並呼叫 `contentReadability.js` 取得 `{title, body}`（Readability 正文）
+  - [x] 非 URL：直接以剪貼簿文字作為輸入正文
+  - [x] 以固定「Key-point 整理」提示詞呼叫原生 MLC（`MLCSwift`/`MLCEngine`）產生結果（streaming）
+  - [x] 提示詞來源：`Shared (Extension)/Resources/default_system_prompt.txt`（參考 extension 的行為/文案）
+  - [x] 將 MLC 呼叫抽象成可重用的 class（供 RootView/其他功能直接使用）
+  - [x] 輸出 UI：以 sheet 顯示 streaming 結果（參考 MLC demo view），並可 Stop/Cancel
+  - [x] 完成後自動寫入 RawLibrary（App Group `RawLibrary/Items/*.json`）：輸入（url/title/body）、輸出（summaryText）、提示詞與 model_id
+  - [x] 錯誤處理：剪貼簿空/載入失敗/Readability 失敗/模型未載入（不崩潰，可重試）
 - [ ] macOS（Mac Catalyst）支援（for Titlebar 可控）：
   - [ ] 產出 macabi 靜態庫：目前 `dist/lib/*.a` 為 iphoneos（arm64）靜態庫，無法在 `arm64-apple-ios-macabi`/`x86_64-apple-ios-macabi` 下連結（會出現「Building for macCatalyst, but linking ... built for iOS」）
   - [ ] 需要一套對應的 TVM/MLC runtime + tokenizers + sentencepiece + model lib（例如 `libtvm_runtime.a`、`libtvm_ffi_static.a`、`libmlc_llm.a`、`libtokenizers_*.a`、`libsentencepiece.a`、以及 Catalyst 專用的 `libmodel_*.a`）
