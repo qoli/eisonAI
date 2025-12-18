@@ -451,6 +451,8 @@
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
+					"-weak_framework",
+					FoundationModels,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI.Extension;
 				PRODUCT_NAME = "eisonAI Extension";
@@ -485,6 +487,8 @@
 				OTHER_LDFLAGS = (
 					"-framework",
 					SafariServices,
+					"-weak_framework",
+					FoundationModels,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI.Extension;
 				PRODUCT_NAME = "eisonAI Extension";
@@ -531,6 +535,8 @@
 					SafariServices,
 					"-framework",
 					WebKit,
+					"-weak_framework",
+					FoundationModels,
 					"-Wl,-all_load",
 					"-lmodel_iphone",
 					"-lmlc_llm",
@@ -584,6 +590,8 @@
 					SafariServices,
 					"-framework",
 					WebKit,
+					"-weak_framework",
+					FoundationModels,
 					"-Wl,-all_load",
 					"-lmodel_iphone",
 					"-lmlc_llm",

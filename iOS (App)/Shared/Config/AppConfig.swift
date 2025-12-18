@@ -10,6 +10,8 @@ import Foundation
 enum AppConfig {
     static let appGroupIdentifier = "group.com.qoli.eisonAI"
     static let systemPromptKey = "eison.systemPrompt"
+    static let foundationModelsAppEnabledKey = "eison.foundationModels.app.enabled"
+    static let foundationModelsExtensionEnabledKey = "eison.foundationModels.extension.enabled"
     static let rawLibraryRootPathComponents = ["RawLibrary"]
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
     static let rawLibraryFavoriteItemsPathComponents = ["RawLibrary", "FavoriteItems"]

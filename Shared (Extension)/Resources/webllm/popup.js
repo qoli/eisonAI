@@ -536,12 +536,19 @@ let engine = null;
 let worker = null;
 let generating = false;
 let generationInterrupted = false;
+let generationBackend = "webllm"; // "webllm" | "foundation-models"
 let engineLoading = false;
 let cachedUserPrompt = "";
 let preparedMessagesForTokenEstimate = [];
 let autoSummarizeStarted = false;
 let autoSummarizeRunning = false;
 let autoSummarizeQueued = false;
+let activeModelIdOverride = "";
+let foundationJobId = "";
+let foundationCursor = 0;
+
+const FOUNDATION_MODEL_ID = "foundation-models";
+const FOUNDATION_POLL_INTERVAL_MS = 120;
 
 modelSelect.appendChild(new Option(MODEL_ID, MODEL_ID));
 modelSelect.value = MODEL_ID;
@@ -603,7 +610,18 @@ async function waitUntil(predicate, { timeoutMs = 8000, intervalMs = 50 } = {}) 
 }
 
 async function stopGenerationForRestart() {
-  if (!engine || !generating) return true;
+  if (!generating) return true;
+
+  if (generationBackend === "foundation-models") {
+    generationInterrupted = true;
+    if (foundationJobId) {
+      await cancelFoundationModelsStream(foundationJobId);
+    }
+    setStatus("Stopping…");
+    return waitUntil(() => !generating, { timeoutMs: 10000, intervalMs: 50 });
+  }
+
+  if (!engine) return true;
   try {
     generationInterrupted = true;
     engine.interruptGenerate();
@@ -652,6 +670,106 @@ async function refreshSystemPromptFromNative() {
   return systemPrompt;
 }
 
+async function checkFoundationModelsAvailabilityFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    return { enabled: false, available: false, reason: "native messaging unavailable" };
+  }
+
+  try {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "fm.checkAvailability",
+    });
+
+    const payload =
+      resp?.payload ??
+      resp?.echo?.payload ??
+      resp;
+
+    if (resp?.type === "error") {
+      const msg = typeof payload?.message === "string" ? payload.message : "native error";
+      return { enabled: false, available: false, reason: msg };
+    }
+
+    return {
+      enabled: Boolean(payload?.enabled),
+      available: Boolean(payload?.available),
+      reason: typeof payload?.reason === "string" ? payload.reason : "",
+    };
+  } catch (err) {
+    return {
+      enabled: false,
+      available: false,
+      reason: err?.message ? String(err.message) : String(err),
+    };
+  }
+}
+
+async function shouldUseFoundationModels() {
+  const info = await checkFoundationModelsAvailabilityFromNative();
+  return Boolean(info.enabled && info.available);
+}
+
+async function startFoundationModelsStream({ systemPrompt, userPrompt }) {
+  const resp = await browser.runtime.sendNativeMessage({
+    v: 1,
+    command: "fm.stream.start",
+    payload: {
+      systemPrompt: String(systemPrompt ?? ""),
+      userPrompt: String(userPrompt ?? ""),
+      options: {
+        temperature: 0.4,
+        maximumResponseTokens: MAX_OUTPUT_TOKENS,
+      },
+    },
+  });
+
+  const payload = resp?.payload ?? resp;
+  if (resp?.type === "error") {
+    const msg = typeof payload?.message === "string" ? payload.message : "native start failed";
+    throw new Error(msg);
+  }
+  const jobId = payload?.jobId ? String(payload.jobId) : "";
+  const cursor = Number.isFinite(payload?.cursor) ? Number(payload.cursor) : 0;
+  if (!jobId) throw new Error("Missing jobId from native stream.start");
+  return { jobId, cursor };
+}
+
+async function pollFoundationModelsStream({ jobId, cursor }) {
+  const resp = await browser.runtime.sendNativeMessage({
+    v: 1,
+    command: "fm.stream.poll",
+    payload: {
+      jobId: String(jobId ?? ""),
+      cursor: Number.isFinite(cursor) ? cursor : 0,
+    },
+  });
+
+  const payload = resp?.payload ?? resp;
+  if (resp?.type === "error") {
+    const msg = typeof payload?.message === "string" ? payload.message : "native poll failed";
+    throw new Error(msg);
+  }
+  return {
+    delta: typeof payload?.delta === "string" ? payload.delta : "",
+    cursor: Number.isFinite(payload?.cursor) ? Number(payload.cursor) : 0,
+    done: Boolean(payload?.done),
+    error: typeof payload?.error === "string" ? payload.error : "",
+  };
+}
+
+async function cancelFoundationModelsStream(jobId) {
+  try {
+    await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "fm.stream.cancel",
+      payload: { jobId: String(jobId ?? "") },
+    });
+  } catch (err) {
+    console.warn("[WebLLM Demo] fm.stream.cancel failed:", err);
+  }
+}
+
 async function saveRawHistoryItem({ title, text, url }) {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") return null;
 
@@ -666,7 +784,7 @@ async function saveRawHistoryItem({ title, text, url }) {
     summaryText,
     systemPrompt: String(systemPrompt ?? ""),
     userPrompt: String(cachedUserPrompt || buildSummaryUserPrompt({ title, text, url }) || ""),
-    modelId: String(modelSelect?.value ?? MODEL_ID),
+    modelId: String(activeModelIdOverride || modelSelect?.value || MODEL_ID),
   };
 
   try {
@@ -809,6 +927,9 @@ async function streamChat(messages) {
   if (engineLoading) throw new Error("Engine is still loading.");
   if (generating) throw new Error("Generation is already running.");
 
+  generationBackend = "webllm";
+  activeModelIdOverride = "";
+
   preparedMessagesForTokenEstimate = messages;
   setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
 
@@ -877,6 +998,91 @@ async function streamChatWithRecovery(messages, { retry = true } = {}) {
   }
 }
 
+async function streamSummaryWithFoundationModels(ctx) {
+  if (generating) throw new Error("Generation is already running.");
+
+  generationBackend = "foundation-models";
+  activeModelIdOverride = FOUNDATION_MODEL_ID;
+
+  preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
+  setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
+
+  generationInterrupted = false;
+  generating = true;
+  runButton.disabled = true;
+  summarizeButton.disabled = true;
+  stopButton.disabled = false;
+  loadButton.disabled = true;
+  unloadButton.disabled = true;
+  modelSelect.disabled = true;
+  setStatus("Generating…");
+  setShareVisible(false);
+  setThink("");
+  setOutput("");
+  lastModelOutputMarkdown = "";
+
+  cachedUserPrompt = buildSummaryUserPrompt(ctx);
+
+  let acc = "";
+  let completed = false;
+  try {
+    setStatus("Starting native stream…", 0);
+    const started = await startFoundationModelsStream({
+      systemPrompt,
+      userPrompt: cachedUserPrompt,
+    });
+
+    foundationJobId = started.jobId;
+    foundationCursor = started.cursor || 0;
+
+    setStatus("Generating…", 0);
+    while (!generationInterrupted) {
+      const polled = await pollFoundationModelsStream({
+        jobId: foundationJobId,
+        cursor: foundationCursor,
+      });
+
+      if (polled.error) {
+        throw new Error(polled.error);
+      }
+
+      if (polled.delta) {
+        acc += polled.delta;
+        renderModelOutput(acc);
+      }
+
+      foundationCursor = polled.cursor || foundationCursor;
+      if (polled.done) {
+        completed = true;
+        break;
+      }
+
+      await delay(FOUNDATION_POLL_INTERVAL_MS);
+    }
+  } finally {
+    if (generationInterrupted && foundationJobId) {
+      await cancelFoundationModelsStream(foundationJobId);
+    }
+
+    foundationJobId = "";
+    foundationCursor = 0;
+    generating = false;
+    stopButton.disabled = true;
+    runButton.disabled = false;
+    summarizeButton.disabled = false;
+    loadButton.disabled = false;
+    unloadButton.disabled = !engine;
+    modelSelect.disabled = false;
+    setStatus("Ready", 1);
+
+    if (completed && !generationInterrupted) {
+      const markdown = String(lastModelOutputMarkdown ?? "").trim();
+      renderModelOutputAsHtml();
+      setShareVisible(Boolean(markdown) && markdown !== NO_SUMMARY_TEXT_MESSAGE);
+    }
+  }
+}
+
 async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
   if (autoSummarizeRunning) {
     if (force || restart) {
@@ -918,26 +1124,54 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
       return;
     }
 
-    if (!engine) {
-      loadButton.disabled = true;
-      modelSelect.disabled = true;
-      setShareVisible(false);
-      setThink("");
-      setOutput("");
-      try {
-        await loadEngine(modelSelect.value);
-      } catch (err) {
-        setStatus(err?.message ? String(err.message) : String(err), 0);
-        enableControls(false);
-        return;
-      } finally {
-        loadButton.disabled = false;
-        modelSelect.disabled = false;
-      }
-    }
-
     try {
-      await streamChatWithRecovery(buildSummaryMessages(ctx));
+      if (await shouldUseFoundationModels()) {
+        try {
+          await streamSummaryWithFoundationModels(ctx);
+        } catch (err) {
+          console.warn("[WebLLM Demo] Foundation Models failed, falling back to WebLLM:", err);
+          setStatus("Native failed, falling back…", 0);
+          activeModelIdOverride = "";
+          if (!engine) {
+            loadButton.disabled = true;
+            modelSelect.disabled = true;
+            setShareVisible(false);
+            setThink("");
+            setOutput("");
+            try {
+              await loadEngine(modelSelect.value);
+            } catch (loadErr) {
+              setStatus(loadErr?.message ? String(loadErr.message) : String(loadErr), 0);
+              enableControls(false);
+              return;
+            } finally {
+              loadButton.disabled = false;
+              modelSelect.disabled = false;
+            }
+          }
+          await streamChatWithRecovery(buildSummaryMessages(ctx));
+        }
+      } else {
+        activeModelIdOverride = "";
+        if (!engine) {
+          loadButton.disabled = true;
+          modelSelect.disabled = true;
+          setShareVisible(false);
+          setThink("");
+          setOutput("");
+          try {
+            await loadEngine(modelSelect.value);
+          } catch (err) {
+            setStatus(err?.message ? String(err.message) : String(err), 0);
+            enableControls(false);
+            return;
+          } finally {
+            loadButton.disabled = false;
+            modelSelect.disabled = false;
+          }
+        }
+        await streamChatWithRecovery(buildSummaryMessages(ctx));
+      }
       await saveRawHistoryItem(ctx);
     } catch (err) {
       setStatus(err?.message ? String(err.message) : String(err));
@@ -991,7 +1225,16 @@ clearButton.addEventListener("click", () => {
 });
 
 stopButton.addEventListener("click", async () => {
-  if (!engine || !generating) return;
+  if (!generating) return;
+  if (generationBackend === "foundation-models") {
+    generationInterrupted = true;
+    setStatus("Stopping…");
+    if (foundationJobId) {
+      await cancelFoundationModelsStream(foundationJobId);
+    }
+    return;
+  }
+  if (!engine) return;
   try {
     generationInterrupted = true;
     engine.interruptGenerate();
@@ -1089,7 +1332,45 @@ summarizeButton.addEventListener("click", async () => {
       setOutput(NO_SUMMARY_TEXT_MESSAGE);
       return;
     }
-    await streamChatWithRecovery(buildSummaryMessages(ctx));
+    if (await shouldUseFoundationModels()) {
+      try {
+        await streamSummaryWithFoundationModels(ctx);
+      } catch (err) {
+        console.warn("[WebLLM Demo] Foundation Models failed, falling back to WebLLM:", err);
+        setStatus("Native failed, falling back…", 0);
+        activeModelIdOverride = "";
+        if (!engine) {
+          loadButton.disabled = true;
+          modelSelect.disabled = true;
+          setShareVisible(false);
+          setThink("");
+          setOutput("");
+          try {
+            await loadEngine(modelSelect.value);
+          } finally {
+            loadButton.disabled = false;
+            modelSelect.disabled = false;
+          }
+        }
+        await streamChatWithRecovery(buildSummaryMessages(ctx));
+      }
+    } else {
+      activeModelIdOverride = "";
+      if (!engine) {
+        loadButton.disabled = true;
+        modelSelect.disabled = true;
+        setShareVisible(false);
+        setThink("");
+        setOutput("");
+        try {
+          await loadEngine(modelSelect.value);
+        } finally {
+          loadButton.disabled = false;
+          modelSelect.disabled = false;
+        }
+      }
+      await streamChatWithRecovery(buildSummaryMessages(ctx));
+    }
     await saveRawHistoryItem(ctx);
   } catch (err) {
     setStatus(err?.message ? String(err.message) : String(err));

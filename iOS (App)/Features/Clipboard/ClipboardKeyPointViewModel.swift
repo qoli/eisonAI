@@ -9,6 +9,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var isRunning: Bool = false
 
     private let mlc = MLCClient()
+    private let foundationModels = FoundationModelsClient()
+    private let foundationSettings = FoundationModelsSettingsStore()
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
 
@@ -50,11 +52,25 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let systemPrompt = self.loadKeyPointSystemPrompt()
                 let userPrompt = Self.buildUserPrompt(title: normalized.title, text: normalized.text)
 
-                self.status = "Loading model…"
-                try await self.mlc.loadIfNeeded()
+                let useFoundationModels = self.foundationSettings.isAppEnabled()
+                    && FoundationModelsAvailability.currentStatus() == .available
 
-                self.status = "Generating…"
-                let stream = try await self.mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+                let stream: AsyncThrowingStream<String, Error>
+                if useFoundationModels {
+                    self.status = "Generating…"
+                    stream = try await self.foundationModels.streamChat(
+                        systemPrompt: systemPrompt,
+                        userPrompt: userPrompt,
+                        temperature: 0.4,
+                        maximumResponseTokens: 2048
+                    )
+                } else {
+                    self.status = "Loading model…"
+                    try await self.mlc.loadIfNeeded()
+
+                    self.status = "Generating…"
+                    stream = try await self.mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+                }
 
                 var finalText = ""
                 for try await delta in stream {
@@ -84,7 +100,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     summaryText: trimmed,
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
-                    modelId: self.mlc.loadedModelID ?? ""
+                    modelId: useFoundationModels ? "foundation-models" : (self.mlc.loadedModelID ?? "")
                 )
 
                 self.status = "Done (saved)"

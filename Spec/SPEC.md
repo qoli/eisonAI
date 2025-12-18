@@ -30,6 +30,7 @@
 ## 系統需求
 
 - iOS / iPadOS 18+（以確保 WebGPU + WebLLM 的可用性/穩定性）
+- Apple Intelligence（可選）：若要啟用 **Foundation Models framework** 推理路線，需 iOS/iPadOS 26+ 且裝置/設定滿足 Apple Intelligence 條件（否則會自動 fallback 到既有 WebLLM/MLC）。
 - 執行環境：
   - ✅ iPhone/iPad 真機（iphoneos）
   - ✅ My Mac (Designed for iPad)（以 iOS app 形式在 macOS 上執行）
@@ -48,6 +49,9 @@
   - App Group：`group.com.qoli.eisonAI`
   - Key：`eison.systemPrompt`
   - 規則：空字串/全空白視為「回到預設 prompt」。
+  - （可選）Foundation Models 開關：
+    - `eison.foundationModels.app.enabled`
+    - `eison.foundationModels.extension.enabled`
 
 #### iOS 原生 MLC Swift Demo（MLCSwift）
 
@@ -76,6 +80,10 @@
 - `webllm/webllm.js`：vendor 的 WebLLM runtime（含 Safari `safari-web-extension://` scheme workaround patch）。
 - `webllm-assets/`：模型與 wasm 檔案（由 Xcode 打包進 extension）。
 - Markdown 渲染：popup 使用本地 `marked.umd.js`（避免遠端 CDN 及 CSP/上架限制）。
+- （可選）Foundation Models（Apple Intelligence）推理路線：
+  - 目的：不改變 popup 行為/提示詞，只替換推理引擎（WebLLM ↔ FoundationModels）。
+  - 實作：popup 透過 native messaging 以 **Start + Poll（120ms）** 取得 streaming delta；失敗/中斷會自動 fallback 回 WebLLM。
+  - RawLibrary：FoundationModels 路線固定寫入 `modelId = foundation-models`。
 
 ### 通訊流程（摘要）
 

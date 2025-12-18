@@ -9,13 +9,18 @@ import SwiftUI
 
 struct RootView: View {
     private let store = SystemPromptStore()
+    private let foundationModelsStore = FoundationModelsSettingsStore()
 
     @State private var draftPrompt = ""
     @State private var status = ""
     @State private var didLoad = false
     @State private var showClipboardKeyPoint = false
+    @State private var foundationModelsAppEnabled = false
+    @State private var foundationModelsExtensionEnabled = false
 
     var body: some View {
+        let fmStatus = FoundationModelsAvailability.currentStatus()
+
         NavigationStack {
             Form {
                 Section("Clipboard") {
@@ -42,6 +47,49 @@ struct RootView: View {
                         MLCQwenDemoView()
                     }
                     Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Foundation Models (Apple Intelligence)") {
+                    Toggle(
+                        "Use Foundation Models (App)",
+                        isOn: Binding(
+                            get: { foundationModelsAppEnabled },
+                            set: { newValue in
+                                guard fmStatus == .available else { return }
+                                foundationModelsAppEnabled = newValue
+                                foundationModelsStore.setAppEnabled(newValue)
+                            }
+                        )
+                    )
+                    .disabled(fmStatus != .available)
+
+                    Toggle(
+                        "Use Foundation Models (Safari Extension)",
+                        isOn: Binding(
+                            get: { foundationModelsExtensionEnabled },
+                            set: { newValue in
+                                guard fmStatus == .available else { return }
+                                foundationModelsExtensionEnabled = newValue
+                                foundationModelsStore.setExtensionEnabled(newValue)
+                            }
+                        )
+                    )
+                    .disabled(fmStatus != .available)
+
+                    switch fmStatus {
+                    case .available:
+                        Text("Available.")
+                            .foregroundStyle(.secondary)
+                    case .notSupported:
+                        Text("Requires iOS 26+ with Apple Intelligence enabled.")
+                            .foregroundStyle(.secondary)
+                    case .unavailable(let reason):
+                        Text(reason)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Text("When unavailable, the app/extension automatically falls back to the bundled WebLLM/MLC paths.")
                         .foregroundStyle(.secondary)
                 }
 
@@ -91,6 +139,16 @@ struct RootView: View {
             guard !didLoad else { return }
             didLoad = true
             draftPrompt = store.load()
+
+            foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
+            foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
+
+            if FoundationModelsAvailability.currentStatus() != .available {
+                foundationModelsAppEnabled = false
+                foundationModelsExtensionEnabled = false
+                foundationModelsStore.setAppEnabled(false)
+                foundationModelsStore.setExtensionEnabled(false)
+            }
         }
     }
 }

@@ -46,6 +46,13 @@
   - [x] 輸出 UI：以 sheet 顯示 streaming 結果（參考 MLC demo view），並可 Stop/Cancel
   - [x] 完成後自動寫入 RawLibrary（App Group `RawLibrary/Items/*.json`）：輸入（url/title/body）、輸出（summaryText）、提示詞與 model_id
   - [x] 錯誤處理：剪貼簿空/載入失敗/Readability 失敗/模型未載入（不崩潰，可重試）
+
+- [x] Apple Intelligence（Foundation Models framework）可選推理路線（deployment target 仍為 iOS 18+）：
+  - [x] RootView 提供兩個獨立開關：App / Safari Extension（寫入 App Group）
+  - [x] 開關 gating：僅在 iOS 26+ 且 `SystemLanguageModel.default.availability == .available` 才允許開啟
+  - [x] 主 App：Clipboard Key-point 在開關啟用時改用 FoundationModels streaming，否則 fallback 到 MLC
+  - [x] Safari Extension：popup summary 在開關啟用時走 native Start+Poll（120ms）streaming，失敗/中斷自動 fallback 到 WebLLM
+  - [x] RawLibrary：FoundationModels 路線固定寫入 `modelId = foundation-models`
 - [ ] macOS（Mac Catalyst）支援（for Titlebar 可控）：
   - [ ] 產出 macabi 靜態庫：目前 `dist/lib/*.a` 為 iphoneos（arm64）靜態庫，無法在 `arm64-apple-ios-macabi`/`x86_64-apple-ios-macabi` 下連結（會出現「Building for macCatalyst, but linking ... built for iOS」）
   - [ ] 需要一套對應的 TVM/MLC runtime + tokenizers + sentencepiece + model lib（例如 `libtvm_runtime.a`、`libtvm_ffi_static.a`、`libmlc_llm.a`、`libtokenizers_*.a`、`libsentencepiece.a`、以及 Catalyst 專用的 `libmodel_*.a`）
