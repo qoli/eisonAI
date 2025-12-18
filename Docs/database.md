@@ -116,7 +116,7 @@ MVP 最簡單做法：
 
 ## 7) 與 sqlite-data / TracklyReborn 的關係（先記著）
 
-你已經把 `sqlite-data` 加到主 App target，未來若你要做「優化庫」：
+未來若你要做「優化庫」，可以考慮導入 `sqlite-data`：
 
 - 參考 TracklyReborn 的模式：`DatabasePool` + `busyMode = .timeout(2~5)` + migrator
 - 讓 sqlite-data 只處理「可重建」的衍生資料（embedding/FTS/索引），Raw Library 仍是 source of truth

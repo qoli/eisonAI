@@ -13,7 +13,6 @@
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
-		EAE2A7552EF2A2C900C3902A /* SQLiteData in Frameworks */ = {isa = PBXBuildFile; productRef = EAE2A7542EF2A2C900C3902A /* SQLiteData */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,7 +84,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
-				EAE2A7552EF2A2C900C3902A /* SQLiteData in Frameworks */,
 				EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -640,14 +638,6 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		EAE2A7532EF2A2C900C3902A /* XCRemoteSwiftPackageReference "sqlite-data" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/pointfreeco/sqlite-data.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.4.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -659,11 +649,6 @@
 		EA31AC152EF3D31F0067EC57 /* MLCSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLCSwift;
-		};
-		EAE2A7542EF2A2C900C3902A /* SQLiteData */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = EAE2A7532EF2A2C900C3902A /* XCRemoteSwiftPackageReference "sqlite-data" */;
-			productName = SQLiteData;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
