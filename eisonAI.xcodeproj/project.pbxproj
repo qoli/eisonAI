@@ -36,6 +36,7 @@
 		EAABBF4275B22294E241D37A /* webllm-assets in Resources */ = {isa = PBXBuildFile; fileRef = EA15C09267F344141676CD68 /* webllm-assets */; };
 		EAE2A7552EF2A2C900C3902A /* SQLiteData in Frameworks */ = {isa = PBXBuildFile; productRef = EAE2A7542EF2A2C900C3902A /* SQLiteData */; };
 		EAF756E72EF3C61900CA34C3 /* webllm-assets in Resources */ = {isa = PBXBuildFile; fileRef = EA15C09267F344141676CD68 /* webllm-assets */; };
+		EAF756E92EF3C82700CA34C3 /* mlc-app-config.json in Resources */ = {isa = PBXBuildFile; fileRef = EAF756E82EF3C82700CA34C3 /* mlc-app-config.json */; };
 		F0A1B2C3D4E5F60718293A4C /* default_system_prompt.txt in Resources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4B /* default_system_prompt.txt */; };
 		F0A1B2C3D4E5F60718293A4D /* default_system_prompt.txt in Resources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4B /* default_system_prompt.txt */; };
 		F0A1B2C3D4E5F60718293A4E /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0F6977794D43728A68AF46 /* AppConfig.swift */; };
@@ -101,6 +102,7 @@
 		EA7726562BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA77269C2BC5B71D005A194D /* readability.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = readability.css; sourceTree = "<group>"; };
 		EA7726A62BC5B91C005A194D /* contentReadability.js */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.javascript; path = contentReadability.js; sourceTree = "<group>"; };
+		EAF756E82EF3C82700CA34C3 /* mlc-app-config.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mlc-app-config.json"; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4B /* default_system_prompt.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = default_system_prompt.txt; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -195,6 +197,7 @@
 		EA7726352BC5B6B3005A194D /* iOS (App) */ = {
 			isa = PBXGroup;
 			children = (
+				EAF756E82EF3C82700CA34C3 /* mlc-app-config.json */,
 				EA7726362BC5B6B3005A194D /* AppDelegate.swift */,
 				CC4445E1BFA14B079B390DA5 /* EisonAIApp.swift */,
 				2A0F6977794D43728A68AF46 /* AppConfig.swift */,
@@ -311,6 +314,7 @@
 				EA7726622BC5B6B3005A194D /* Base in Resources */,
 				EA7726682BC5B6B3005A194D /* Script.js in Resources */,
 				EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */,
+				EAF756E92EF3C82700CA34C3 /* mlc-app-config.json in Resources */,
 				EA7726662BC5B6B3005A194D /* Style.css in Resources */,
 				F0A1B2C3D4E5F60718293A4C /* default_system_prompt.txt in Resources */,
 			);
