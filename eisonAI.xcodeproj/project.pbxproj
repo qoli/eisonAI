@@ -60,6 +60,13 @@
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
+		EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = EA7726322BC5B6B3005A194D /* iOS */;
+		};
 		EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -72,7 +79,7 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		EAF756ED2EF3D23700CA34C3 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = App; sourceTree = "<group>"; };
 		EAF756F02EF3D23700CA34C3 /* Base.lproj */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Base.lproj; sourceTree = "<group>"; };
-		EAF756F32EF3D23700CA34C3 /* Config */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Config; sourceTree = "<group>"; };
+		EAF756F32EF3D23700CA34C3 /* Config */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Config; sourceTree = "<group>"; };
 		EAF756FE2EF3D23700CA34C3 /* Features */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Features; sourceTree = "<group>"; };
 		EAF757042EF3D23700CA34C3 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
 		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (_locales, images, webllm, "webllm-assets", ); path = Resources; sourceTree = "<group>"; };
@@ -430,7 +437,7 @@
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -464,7 +471,7 @@
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "iOS (Extension)/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI Extension";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
@@ -501,7 +508,7 @@
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "iOS (App)/Config/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = eisonAI;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -551,7 +558,7 @@
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 19;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "iOS (App)/Config/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = eisonAI;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";

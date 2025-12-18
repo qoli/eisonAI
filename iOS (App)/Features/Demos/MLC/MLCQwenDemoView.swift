@@ -170,9 +170,9 @@ final class MLCQwenDemoViewModel: ObservableObject {
     }
 
     private func resolveBundledModel() throws -> BundledModel {
-        let configURL = Bundle.main.bundleURL.appending(path: "mlc-app-config.json")
-        guard FileManager.default.fileExists(atPath: configURL.path()) else {
-            throw DemoError.missingBundledConfig(configURL)
+        guard let configURL = resolveMLCAppConfigURL() else {
+            let fallbackURL = Bundle.main.bundleURL.appending(path: "mlc-app-config.json")
+            throw DemoError.missingBundledConfig(fallbackURL)
         }
 
         let data = try Data(contentsOf: configURL)
@@ -221,6 +221,16 @@ final class MLCQwenDemoViewModel: ObservableObject {
         else {
             throw DemoError.missingModelFile(url.appending(path: "params_shard_*.bin").path())
         }
+    }
+
+    private func resolveMLCAppConfigURL() -> URL? {
+        if let url = Bundle.main.url(forResource: "mlc-app-config", withExtension: "json") {
+            return url
+        }
+        if let url = Bundle.main.url(forResource: "mlc-app-config", withExtension: "json", subdirectory: "Config") {
+            return url
+        }
+        return nil
     }
 
     private func resolveModelDirFromWebLLMAssets(modelDirName: String) -> URL? {
