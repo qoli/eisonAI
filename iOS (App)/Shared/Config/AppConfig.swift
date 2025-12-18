@@ -10,7 +10,10 @@ import Foundation
 enum AppConfig {
     static let appGroupIdentifier = "group.com.qoli.eisonAI"
     static let systemPromptKey = "eison.systemPrompt"
+    static let rawLibraryRootPathComponents = ["RawLibrary"]
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
+    static let rawLibraryFavoriteItemsPathComponents = ["RawLibrary", "FavoriteItems"]
+    static let rawLibraryFavoriteIndexFilename = "Favorite.json"
 
     static let defaultSystemPrompt: String = {
         if

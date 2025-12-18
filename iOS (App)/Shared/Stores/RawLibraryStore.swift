@@ -12,7 +12,7 @@ struct RawLibraryStore {
     private let fileManager = FileManager.default
     private let rawLibraryMaxItems = 200
 
-    private func itemsDirectoryURL() throws -> URL {
+    private func appGroupContainerURL() throws -> URL {
         guard
             let containerURL = fileManager.containerURL(
                 forSecurityApplicationGroupIdentifier: AppConfig.appGroupIdentifier
@@ -25,12 +25,37 @@ struct RawLibraryStore {
             )
         }
 
-        var url = containerURL
-        for component in AppConfig.rawLibraryItemsPathComponents {
+        return containerURL
+    }
+
+    private func rawLibraryRootURL() throws -> URL {
+        var url = try appGroupContainerURL()
+        for component in AppConfig.rawLibraryRootPathComponents {
             url.appendPathComponent(component, isDirectory: true)
         }
         try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         return url
+    }
+
+    private func directoryURL(pathComponents: [String]) throws -> URL {
+        var url = try appGroupContainerURL()
+        for component in pathComponents {
+            url.appendPathComponent(component, isDirectory: true)
+        }
+        try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+        return url
+    }
+
+    private func itemsDirectoryURL() throws -> URL {
+        try directoryURL(pathComponents: AppConfig.rawLibraryItemsPathComponents)
+    }
+
+    private func favoriteItemsDirectoryURL() throws -> URL {
+        try directoryURL(pathComponents: AppConfig.rawLibraryFavoriteItemsPathComponents)
+    }
+
+    private func favoriteIndexFileURL() throws -> URL {
+        try rawLibraryRootURL().appendingPathComponent(AppConfig.rawLibraryFavoriteIndexFilename)
     }
 
     private static let filenameTimestampFormatter: DateFormatter = {
@@ -72,8 +97,7 @@ struct RawLibraryStore {
         return deleteCount
     }
 
-    func listEntries() throws -> [RawHistoryEntry] {
-        let directoryURL = try itemsDirectoryURL()
+    private func listEntries(in directoryURL: URL) throws -> [RawHistoryEntry] {
         let fileURLs = try fileManager.contentsOfDirectory(
             at: directoryURL,
             includingPropertiesForKeys: nil,
@@ -106,6 +130,63 @@ struct RawLibraryStore {
         }
     }
 
+    func listEntries() throws -> [RawHistoryEntry] {
+        try listEntries(in: itemsDirectoryURL())
+    }
+
+    func listFavoriteEntries() throws -> [RawHistoryEntry] {
+        _ = try synchronizeFavoriteIndex()
+        return try listEntries(in: favoriteItemsDirectoryURL())
+    }
+
+    private struct FavoriteIndexFile: Codable {
+        var v: Int
+        var updatedAt: Date
+        var filenames: [String]
+    }
+
+    func synchronizeFavoriteIndex() throws -> Set<String> {
+        let favoriteDir = try favoriteItemsDirectoryURL()
+        let files = (try? fileManager.contentsOfDirectory(at: favoriteDir, includingPropertiesForKeys: nil)) ?? []
+        let actual = Set(
+            files
+                .filter { $0.pathExtension.lowercased() == "json" }
+                .map { $0.lastPathComponent }
+        )
+
+        let indexURL = try favoriteIndexFileURL()
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var cached = Set<String>()
+        if let data = try? Data(contentsOf: indexURL, options: .mappedIfSafe),
+           let file = try? decoder.decode(FavoriteIndexFile.self, from: data)
+        {
+            cached = Set(file.filenames)
+        }
+
+        if cached != actual {
+            try saveFavoriteIndex(actual)
+        }
+
+        return actual
+    }
+
+    private func saveFavoriteIndex(_ filenames: Set<String>) throws {
+        let indexURL = try favoriteIndexFileURL()
+        let file = FavoriteIndexFile(v: 1, updatedAt: Date(), filenames: filenames.sorted())
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(file)
+        try data.write(to: indexURL, options: [.atomic])
+    }
+
+    func favoriteFilenameSet() throws -> Set<String> {
+        try synchronizeFavoriteIndex()
+    }
+
     func loadItem(fileURL: URL) throws -> RawHistoryItem {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -115,6 +196,40 @@ struct RawLibraryStore {
 
     func deleteItem(fileURL: URL) throws {
         try fileManager.removeItem(at: fileURL)
+    }
+
+    func setFavorite(filename: String, sourceFileURL: URL, isFavorite: Bool) throws {
+        let destDir = try favoriteItemsDirectoryURL()
+        let destURL = destDir.appendingPathComponent(filename)
+
+        if isFavorite {
+            if fileManager.fileExists(atPath: destURL.path()) {
+                _ = try synchronizeFavoriteIndex()
+                return
+            }
+
+            try fileManager.copyItem(at: sourceFileURL, to: destURL)
+            _ = try synchronizeFavoriteIndex()
+            return
+        }
+
+        if fileManager.fileExists(atPath: destURL.path()) {
+            try? fileManager.removeItem(at: destURL)
+        }
+        _ = try synchronizeFavoriteIndex()
+    }
+
+    func clearAllFavorites() throws {
+        let directoryURL = try favoriteItemsDirectoryURL()
+        let fileURLs = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        for fileURL in fileURLs where fileURL.pathExtension.lowercased() == "json" {
+            try? fileManager.removeItem(at: fileURL)
+        }
+        _ = try synchronizeFavoriteIndex()
     }
 
     @discardableResult

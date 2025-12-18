@@ -1,5 +1,5 @@
 //
-//  HistoryView.swift
+//  FavoritesView.swift
 //  iOS (App)
 //
 //  Created by 黃佁媛 on 2024/4/10.
@@ -7,8 +7,8 @@
 
 import SwiftUI
 
-struct HistoryView: View {
-    @StateObject private var viewModel = HistoryViewModel()
+struct FavoritesView: View {
+    @StateObject private var viewModel = FavoritesViewModel()
     @State private var showClearConfirmation = false
 
     var body: some View {
@@ -26,7 +26,7 @@ struct HistoryView: View {
                         RawItemDetailView(entry: entry, loadDetail: viewModel.loadDetail)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("\(viewModel.isFavorited(entry) ? "🌟 " : "")\(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)")
+                            Text(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
                                 .font(.headline)
                                 .lineLimit(2)
 
@@ -47,21 +47,19 @@ struct HistoryView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            viewModel.toggleFavorite(entry)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            viewModel.unfavorite(entry)
                         } label: {
-                            Text(viewModel.isFavorited(entry) ? "Unfavorite" : "Favorite")
+                            Text("Unfavorite")
                         }
-                        .tint(viewModel.isFavorited(entry) ? .gray : .yellow)
                     }
                 }
-                .onDelete(perform: viewModel.delete)
             } header: {
-                Text("Saved summaries (\(viewModel.entries.count))")
+                Text("Favorites (\(viewModel.entries.count))")
             }
         }
-        .navigationTitle("History")
+        .navigationTitle("Favorites")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Clear All", role: .destructive) {
@@ -71,7 +69,7 @@ struct HistoryView: View {
             }
         }
         .confirmationDialog(
-            "Clear all history?",
+            "Clear all favorites?",
             isPresented: $showClearConfirmation,
             titleVisibility: .visible
         ) {

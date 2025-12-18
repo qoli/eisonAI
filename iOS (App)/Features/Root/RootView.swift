@@ -30,6 +30,9 @@ struct RootView: View {
                     NavigationLink("View history") {
                         HistoryView()
                     }
+                    NavigationLink("View favorites") {
+                        FavoritesView()
+                    }
                     Text("Saved summaries are stored in the shared App Group folder.")
                         .foregroundStyle(.secondary)
                 }

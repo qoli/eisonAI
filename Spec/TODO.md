@@ -31,10 +31,11 @@
 - [ ] 真機驗證（進階）：首次載入時間、streaming 是否順暢、記憶體峰值與退場處理（clear / cancel / reset / background ↔ foreground）。
 - [ ] Demo UX：加入 Stop/Cancel、顯示「目前載入的 model_id」、以及更明確的錯誤訊息（缺檔/路徑不符時不崩潰）。
 - [ ] 開發流程：將 `iOS (App)/Config/mlc-app-config.json` 的更新流程文件化（從 `dist/bundle/mlc-app-config.json` 同步 `model_lib`），避免重新 `mlc_llm package` 後 hash 變更造成載入失敗。
-- [ ] RawLibrary「收藏」功能（未來）：
-  - [ ] 資料模型：Raw item 增加 `isFavorite`（或獨立 favorites index），並確保舊檔案可向後相容
-  - [ ] UI：History list 支援收藏/取消收藏、只看收藏篩選
-  - [ ] 同步策略：收藏屬於使用者資料，不應被自動 trim/覆蓋
+- [x] RawLibrary「收藏」功能（FavoriteItems + Favorite.json）：
+  - [x] 收藏動作：將 `RawLibrary/Items/<filename>.json` 複製到 `RawLibrary/FavoriteItems/<filename>.json`（快照收藏、無上限）
+  - [x] 收藏判斷：以 `FavoriteItems` 是否存在同名檔案；並用 `RawLibrary/Favorite.json` 快取/自動同步（避免每次 UI 都掃描整個資料夾）
+  - [x] UI：History list 顯示 `🌟`、swipe 收藏/取消收藏；RootView 新增 Favorites 頁入口
+  - [ ] （未來）UI：只看收藏篩選、收藏排序/搜尋
 - [x] Clipboard「Key-point 整理」模式（RootView 新增入口）：
   - [x] 讀取剪貼簿文字（`UIPasteboard.general.string`），以 `http`/`https` 開頭判斷 URL vs 純文字
   - [x] URL：用 `WKWebView` 載入頁面，注入並呼叫 `contentReadability.js` 取得 `{title, body}`（Readability 正文）

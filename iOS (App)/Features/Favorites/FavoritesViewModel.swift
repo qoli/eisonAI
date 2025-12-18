@@ -1,5 +1,5 @@
 //
-//  HistoryViewModel.swift
+//  FavoritesViewModel.swift
 //  iOS (App)
 //
 //  Created by 黃佁媛 on 2024/4/10.
@@ -9,22 +9,19 @@ import Combine
 import Foundation
 
 @MainActor
-final class HistoryViewModel: ObservableObject {
+final class FavoritesViewModel: ObservableObject {
     @Published var entries: [RawHistoryEntry] = []
     @Published var errorMessage: String?
-    @Published private(set) var favoriteFilenames: Set<String> = []
 
     private let store = RawLibraryStore()
 
     func reload() {
         do {
             errorMessage = nil
-            entries = try store.listEntries()
-            favoriteFilenames = try store.favoriteFilenameSet()
+            entries = try store.listFavoriteEntries()
         } catch {
             errorMessage = error.localizedDescription
             entries = []
-            favoriteFilenames = []
         }
     }
 
@@ -32,7 +29,11 @@ final class HistoryViewModel: ObservableObject {
         let targets = offsets.map { entries[$0] }
         for entry in targets {
             do {
-                try store.deleteItem(fileURL: entry.fileURL)
+                try store.setFavorite(
+                    filename: entry.fileURL.lastPathComponent,
+                    sourceFileURL: entry.fileURL,
+                    isFavorite: false
+                )
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -40,26 +41,23 @@ final class HistoryViewModel: ObservableObject {
         reload()
     }
 
-    func clearAll() {
+    func unfavorite(_ entry: RawHistoryEntry) {
         do {
-            try store.clearAll()
+            try store.setFavorite(
+                filename: entry.fileURL.lastPathComponent,
+                sourceFileURL: entry.fileURL,
+                isFavorite: false
+            )
             reload()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func isFavorited(_ entry: RawHistoryEntry) -> Bool {
-        favoriteFilenames.contains(entry.fileURL.lastPathComponent)
-    }
-
-    func toggleFavorite(_ entry: RawHistoryEntry) {
-        let filename = entry.fileURL.lastPathComponent
-        let makeFavorite = !favoriteFilenames.contains(filename)
-
+    func clearAll() {
         do {
-            try store.setFavorite(filename: filename, sourceFileURL: entry.fileURL, isFavorite: makeFavorite)
-            favoriteFilenames = try store.favoriteFilenameSet()
+            try store.clearAllFavorites()
+            reload()
         } catch {
             errorMessage = error.localizedDescription
         }

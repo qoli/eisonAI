@@ -7,9 +7,9 @@
 
 import SwiftUI
 
-struct HistoryDetailView: View {
+struct RawItemDetailView: View {
     var entry: RawHistoryEntry
-    @ObservedObject var viewModel: HistoryViewModel
+    var loadDetail: (RawHistoryEntry) -> RawHistoryItem?
 
     @State private var item: RawHistoryItem?
 
@@ -54,7 +54,7 @@ struct HistoryDetailView: View {
         .navigationTitle("Detail")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            item = viewModel.loadDetail(for: entry)
+            item = loadDetail(entry)
         }
     }
 }
