@@ -50,7 +50,7 @@
 - 依賴來源：`/Volumes/Data/Github/mlc-llm/ios/MLCSwift`（Xcode 以 local package 引入）。
 - **真機限定**：目前 `dist/lib/*.a` 為 `arm64` 靜態庫，專案不支援 iOS Simulator（僅在 iPhone/iPad 真機上建置/執行）。
 - 模型/權重來源：Safari extension 的 `webllm-assets`（同一份 assets 同時供 WebLLM 與原生 MLC demo 使用），主 App 以唯讀方式從 **Embedded Extension（`.appex`）** 內存取。
-- 模型設定來源：`iOS (App)/mlc-app-config.json`（小檔資源，提供 `model_id` / `model_lib` / `model_path`）。
+- 模型設定來源：`iOS (App)/Config/mlc-app-config.json`（小檔資源，提供 `model_id` / `model_lib` / `model_path`）。
 - Demo 尋找模型方式：
   - 讀取 app bundle 的 `mlc-app-config.json`（或 legacy：`bundle/mlc-app-config.json`）
   - 從 `model_list` 找到符合 `model_id` 且有 `model_path` 的紀錄

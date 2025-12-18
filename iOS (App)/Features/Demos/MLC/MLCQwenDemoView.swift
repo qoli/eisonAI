@@ -156,7 +156,7 @@ final class MLCQwenDemoViewModel: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .missingBundledConfig(let url):
-                return "Missing bundled config: \(url.lastPathComponent). Did you add `iOS (App)/mlc-app-config.json` to app resources?"
+                return "Missing bundled config: \(url.lastPathComponent). Did you add `iOS (App)/Config/mlc-app-config.json` to app resources?"
             case .missingBundledModel(let modelID):
                 return "Model not found in `mlc-app-config.json`: \(modelID)"
             case .missingEmbeddedExtension(let bundleID):
