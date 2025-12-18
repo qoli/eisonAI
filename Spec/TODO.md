@@ -9,7 +9,7 @@
 - ✅ CSP 調整允許 wasm/worker（`manifest.json` 同時提供 `extension_page` / `extension_pages`）。
 - ✅ Safari `safari-web-extension://` scheme 相容：修正 `Request url is not HTTP/HTTPS`（`webllm/webllm.js` 對非 http(s) URL 避免走 Cache API）。
 - ✅ 移除 native messaging 推理 / 模型下載管線（專案全面轉向 WebLLM）。
-- ✅ 產出 MLC iOS 所需檔案：在 repo 根目錄執行 `MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm mlc_llm package`，生成 `dist/lib`（與 `dist/bundle` 供檢查/比對用）。
+- ✅ 產出 MLC iOS 所需檔案：在 repo 根目錄執行 `MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package`，生成 `dist/lib`（與 `dist/bundle` 供檢查/比對用）。
 - ✅ iOS 主 App link 完成：`dist/lib` 搜尋路徑 + linker flags（包含 `-ltvm_ffi_static`）可成功 Build（真機 `arm64`）。
 - ✅ iOS 目標為真機限定：移除 iOS Simulator 支援（`SUPPORTED_PLATFORMS` 不含 `iphonesimulator`）。
 - ✅ iOS 主 App 新增原生 MLC Swift SDK（`MLCSwift`/`MLCEngine`）Qwen3 0.6B 單輪 streaming demo（SwiftUI + `NavigationLink`），真機 smoke test 可正常 streaming。
@@ -31,6 +31,11 @@
 - [ ] 真機驗證（進階）：首次載入時間、streaming 是否順暢、記憶體峰值與退場處理（clear / cancel / reset / background ↔ foreground）。
 - [ ] Demo UX：加入 Stop/Cancel、顯示「目前載入的 model_id」、以及更明確的錯誤訊息（缺檔/路徑不符時不崩潰）。
 - [ ] 開發流程：將 `iOS (App)/Config/mlc-app-config.json` 的更新流程文件化（從 `dist/bundle/mlc-app-config.json` 同步 `model_lib`），避免重新 `mlc_llm package` 後 hash 變更造成載入失敗。
+- [ ] macOS（Mac Catalyst）支援（for Titlebar 可控）：
+  - [ ] 產出 macabi 靜態庫：目前 `dist/lib/*.a` 為 iphoneos（arm64）靜態庫，無法在 `arm64-apple-ios-macabi`/`x86_64-apple-ios-macabi` 下連結（會出現「Building for macCatalyst, but linking ... built for iOS」）
+  - [ ] 需要一套對應的 TVM/MLC runtime + tokenizers + sentencepiece + model lib（例如 `libtvm_runtime.a`、`libtvm_ffi_static.a`、`libmlc_llm.a`、`libtokenizers_*.a`、`libsentencepiece.a`、以及 Catalyst 專用的 `libmodel_*.a`）
+  - [ ] Xcode link 分流：iphoneos vs macabi（建議用 `.xcframework` 或依 `EFFECTIVE_PLATFORM_NAME` 分開 `LIBRARY_SEARCH_PATHS/OTHER_LDFLAGS`）
+  - [ ] `mlc_llm package` 目前設定是 `"device": "iphone"`（`mlc-package-config.json`），需確認/擴充是否能產出 macCatalyst 目標的 `dist/lib-*`（可能要改 `/Users/ronnie/Github/mlc-llm` 的 build/package 流程）
 
 ### Safari Extension popup（WebLLM）
 

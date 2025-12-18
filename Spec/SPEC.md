@@ -30,6 +30,10 @@
 ## 系統需求
 
 - iOS / iPadOS 18+（以確保 WebGPU + WebLLM 的可用性/穩定性）
+- 執行環境：
+  - ✅ iPhone/iPad 真機（iphoneos）
+  - ✅ My Mac (Designed for iPad)（以 iOS app 形式在 macOS 上執行）
+  - ❌ Mac Catalyst：目前不支援（`dist/lib/*.a` 為 iphoneos 靜態庫，無法直接用於 `*-apple-ios-macabi`）
 
 ## 系統架構
 
@@ -47,12 +51,12 @@
 
 #### iOS 原生 MLC Swift Demo（MLCSwift）
 
-- 依賴來源：`/Volumes/Data/Github/mlc-llm/ios/MLCSwift`（Xcode 以 local package 引入）。
+- 依賴來源：`/Users/ronnie/Github/mlc-llm/ios/MLCSwift`（Xcode 以 local package 引入）。
 - **真機限定**：目前 `dist/lib/*.a` 為 `arm64` 靜態庫，專案不支援 iOS Simulator（僅在 iPhone/iPad 真機上建置/執行）。
 - 模型/權重來源：Safari extension 的 `webllm-assets`（同一份 assets 同時供 WebLLM 與原生 MLC demo 使用），主 App 以唯讀方式從 **Embedded Extension（`.appex`）** 內存取。
 - 模型設定來源：`iOS (App)/Config/mlc-app-config.json`（小檔資源，提供 `model_id` / `model_lib` / `model_path`）。
 - Demo 尋找模型方式：
-  - 讀取 app bundle 的 `mlc-app-config.json`（或 legacy：`bundle/mlc-app-config.json`）
+  - 讀取 app bundle 的 `mlc-app-config.json`
   - 從 `model_list` 找到符合 `model_id` 且有 `model_path` 的紀錄
   - `model_path` 以 Embedded Extension 的 `webllm-assets/models/<model_id>/resolve/main` 為準
   - 以 `MLCEngine.reload(modelPath:modelLib:)` 載入，並用 `engine.chat.completions.create(...)` streaming 輸出
@@ -63,7 +67,7 @@
   - `dist/bundle/`：包含 `mlc-app-config.json`、模型目錄（內含 `mlc-chat-config.json`、tokenizer、weights 等）
   - `dist/lib/`：包含 iOS 連結所需靜態庫（供 `LIBRARY_SEARCH_PATHS` + `OTHER_LDFLAGS`）
 - 打包設定檔：repo 根目錄 `mlc-package-config.json`（供 `mlc_llm package` 使用）
-- 產生方式（開發者在本機執行）：`MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm mlc_llm package`
+- 產生方式（開發者在本機執行）：`MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package`
 
 ### Safari Web Extension（WebLLM popup）
 

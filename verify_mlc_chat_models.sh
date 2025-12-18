@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 CONDA_ENV_NAME="${CONDA_ENV_NAME:-mlc-chat-venv}"
-MLC_LLM_SOURCE_DIR="${MLC_LLM_SOURCE_DIR:-/Volumes/Data/Github/mlc-llm}"
+MLC_LLM_SOURCE_DIR="${MLC_LLM_SOURCE_DIR:-/Users/ronnie/Github/mlc-llm}"
 MLC_JIT_POLICY="${MLC_JIT_POLICY:-ON}"
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-1800}"
 
