@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 
 struct LibraryItemDetailView: View {
     var item: MockupLibraryItem
@@ -75,7 +76,7 @@ struct LibraryItemDetailView: View {
     private var outputs: some View {
         VStack(alignment: .leading, spacing: 12) {
             if !item.summaryText.isEmpty {
-                TextSection(title: "Summary", text: item.summaryText)
+                TextSection(title: "Summary", text: item.summaryText, isMarkdown: true)
             }
             if !item.articleText.isEmpty {
                 TextSection(title: "Article", text: item.articleText)
@@ -87,16 +88,23 @@ struct LibraryItemDetailView: View {
 private struct TextSection: View {
     var title: String
     var text: String
+    var isMarkdown: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
 
-            Text(text)
-                .font(.body)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            if isMarkdown {
+                Markdown(text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text(text)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(12)
         .background(.ultraThinMaterial)
@@ -124,4 +132,3 @@ private struct TextSection: View {
         )
     }
 }
-
