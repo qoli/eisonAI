@@ -70,7 +70,7 @@ struct NavigationStackView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 searchBar
-                    .padding(.bottom, isSearchFocused ? 12 : 0) // keyboard open: 12, closed: 0
+                    .padding(.bottom, isSearchFocused ? 6 : 0) // keyboard open: 12, closed: 0
             }
             .toolbar {
                 ToolbarItem(placement: .title) {
@@ -79,7 +79,7 @@ struct NavigationStackView: View {
                         Image(systemName: "star").tag(1)
                     }
                     .pickerStyle(.segmented)
-                    .frame(width: 160)
+                    .frame(width: 120)
                 }
 
                 ToolbarItem(placement: .topBarTrailing) {
@@ -130,15 +130,29 @@ struct NavigationStackView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.secondary)
 
-            TextField("Search your library ...", text: $searchText)
+            TextField("Search ...", text: $searchText)
                 .focused($isSearchFocused)
                 .submitLabel(.done)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    isSearchFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear Search")
+                .transition(.opacity)
+            }
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
         .glassEffect()
-        .padding(.horizontal, isSearchFocused ? 16 : 60) // keyboard open: 16, closed: 60
+        .padding(.horizontal, isSearchFocused ? 16 : 80)
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
+        .animation(.easeInOut(duration: 0.15), value: searchText)
     }
 }
 
