@@ -4,6 +4,7 @@ const browser = globalThis.browser ?? globalThis.chrome;
 
 const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
+const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
@@ -717,6 +718,25 @@ async function shouldUseFoundationModels() {
   return Boolean(info.enabled && info.available);
 }
 
+async function prewarmFoundationModels({ systemPrompt, promptPrefix }) {
+  const resp = await browser.runtime.sendNativeMessage({
+    v: 1,
+    command: "fm.prewarm",
+    payload: {
+      systemPrompt: String(systemPrompt ?? ""),
+      promptPrefix: String(promptPrefix ?? ""),
+    },
+  });
+
+  const payload = resp?.payload ?? resp;
+  if (resp?.type === "error") {
+    const msg = typeof payload?.message === "string" ? payload.message : "native prewarm failed";
+    throw new Error(msg);
+  }
+
+  return { ok: Boolean(payload?.ok) };
+}
+
 async function startFoundationModelsStream({ systemPrompt, userPrompt }) {
   const resp = await browser.runtime.sendNativeMessage({
     v: 1,
@@ -1035,6 +1055,13 @@ async function streamSummaryWithFoundationModels(ctx) {
   let acc = "";
   let completed = false;
   try {
+    const prewarmPrefix = String(cachedUserPrompt ?? "").slice(0, FOUNDATION_PREWARM_PREFIX_LIMIT);
+    try {
+      await prewarmFoundationModels({ systemPrompt, promptPrefix: prewarmPrefix });
+    } catch (err) {
+      console.warn("[WebLLM Demo] fm.prewarm failed:", err);
+    }
+
     setStatus("Starting native stream…", 0);
     const started = await startFoundationModelsStream({
       systemPrompt,

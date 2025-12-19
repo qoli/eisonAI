@@ -328,6 +328,53 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             }
             return
 
+        case "fm.prewarm":
+            Task {
+                let enabled = isFoundationModelsExtensionEnabled()
+                if !enabled {
+                    complete(context, responseMessage: [
+                        "v": 1,
+                        "type": "error",
+                        "name": "fm.prewarm",
+                        "payload": [
+                            "code": "DISABLED",
+                            "message": "Foundation Models (Safari Extension) is disabled.",
+                        ],
+                    ])
+                    return
+                }
+
+                let payload = dict["payload"] as? [String: Any]
+                let systemPrompt = (payload?["systemPrompt"] as? String) ?? ""
+                let promptPrefix = payload?["promptPrefix"] as? String
+
+                do {
+                    try await FoundationModelsStreamManager.shared.prewarm(
+                        systemPrompt: systemPrompt,
+                        promptPrefix: promptPrefix
+                    )
+                    complete(context, responseMessage: [
+                        "v": 1,
+                        "type": "response",
+                        "name": "fm.prewarm",
+                        "payload": [
+                            "ok": true,
+                        ],
+                    ])
+                } catch {
+                    complete(context, responseMessage: [
+                        "v": 1,
+                        "type": "error",
+                        "name": "fm.prewarm",
+                        "payload": [
+                            "code": "PREWARM_FAILED",
+                            "message": error.localizedDescription,
+                        ],
+                    ])
+                }
+            }
+            return
+
         case "fm.stream.start":
             Task {
                 let enabled = isFoundationModelsExtensionEnabled()
@@ -600,6 +647,10 @@ actor FoundationModelsStreamManager {
         var task: Task<Void, Never>?
     }
 
+    private var prewarmSystemPrompt: String?
+    private var prewarmPromptPrefix: String?
+    private var prewarmedSession: AnyObject?
+
     private var jobs: [String: Job] = [:]
 
     func checkAvailabilityPayload(enabled: Bool) async -> [String: Any] {
@@ -652,6 +703,44 @@ actor FoundationModelsStreamManager {
             "available": false,
             "reason": "FoundationModels framework is unavailable.",
         ]
+#endif
+    }
+
+    func prewarm(systemPrompt: String, promptPrefix: String?) async throws {
+        guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
+#if canImport(FoundationModels)
+        let availability = SystemLanguageModel.default.availability
+        if case .unavailable(let reason) = availability {
+            let message: String
+            switch reason {
+            case .deviceNotEligible:
+                message = "Device not eligible for Apple Intelligence."
+            case .appleIntelligenceNotEnabled:
+                message = "Apple Intelligence is not enabled."
+            case .modelNotReady:
+                message = "Apple Intelligence models are still downloading."
+            @unknown default:
+                message = "Apple Intelligence is unavailable."
+            }
+            throw StreamError.unavailable(message)
+        }
+
+        let trimmedPrefix = promptPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let prewarmedSession,
+           prewarmSystemPrompt == systemPrompt,
+           prewarmPromptPrefix == trimmedPrefix {
+            return
+        }
+
+        let model = SystemLanguageModel(useCase: .general, guardrails: .default)
+        let session = LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
+        session.prewarm(promptPrefix: Prompt(trimmedPrefix ?? ""))
+
+        prewarmedSession = session
+        prewarmSystemPrompt = systemPrompt
+        prewarmPromptPrefix = trimmedPrefix
+#else
+        throw StreamError.notSupported
 #endif
     }
 
@@ -718,8 +807,11 @@ actor FoundationModelsStreamManager {
         )
 
         do {
-            let model = SystemLanguageModel(useCase: .general, guardrails: .default)
-            let session = LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
+            let session = takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
+                ?? LanguageModelSession(
+                    model: SystemLanguageModel(useCase: .general, guardrails: .default),
+                    instructions: Instructions(systemPrompt)
+                )
             let stream = session.streamResponse(to: Prompt(userPrompt), options: options)
 
             var previous = ""
@@ -742,6 +834,27 @@ actor FoundationModelsStreamManager {
         } catch {
             markError(jobId: jobId, message: error.localizedDescription)
         }
+    }
+#endif
+
+#if canImport(FoundationModels)
+    @available(iOS 26.0, macOS 26.0, *)
+    private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
+        guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
+              prewarmSystemPrompt == systemPrompt else {
+            return nil
+        }
+
+        if let prefix = prewarmPromptPrefix,
+           !prefix.isEmpty,
+           !userPrompt.hasPrefix(prefix) {
+            return nil
+        }
+
+        self.prewarmedSession = nil
+        prewarmSystemPrompt = nil
+        prewarmPromptPrefix = nil
+        return prewarmedSession
     }
 #endif
 

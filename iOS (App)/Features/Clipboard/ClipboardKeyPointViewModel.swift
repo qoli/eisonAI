@@ -3,6 +3,8 @@ import UIKit
 
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
+    private static let prewarmPrefixMaxChars = 1200
+
     @Published var status: String = "Ready"
     @Published var output: String = ""
     @Published var sourceDescription: String = ""
@@ -60,6 +62,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 let stream: AsyncThrowingStream<String, Error>
                 if useFoundationModels {
+                    let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
+                    foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prewarmPrefix)
                     self.status = "Generating…"
                     stream = try await self.foundationModels.streamChat(
                         systemPrompt: systemPrompt,
