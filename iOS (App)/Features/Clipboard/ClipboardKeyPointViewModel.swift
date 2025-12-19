@@ -7,6 +7,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var output: String = ""
     @Published var sourceDescription: String = ""
     @Published var isRunning: Bool = false
+    @Published var shouldDismiss: Bool = false
 
     private let mlc = MLCClient()
     private let foundationModels = FoundationModelsClient()
@@ -21,6 +22,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         runTask = nil
         isRunning = false
         status = "Canceled"
+        shouldDismiss = false
         Task { [mlc] in
             await mlc.reset()
         }
@@ -34,6 +36,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         sourceDescription = ""
         isRunning = true
         status = "Reading clipboard…"
+        shouldDismiss = false
 
         runTask = Task { [weak self] in
             guard let self else { return }
@@ -104,6 +107,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 )
 
                 self.status = "Done (saved)"
+                self.shouldDismiss = true
             } catch is CancellationError {
                 self.status = "Canceled"
             } catch {

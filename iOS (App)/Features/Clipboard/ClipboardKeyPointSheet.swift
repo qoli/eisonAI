@@ -54,7 +54,11 @@ struct ClipboardKeyPointSheet: View {
             .task {
                 model.runFromClipboard()
             }
+            .onChange(of: model.shouldDismiss) { _, newValue in
+                if newValue {
+                    dismiss()
+                }
+            }
         }
     }
 }
-
