@@ -22,6 +22,8 @@ struct NavigationStackView: View {
     @State private var selection: Int = 0
     @FocusState private var isSearchFocused: Bool
     @StateObject private var store = MockupLibraryStore()
+    @State private var segmentedTransitionEdge: Edge = .trailing
+    @State private var lastSelection: Int = 0
 
     private var mode: LibraryMode {
         LibraryMode(rawValue: selection) ?? .all
@@ -57,34 +59,15 @@ struct NavigationStackView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let loadError = store.loadError {
-                    ContentUnavailableView {
-                        Label("MockupData Load Failed", systemImage: "exclamationmark.triangle.fill")
-                    } description: {
-                        Text(loadError)
-                    } actions: {
-                        Button("Reload") { store.reload() }
-                    }
-                } else if visibleItems.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Material", systemImage: "tray.fill")
-                    } description: {
-                        Text("New Materials you receive will appear here.")
-                    } actions: {
-                        Button("Reload") { store.reload() }
-                    }
-                } else {
-                    List(visibleItems) { entry in
-                        NavigationLink {
-                            LibraryItemDetailView(item: entry.item, filename: entry.filename, isFavorite: entry.isFavorite)
-                        } label: {
-                            LibraryItemRow(entry: entry)
-                        }
-                    }
-                    .listStyle(.plain)
-                    .navigationTitle("Materials")
-                }
+            ZStack {
+                mainContent
+                    .id(mode)
+                    .navigationTitle("\(mode)".capitalized)
+            }
+            .animation(.easeInOut(duration: 0.25), value: selection)
+            .onChange(of: selection) { newValue in
+                segmentedTransitionEdge = newValue >= lastSelection ? .trailing : .leading
+                lastSelection = newValue
             }
             .safeAreaInset(edge: .bottom) {
                 searchBar
@@ -110,6 +93,37 @@ struct NavigationStackView: View {
                     .accessibilityLabel("Settings")
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        if let loadError = store.loadError {
+            ContentUnavailableView {
+                Label("MockupData Load Failed", systemImage: "exclamationmark.triangle.fill")
+            } description: {
+                Text(loadError)
+            } actions: {
+                Button("Reload") { store.reload() }
+            }
+        } else if visibleItems.isEmpty {
+            ContentUnavailableView {
+                Label("No Material", systemImage: "tray.fill")
+            } description: {
+                Text("New Materials you receive will appear here.")
+            } actions: {
+                Button("Reload") { store.reload() }
+            }
+        } else {
+            List(visibleItems) { entry in
+                NavigationLink {
+                    LibraryItemDetailView(item: entry.item, filename: entry.filename, isFavorite: entry.isFavorite)
+                } label: {
+                    LibraryItemRow(entry: entry)
+                }
+            }
+            .listStyle(.plain)
+            .animation(.easeInOut(duration: 0.15), value: visibleItems)
         }
     }
 
