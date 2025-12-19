@@ -53,3 +53,5 @@ dist/*
 !dist/.gitkeep
 !dist/bundle/.gitkeep
 !dist/lib/.gitkeep
+
+eisonAIUIPreview/eisonAIView/MockupData

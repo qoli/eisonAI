@@ -34,7 +34,7 @@ struct NavigationStackView: View {
                     .padding(.vertical, 12)
                     .glassEffect()
                     .padding(.horizontal, isSearchFocused ? 16 : 60) // keyboard open: 16, closed: 60
-                    .padding(.bottom, isSearchFocused ? 12 : 0)  // keyboard open: 12, closed: 0
+                    .padding(.bottom, isSearchFocused ? 12 : 0) // keyboard open: 12, closed: 0
                     .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
                 }
                 VStack {
