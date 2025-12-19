@@ -57,7 +57,7 @@ struct LibraryRootView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 searchBar
-                    .padding(.bottom, isSearchFocused ? 12 : 0)
+                    .padding(.bottom, isSearchFocused ? 26 : 0)
             }
             .navigationTitle("Library")
             .toolbar {
@@ -161,9 +161,10 @@ struct LibraryRootView: View {
         .padding(.horizontal)
         .padding(.vertical, 12)
         .librarySearchBarBackground()
-        .padding(.horizontal, isSearchFocused ? 16 : 80)
+        .padding(.horizontal, isSearchFocused ? 12 : 80)
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
         .animation(.easeInOut(duration: 0.15), value: searchText)
+        .offset(y: 10)
     }
 }
 
@@ -209,7 +210,7 @@ private extension View {
     @ViewBuilder
     func librarySearchBarBackground() -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffect(.clear)
+            self.glassEffect(.regular)
         } else {
             background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
