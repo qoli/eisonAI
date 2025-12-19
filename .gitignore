@@ -42,6 +42,9 @@ fastlane/test_output
 .LSOverride
 ._*
 build/
+build-maccatalyst/
+.venv-mlc/
+.venv-mlc312/
 /Docs/MessagingAWebExtensionsNativeApp
 
 # WebLLM bundled assets (very large)
@@ -53,5 +56,8 @@ dist/*
 !dist/.gitkeep
 !dist/bundle/.gitkeep
 !dist/lib/.gitkeep
+dist-maccatalyst/*
+!dist-maccatalyst/.gitkeep
+!dist-maccatalyst/lib/.gitkeep
 
 eisonAIUIPreview/eisonAIView/MockupData

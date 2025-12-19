@@ -1,5 +1,5 @@
 {
-  "device": "iphone",
+  "device": "macabi",
   "model_list": [
     {
       "model": "Shared (Extension)/Resources/webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main",

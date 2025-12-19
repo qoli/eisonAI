@@ -53,11 +53,11 @@
   - [x] 主 App：Clipboard Key-point 在開關啟用時改用 FoundationModels streaming，否則 fallback 到 MLC
   - [x] Safari Extension：popup summary 在開關啟用時走 native Start+Poll（120ms）streaming，失敗/中斷自動 fallback 到 WebLLM
   - [x] RawLibrary：FoundationModels 路線固定寫入 `modelId = foundation-models`
-- [ ] macOS（Mac Catalyst）支援（for Titlebar 可控）：
-  - [ ] 產出 macabi 靜態庫：目前 `dist/lib/*.a` 為 iphoneos（arm64）靜態庫，無法在 `arm64-apple-ios-macabi`/`x86_64-apple-ios-macabi` 下連結（會出現「Building for macCatalyst, but linking ... built for iOS」）
-  - [ ] 需要一套對應的 TVM/MLC runtime + tokenizers + sentencepiece + model lib（例如 `libtvm_runtime.a`、`libtvm_ffi_static.a`、`libmlc_llm.a`、`libtokenizers_*.a`、`libsentencepiece.a`、以及 Catalyst 專用的 `libmodel_*.a`）
-  - [ ] Xcode link 分流：iphoneos vs macabi（建議用 `.xcframework` 或依 `EFFECTIVE_PLATFORM_NAME` 分開 `LIBRARY_SEARCH_PATHS/OTHER_LDFLAGS`）
-  - [ ] `mlc_llm package` 目前設定是 `"device": "iphone"`（`mlc-package-config.json`），需確認/擴充是否能產出 macCatalyst 目標的 `dist/lib-*`（可能要改 `/Users/ronnie/Github/mlc-llm` 的 build/package 流程）
+- [x] macOS（Mac Catalyst）支援（for Titlebar 可控）：
+  - [x] 產出 macabi 靜態庫（arm64）：新增 `mlc-package-config-macabi.json`（device=macabi），執行 `MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package --package-config mlc-package-config-macabi.json --output dist-maccatalyst`
+  - [x] TVM/MLC runtime + tokenizers + sentencepiece + model lib 產出齊全（`libtvm_runtime.a`、`libtvm_ffi_static.a`、`libmlc_llm.a`、`libtokenizers_*.a`、`libsentencepiece.a`、`libmodel_iphone.a`）
+  - [x] Xcode link 分流改用 `.xcframework`（`dist/xcframeworks/*.xcframework`，包含 iphoneos + macabi slices）
+  - [x] 固定 `system_lib_prefix`：`mlc-package-config.json`/`mlc-package-config-macabi.json` 同步指定 `model_lib`（避免 macabi/iphoneos hash 不一致）
 
 ### Safari Extension popup（WebLLM）
 

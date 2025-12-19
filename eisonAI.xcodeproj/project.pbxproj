@@ -7,7 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */; };
+		2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 294E0FEFBA424690A81535DA /* libtokenizers_c.xcframework */; };
+		420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E163CC02CEA447148E85410D /* libsentencepiece.xcframework */; };
 		461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 69E3C302CAE70743D02A6776 /* MLCSwift */; };
+		49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */; };
+		5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */; };
+		CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */; };
+		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
 		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -41,6 +48,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		294E0FEFBA424690A81535DA /* libtokenizers_c.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtokenizers_c.xcframework; sourceTree = "<group>"; };
+		2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libmlc_llm.xcframework; sourceTree = "<group>"; };
+		3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtokenizers_cpp.xcframework; sourceTree = "<group>"; };
+		508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libmodel_iphone.xcframework; sourceTree = "<group>"; };
+		6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtvm_runtime.xcframework; sourceTree = "<group>"; };
+		88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtvm_ffi_static.xcframework; sourceTree = "<group>"; };
+		E163CC02CEA447148E85410D /* libsentencepiece.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libsentencepiece.xcframework; sourceTree = "<group>"; };
 		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
 		EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "eisonAI Extension (iOS).entitlements"; sourceTree = "<group>"; };
 		EA7726232BC5B6B3005A194D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -94,6 +108,13 @@
 				EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */,
 				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
 				EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */,
+				0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */,
+				E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */,
+				49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */,
+				5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */,
+				2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */,
+				420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */,
+				CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,11 +128,27 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AF5F4941B83749F5AEFEFBCD /* MLC XCFrameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */,
+				6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */,
+				88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */,
+				3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */,
+				294E0FEFBA424690A81535DA /* libtokenizers_c.xcframework */,
+				E163CC02CEA447148E85410D /* libsentencepiece.xcframework */,
+				508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */,
+			);
+			name = "MLC XCFrameworks";
+			path = dist/xcframeworks;
+			sourceTree = "<group>";
+		};
 		EA7726162BC5B6B2005A194D = {
 			isa = PBXGroup;
 			children = (
 				EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */,
 				EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */,
+				AF5F4941B83749F5AEFEFBCD /* MLC XCFrameworks */,
 				EA7726352BC5B6B3005A194D /* iOS (App) */,
 				EA7726552BC5B6B3005A194D /* iOS (Extension) */,
 				EA7726342BC5B6B3005A194D /* Products */,
@@ -528,10 +565,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/dist/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -541,13 +575,6 @@
 					"-weak_framework",
 					FoundationModels,
 					"-Wl,-all_load",
-					"-lmodel_iphone",
-					"-lmlc_llm",
-					"-ltvm_ffi_static",
-					"-ltvm_runtime",
-					"-ltokenizers_cpp",
-					"-lsentencepiece",
-					"-ltokenizers_c",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
@@ -583,10 +610,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/dist/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"-framework",
@@ -596,13 +620,6 @@
 					"-weak_framework",
 					FoundationModels,
 					"-Wl,-all_load",
-					"-lmodel_iphone",
-					"-lmlc_llm",
-					"-ltvm_ffi_static",
-					"-ltvm_runtime",
-					"-ltokenizers_cpp",
-					"-lsentencepiece",
-					"-ltokenizers_c",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;

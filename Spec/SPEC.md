@@ -34,7 +34,7 @@
 - 執行環境：
   - ✅ iPhone/iPad 真機（iphoneos）
   - ✅ My Mac (Designed for iPad)（以 iOS app 形式在 macOS 上執行）
-  - ❌ Mac Catalyst：目前不支援（`dist/lib/*.a` 為 iphoneos 靜態庫，無法直接用於 `*-apple-ios-macabi`）
+  - ✅ Mac Catalyst（Apple Silicon, arm64）：使用 macabi 靜態庫 + `.xcframework` 分流（不含 x86_64）
 
 ## 系統架構
 
@@ -65,13 +65,20 @@
   - `model_path` 以 Embedded Extension 的 `webllm-assets/models/<model_id>/resolve/main` 為準
   - 以 `MLCEngine.reload(modelPath:modelLib:)` 載入，並用 `engine.chat.completions.create(...)` streaming 輸出
 
-#### MLC LLM 打包產物（dist）
+#### MLC LLM 打包產物（dist / dist-maccatalyst）
 
-- 專案內路徑（不進 Git）：`dist/`
+- 專案內路徑（不進 Git）：
   - `dist/bundle/`：包含 `mlc-app-config.json`、模型目錄（內含 `mlc-chat-config.json`、tokenizer、weights 等）
-  - `dist/lib/`：包含 iOS 連結所需靜態庫（供 `LIBRARY_SEARCH_PATHS` + `OTHER_LDFLAGS`）
-- 打包設定檔：repo 根目錄 `mlc-package-config.json`（供 `mlc_llm package` 使用）
-- 產生方式（開發者在本機執行）：`MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package`
+  - `dist/lib/`：iphoneos 靜態庫（arm64）
+  - `dist-maccatalyst/lib/`：macabi 靜態庫（arm64）
+  - `dist/xcframeworks/`：iphoneos + macabi slices 合併後的 `.xcframework`（供 Xcode link）
+- 打包設定檔：
+  - `mlc-package-config.json`（device=iphone，固定 `model_lib` / `system_lib_prefix`）
+  - `mlc-package-config-macabi.json`（device=macabi，固定 `model_lib` / `system_lib_prefix`）
+- 產生方式（開發者在本機執行）：
+  - `MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package --package-config mlc-package-config.json --output dist`
+  - `MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm MLC_MACABI_DEPLOYMENT_TARGET=18.0 mlc_llm package --package-config mlc-package-config-macabi.json --output dist-maccatalyst`
+  - `xcodebuild -create-xcframework` 將 `dist/lib/*.a` + `dist-maccatalyst/lib/*.a` 組裝為 `dist/xcframeworks/*.xcframework`
 
 ### Safari Web Extension（WebLLM popup）
 

@@ -23,15 +23,37 @@ MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package
 
 ### 產物
 
-- `dist/lib/`（重要）：iOS app link 需要的靜態庫（例如 `libmlc_llm.a`、`libtvm_runtime.a`、`libtvm_ffi_static.a`…）
-- `dist/bundle/`（輔助/檢查用）：包含 `mlc-app-config.json`、模型資料夾（tokenizer/weights/config 等）
+  - `dist/lib/`（重要）：iphoneos 靜態庫（例如 `libmlc_llm.a`、`libtvm_runtime.a`、`libtvm_ffi_static.a`…）
+  - `dist/bundle/`（輔助/檢查用）：包含 `mlc-app-config.json`、模型資料夾（tokenizer/weights/config 等）
 
 注意：
 
 - `dist/lib/*.a` 為 iphoneos（arm64）靜態庫：
   - ✅ iPhone/iPad 真機
   - ✅ My Mac (Designed for iPad)
-  - ❌ iOS Simulator / ❌ Mac Catalyst（需要另外的 macabi slice 才可能支援）
+  - ❌ iOS Simulator
+
+## Mac Catalyst（macabi，Apple Silicon）
+
+在 EisonAI repo 根目錄執行：
+
+```bash
+MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm \
+MLC_MACABI_DEPLOYMENT_TARGET=18.0 \
+mlc_llm package --package-config mlc-package-config-macabi.json --output dist-maccatalyst
+```
+
+產物：
+
+- `dist-maccatalyst/lib/`：macabi 靜態庫（arm64）
+- `dist/xcframeworks/`：iphoneos + macabi slices 合併後的 `.xcframework`（供 Xcode link）
+
+一鍵腳本（建議使用 Python 3.12 venv 執行）：
+
+```bash
+source .venv-mlc312/bin/activate
+Scripts/build_mlc_xcframeworks.sh
+```
 
 ## iOS app 端的模型設定（model_id / model_lib）
 
