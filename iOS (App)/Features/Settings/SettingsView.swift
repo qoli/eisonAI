@@ -65,7 +65,7 @@ struct SettingsView: View {
                 case .notSupported:
                     Text("Requires iOS 26+ with Apple Intelligence enabled.")
                         .foregroundStyle(.secondary)
-                case .unavailable(let reason):
+                case let .unavailable(reason):
                     Text(reason)
                         .foregroundStyle(.secondary)
                 }

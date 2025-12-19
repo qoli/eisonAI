@@ -13,6 +13,7 @@
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
+		EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +91,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */,
 				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
 				EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */,
 			);
@@ -243,6 +245,7 @@
 			mainGroup = EA7726162BC5B6B2005A194D;
 			packageReferences = (
 				EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */,
+				EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 			);
 			productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
 			projectDirPath = "";
@@ -658,6 +661,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		69E3C302CAE70743D02A6776 /* MLCSwift */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -667,6 +681,11 @@
 		EA31AC152EF3D31F0067EC57 /* MLCSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLCSwift;
+		};
+		EA8B1B262EF55A2500D8845B /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -20,8 +20,8 @@ struct LibraryItemDetailView: View {
                 header
 
                 if let item {
-                    prompts(item: item)
                     outputs(item: item)
+                    prompts(item: item)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -112,4 +112,3 @@ private struct TextSection: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
-

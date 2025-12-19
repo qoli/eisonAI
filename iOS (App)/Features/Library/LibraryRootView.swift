@@ -131,7 +131,7 @@ struct LibraryRootView: View {
                     }
                 }
             }
-            .listStyle(.plain)
+            .listStyle(.automatic)
             .animation(.easeInOut(duration: 0.15), value: visibleEntries.map(\.id))
         }
     }
@@ -141,7 +141,7 @@ struct LibraryRootView: View {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
 
-            TextField("Search your library ...", text: $searchText)
+            TextField("Search", text: $searchText)
                 .focused($isSearchFocused)
                 .submitLabel(.done)
 
@@ -209,10 +209,9 @@ private extension View {
     @ViewBuilder
     func librarySearchBarBackground() -> some View {
         if #available(iOS 26.0, *) {
-            self.glassEffect()
+            self.glassEffect(.clear)
         } else {
-            self
-                .background(.ultraThinMaterial)
+            background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }
