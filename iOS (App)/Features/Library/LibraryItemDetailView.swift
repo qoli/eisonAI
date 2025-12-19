@@ -106,7 +106,9 @@ private struct TextSection: View {
 
             if isMarkdown {
                 Markdown(text)
-                    .padding()
+                    .markdownTheme(.librarySummary)
+                    .padding(.horizontal, isMarkdown ? 0 : 12)
+                    .padding(.vertical, 12)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
@@ -117,8 +119,17 @@ private struct TextSection: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.horizontal, isMarkdown ? 0 : 12)
+        .padding(.vertical, 12)
+        .background(
+            Group {
+                if isMarkdown {
+                    Color.clear
+                } else {
+                    Color.clear
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+            }
+        )
     }
 }
