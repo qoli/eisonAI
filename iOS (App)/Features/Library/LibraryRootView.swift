@@ -8,6 +8,7 @@ struct LibraryRootView: View {
     @FocusState private var isSearchFocused: Bool
 
     @State private var segmentedTransitionEdge: Edge = .trailing
+    @State private var showClipboardKeyPoint = false
 
     private var mode: LibraryMode {
         LibraryMode(rawValue: selection) ?? .all
@@ -41,26 +42,33 @@ struct LibraryRootView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                mainContent
-                    .id(mode)
-                    .transition(
-                        .asymmetric(
-                            insertion: .move(edge: segmentedTransitionEdge).combined(with: .opacity),
-                            removal: .opacity
+            searchPlacement(
+                ZStack {
+                    mainContent
+                        .id(mode)
+                        .transition(
+                            .asymmetric(
+                                insertion: .move(edge: segmentedTransitionEdge).combined(with: .opacity),
+                                removal: .opacity
+                            )
                         )
-                    )
-            }
-            .animation(.easeInOut(duration: 0.25), value: selection)
-            .onChange(of: selection) { oldValue, newValue in
-                segmentedTransitionEdge = newValue >= oldValue ? .trailing : .leading
-            }
-            .safeAreaInset(edge: .bottom) {
-                searchBar
-                    .padding(.bottom, isSearchFocused ? 26 : 0)
-            }
+                }
+                .animation(.easeInOut(duration: 0.25), value: selection)
+                .onChange(of: selection) { oldValue, newValue in
+                    segmentedTransitionEdge = newValue >= oldValue ? .trailing : .leading
+                }
+            )
             .navigationTitle("Library")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showClipboardKeyPoint = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Key-point from Clipboard")
+                }
+
                 ToolbarItem(placement: .title) {
                     Picker("", selection: $selection) {
                         Image(systemName: "tray.full").tag(LibraryMode.all.rawValue)
@@ -79,6 +87,11 @@ struct LibraryRootView: View {
                     .accessibilityLabel("Settings")
                 }
             }
+            .sheet(isPresented: $showClipboardKeyPoint, onDismiss: {
+                viewModel.reload()
+            }) {
+                ClipboardKeyPointSheet()
+            }
             .refreshable {
                 viewModel.reload()
             }
@@ -89,6 +102,33 @@ struct LibraryRootView: View {
                 viewModel.reload()
             }
         }
+    }
+
+    @ViewBuilder
+    private func searchPlacement<Content: View>(_ content: Content) -> some View {
+        #if targetEnvironment(macCatalyst)
+//            content
+//            .searchable(text: $searchText, placement: .toolbarPrincipal, prompt: "Search")
+//            會歪的，https://x.com/llqoli/status/2001990991092531532
+
+            content.safeAreaInset(edge: .bottom) {
+                searchBar
+                    .padding(.bottom, 26)
+            }
+        #else
+            if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
+//                content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
+                content.safeAreaInset(edge: .bottom) {
+                    searchBar
+                        .padding(.bottom, 26)
+                }
+            } else {
+                content.safeAreaInset(edge: .bottom) {
+                    searchBar
+                        .padding(.bottom, isSearchFocused ? 26 : 0)
+                }
+            }
+        #endif
     }
 
     @ViewBuilder
