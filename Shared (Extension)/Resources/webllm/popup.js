@@ -24,6 +24,7 @@ const progressEl = document.getElementById("progress");
 const inputEl = document.getElementById("input");
 const inputTokensEl = document.getElementById("input-tokens");
 const thinkEl = document.getElementById("think");
+const thinkContainerEl = thinkEl?.closest?.(".container") ?? null;
 const outputEl = document.getElementById("output");
 const shareEl = document.getElementById("share");
 
@@ -183,6 +184,12 @@ function setThink(text) {
   } catch {
     // ignore
   }
+}
+
+function setThinkBoxVisible(visible) {
+  if (!thinkContainerEl) return;
+  thinkContainerEl.hidden = !visible;
+  if (!visible) setThink("");
 }
 
 function setShareVisible(_visible) {
@@ -927,6 +934,7 @@ async function streamChat(messages) {
   if (engineLoading) throw new Error("Engine is still loading.");
   if (generating) throw new Error("Generation is already running.");
 
+  setThinkBoxVisible(true);
   generationBackend = "webllm";
   activeModelIdOverride = "";
 
@@ -1001,6 +1009,7 @@ async function streamChatWithRecovery(messages, { retry = true } = {}) {
 async function streamSummaryWithFoundationModels(ctx) {
   if (generating) throw new Error("Generation is already running.");
 
+  setThinkBoxVisible(false);
   generationBackend = "foundation-models";
   activeModelIdOverride = FOUNDATION_MODEL_ID;
 
