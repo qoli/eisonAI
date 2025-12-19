@@ -14,7 +14,6 @@ import SwiftUI
 private enum LibraryMode: Int {
     case all = 0
     case favorites = 1
-    case recent = 2
 }
 
 struct NavigationStackView: View {
@@ -32,7 +31,7 @@ struct NavigationStackView: View {
     private var visibleItems: [LoadedMockupLibraryItem] {
         var base: [LoadedMockupLibraryItem]
         switch mode {
-        case .all, .recent:
+        case .all:
             base = store.items
         case .favorites:
             base = store.items.filter(\.isFavorite)
@@ -76,9 +75,8 @@ struct NavigationStackView: View {
             .toolbar {
                 ToolbarItem(placement: .title) {
                     Picker("", selection: $selection) {
-                        Image(systemName: "magnifyingglass").tag(0)
+                        Image(systemName: "tray.full").tag(0)
                         Image(systemName: "star").tag(1)
-                        Image(systemName: "clock").tag(2)
                     }
                     .pickerStyle(.segmented)
                     .frame(width: 160)
