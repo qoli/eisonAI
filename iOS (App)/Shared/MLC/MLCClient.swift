@@ -57,17 +57,13 @@ final class MLCClient {
 
         return AsyncThrowingStream { continuation in
             Task {
-                do {
-                    for try await res in stream {
-                        if Task.isCancelled { break }
-                        if let delta = res.choices.first?.delta.content?.asText() {
-                            continuation.yield(delta)
-                        }
+                for try await res in stream {
+                    if Task.isCancelled { break }
+                    if let delta = res.choices.first?.delta.content?.asText() {
+                        continuation.yield(delta)
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
+                continuation.finish()
             }
         }
 #else

@@ -8,7 +8,7 @@
 import SwiftUI
 
 #if canImport(MLCSwift)
-import MLCSwift
+    import MLCSwift
 #endif
 
 @MainActor
@@ -22,9 +22,9 @@ final class MLCQwenDemoViewModel: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var generateTask: Task<Void, Never>?
 
-#if canImport(MLCSwift)
-    private let engine = MLCEngine()
-#endif
+    #if canImport(MLCSwift)
+        private let engine = MLCEngine()
+    #endif
     private let modelIDCandidates = [
         "Qwen3-0.6B-q4f16_1-MLC",
         "Qwen3-0.6B-q0f16-MLC",
@@ -38,17 +38,17 @@ final class MLCQwenDemoViewModel: ObservableObject {
 
         loadTask = Task { [weak self] in
             guard let self else { return }
-#if canImport(MLCSwift)
-            do {
-                let selected = try self.resolveBundledModel()
-                try await self.loadEngine(modelPath: selected.modelPath, modelLib: selected.modelLib)
-                self.status = "Ready (\(selected.modelID))"
-            } catch {
-                self.status = "Error: \(error.localizedDescription)"
-            }
-#else
-            self.status = "MLCSwift not integrated."
-#endif
+            #if canImport(MLCSwift)
+                do {
+                    let selected = try self.resolveBundledModel()
+                    try await self.loadEngine(modelPath: selected.modelPath, modelLib: selected.modelLib)
+                    self.status = "Ready (\(selected.modelID))"
+                } catch {
+                    self.status = "Error: \(error.localizedDescription)"
+                }
+            #else
+                self.status = "MLCSwift not integrated."
+            #endif
             self.isLoading = false
         }
     }
@@ -60,11 +60,11 @@ final class MLCQwenDemoViewModel: ObservableObject {
         output = ""
         status = "Cleared."
         isGenerating = false
-#if canImport(MLCSwift)
-        Task { [engine] in
-            await engine.reset()
-        }
-#endif
+        #if canImport(MLCSwift)
+            Task { [engine] in
+                await engine.reset()
+            }
+        #endif
     }
 
     func send() {
@@ -81,8 +81,7 @@ final class MLCQwenDemoViewModel: ObservableObject {
 
         generateTask = Task { [weak self] in
             guard let self else { return }
-#if canImport(MLCSwift)
-            do {
+            #if canImport(MLCSwift)
                 await self.engine.reset()
                 let stream = await self.engine.chat.completions.create(
                     messages: [
@@ -100,25 +99,18 @@ final class MLCQwenDemoViewModel: ObservableObject {
                 } else {
                     self.status = "Done"
                 }
-            } catch {
-                if Task.isCancelled {
-                    self.status = "Canceled"
-                } else {
-                    self.status = "Error: \(error.localizedDescription)"
-                }
-            }
-#else
-            self.status = "MLCSwift not integrated."
-#endif
+            #else
+                self.status = "MLCSwift not integrated."
+            #endif
             self.isGenerating = false
         }
     }
 
-#if canImport(MLCSwift)
-    private func loadEngine(modelPath: String, modelLib: String) async throws {
-        await engine.reload(modelPath: modelPath, modelLib: modelLib)
-    }
-#endif
+    #if canImport(MLCSwift)
+        private func loadEngine(modelPath: String, modelLib: String) async throws {
+            await engine.reload(modelPath: modelPath, modelLib: modelLib)
+        }
+    #endif
 
     private struct BundledModel {
         let modelID: String
@@ -155,15 +147,15 @@ final class MLCQwenDemoViewModel: ObservableObject {
 
         var errorDescription: String? {
             switch self {
-            case .missingBundledConfig(let url):
+            case let .missingBundledConfig(url):
                 return "Missing bundled config: \(url.lastPathComponent). Did you add `iOS (App)/Config/mlc-app-config.json` to app resources?"
-            case .missingBundledModel(let modelID):
+            case let .missingBundledModel(modelID):
                 return "Model not found in `mlc-app-config.json`: \(modelID)"
-            case .missingEmbeddedExtension(let bundleID):
+            case let .missingEmbeddedExtension(bundleID):
                 return "Embedded extension not found: \(bundleID). Is the Safari extension target embedded into the app?"
-            case .missingModelDirectory(let dir):
+            case let .missingModelDirectory(dir):
                 return "Missing model directory: \(dir)"
-            case .missingModelFile(let path):
+            case let .missingModelFile(path):
                 return "Missing model file: \(path)"
             }
         }
@@ -275,7 +267,7 @@ struct MLCQwenDemoView: View {
         VStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 TextField("Input", text: $model.prompt, axis: .vertical)
-                    .lineLimit(1...6)
+                    .lineLimit(1 ... 6)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
                     .textFieldStyle(.roundedBorder)
@@ -307,14 +299,14 @@ struct MLCQwenDemoView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-#if !canImport(MLCSwift)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Missing dependency: MLCSwift")
-                    .font(.headline)
-                Text("Follow https://llm.mlc.ai/docs/deploy/ios.html → “Build Apps with MLC Swift API” to add the local package `ios/MLCSwift`, bundle `dist/bundle`, and link the required libraries.")
-                    .foregroundStyle(.secondary)
-            }
-#endif
+            #if !canImport(MLCSwift)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Missing dependency: MLCSwift")
+                        .font(.headline)
+                    Text("Follow https://llm.mlc.ai/docs/deploy/ios.html → “Build Apps with MLC Swift API” to add the local package `ios/MLCSwift`, bundle `dist/bundle`, and link the required libraries.")
+                        .foregroundStyle(.secondary)
+                }
+            #endif
         }
         .padding()
         .navigationTitle("Qwen3 0.6B Demo")
