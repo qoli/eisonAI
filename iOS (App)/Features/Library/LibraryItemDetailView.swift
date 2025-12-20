@@ -19,19 +19,24 @@ struct LibraryItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                    .padding(12)
+                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12), interactive: false)
+
+//                Divider().opacity(0.25)
 
                 if let item {
                     outputs(item: item)
-                    prompts(item: item)
+//                    prompts(item: item)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .padding(16)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 12)
         }
-        .navigationTitle("Material")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
+        .navigationBarTitleDisplayMode(.large)
         .task {
             item = loadDetail(entry)
         }
@@ -39,19 +44,19 @@ struct LibraryItemDetailView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
-                    .font(.title3.weight(.semibold))
-                    .textSelection(.enabled)
+//            HStack(alignment: .firstTextBaseline, spacing: 10) {
+//                Text(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
+//                    .font(.title3.weight(.semibold))
+//                    .textSelection(.enabled)
 
+//            }
+
+            VStack(alignment: .leading, spacing: 4) {
                 if isFavorite {
                     Image(systemName: "star.fill")
                         .foregroundStyle(.yellow)
                         .accessibilityLabel("Favorite")
                 }
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
                 Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
                 Text(entry.metadata.modelId)
                 Text(entry.fileURL.lastPathComponent)
@@ -131,5 +136,41 @@ private struct TextSection: View {
                 }
             }
         )
+    }
+}
+
+import SwiftUI
+
+extension View {
+    @ViewBuilder
+    func glassedEffect(in shape: some Shape, interactive: Bool = false) -> some View {
+        if #available(iOS 26.0, *) {
+            self.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+        } else {
+            background {
+                shape.glassed()
+            }
+        }
+    }
+}
+
+extension Shape {
+    func glassed() -> some View {
+        fill(.ultraThinMaterial)
+            .fill(
+                .linearGradient(
+                    colors: [
+                        .primary.opacity(0.08),
+                        .primary.opacity(0.05),
+                        .primary.opacity(0.01),
+                        .clear,
+                        .clear,
+                        .clear,
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .stroke(.primary.opacity(0.2), lineWidth: 0.7)
     }
 }

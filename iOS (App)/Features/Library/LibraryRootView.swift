@@ -247,7 +247,7 @@ private struct LibraryItemRow: View {
     }
 }
 
-private extension View {
+extension View {
     @ViewBuilder
     func librarySearchBarBackground() -> some View {
         if #available(iOS 26.0, *) {
