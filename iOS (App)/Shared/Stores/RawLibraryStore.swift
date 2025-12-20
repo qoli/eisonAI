@@ -58,6 +58,13 @@ struct RawLibraryStore {
         try rawLibraryRootURL().appendingPathComponent(AppConfig.rawLibraryFavoriteIndexFilename)
     }
 
+    private func fileSystemPath(for url: URL) -> String {
+        if #available(iOS 16.0, macOS 13.0, *) {
+            return url.path(percentEncoded: false)
+        }
+        return url.path.removingPercentEncoding ?? url.path
+    }
+
     private static let filenameTimestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -201,9 +208,13 @@ struct RawLibraryStore {
     func setFavorite(filename: String, sourceFileURL: URL, isFavorite: Bool) throws {
         let destDir = try favoriteItemsDirectoryURL()
         let destURL = destDir.appendingPathComponent(filename)
+        let destPath = fileSystemPath(for: destURL)
 
         if isFavorite {
-            if fileManager.fileExists(atPath: destURL.path()) {
+            #if DEBUG
+            print("[RawLibraryStore] favorite add filename=\(filename) dest=\(destPath)")
+            #endif
+            if fileManager.fileExists(atPath: destPath) {
                 _ = try synchronizeFavoriteIndex()
                 return
             }
@@ -213,7 +224,10 @@ struct RawLibraryStore {
             return
         }
 
-        if fileManager.fileExists(atPath: destURL.path()) {
+        #if DEBUG
+        print("[RawLibraryStore] favorite remove filename=\(filename) dest=\(destPath)")
+        #endif
+        if fileManager.fileExists(atPath: destPath) {
             try? fileManager.removeItem(at: destURL)
         }
         _ = try synchronizeFavoriteIndex()

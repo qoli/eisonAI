@@ -2,12 +2,9 @@ import MarkdownUI
 import SwiftUI
 
 struct LibraryItemDetailView: View {
+    @ObservedObject var viewModel: LibraryViewModel
     var entry: RawHistoryEntry
-    var isFavorite: Bool
-    var loadDetail: (RawHistoryEntry) -> RawHistoryItem?
-    var onToggleFavorite: ((RawHistoryEntry, Bool) -> Void)? = nil
 
-    @State private var currentFavorite: Bool = false
     @State private var item: RawHistoryItem?
     @State private var isArticleExpanded: Bool = false
 
@@ -17,6 +14,10 @@ struct LibraryItemDetailView: View {
         f.timeStyle = .medium
         return f
     }()
+
+    private var isFavorite: Bool {
+        viewModel.isFavorited(entry)
+    }
 
     var body: some View {
         ScrollView {
@@ -41,12 +42,11 @@ struct LibraryItemDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    currentFavorite.toggle()
-                    onToggleFavorite?(entry, currentFavorite)
+                    viewModel.toggleFavorite(entry)
                 } label: {
-                    Label(currentFavorite ? "Unfavorite" : "Favorite", systemImage: currentFavorite ? "star.fill" : "star")
+                    Label(isFavorite ? "Unfavorite" : "Favorite", systemImage: isFavorite ? "star.fill" : "star")
                 }
-                .accessibilityLabel(currentFavorite ? "Remove from Favorites" : "Add to Favorites")
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
@@ -58,9 +58,8 @@ struct LibraryItemDetailView: View {
             }
         }
         .task {
-            currentFavorite = isFavorite
             isArticleExpanded = false
-            item = loadDetail(entry)
+            item = viewModel.loadDetail(for: entry)
         }
     }
 

@@ -152,7 +152,10 @@ struct LibraryRootView: View {
         } else {
             List(visibleEntries) { entry in
                 NavigationLink {
-                    LibraryItemDetailView(entry: entry, isFavorite: viewModel.isFavorited(entry), loadDetail: viewModel.loadDetail)
+                    LibraryItemDetailView(
+                        viewModel: viewModel,
+                        entry: entry
+                    )
                 } label: {
                     LibraryItemRow(entry: entry, isFavorite: viewModel.isFavorited(entry))
                 }

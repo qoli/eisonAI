@@ -25,16 +25,28 @@ final class LibraryViewModel: ObservableObject {
         favoriteFilenames.contains(entry.fileURL.lastPathComponent)
     }
 
-    func toggleFavorite(_ entry: RawHistoryEntry) {
+    func setFavorite(_ entry: RawHistoryEntry, isFavorite: Bool) {
         let filename = entry.fileURL.lastPathComponent
-        let makeFavorite = !favoriteFilenames.contains(filename)
 
         do {
-            try store.setFavorite(filename: filename, sourceFileURL: entry.fileURL, isFavorite: makeFavorite)
+            #if DEBUG
+            print("[LibraryViewModel] setFavorite start filename=\(filename) isFavorite=\(isFavorite)")
+            #endif
+            try store.setFavorite(filename: filename, sourceFileURL: entry.fileURL, isFavorite: isFavorite)
             favoriteFilenames = try store.favoriteFilenameSet()
+            #if DEBUG
+            print("[LibraryViewModel] setFavorite done favoriteCount=\(favoriteFilenames.count)")
+            #endif
         } catch {
             errorMessage = error.localizedDescription
+            #if DEBUG
+            print("[LibraryViewModel] setFavorite error \(error.localizedDescription)")
+            #endif
         }
+    }
+
+    func toggleFavorite(_ entry: RawHistoryEntry) {
+        setFavorite(entry, isFavorite: !isFavorited(entry))
     }
 
     func delete(_ entry: RawHistoryEntry) {
@@ -56,4 +68,3 @@ final class LibraryViewModel: ObservableObject {
         }
     }
 }
-
