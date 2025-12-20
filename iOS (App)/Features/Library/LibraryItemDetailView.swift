@@ -9,6 +9,7 @@ struct LibraryItemDetailView: View {
 
     @State private var currentFavorite: Bool = false
     @State private var item: RawHistoryItem?
+    @State private var isArticleExpanded: Bool = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -56,38 +57,29 @@ struct LibraryItemDetailView: View {
                     .accessibilityLabel("Open Page URL")
                 }
             }
+            ToolbarItem(placement: .bottomBar) {
+                if let item, !item.articleText.isEmpty, !isArticleExpanded {
+                    Button {
+                        withAnimation(.easeInOut) {
+                            isArticleExpanded = true
+                        }
+                    } label: {
+                        Label("Expand", systemImage: "arrow.up.left.and.arrow.down.right")
+                    }
+                    .accessibilityLabel("Expand Article")
+                }
+            }
         }
         .task {
             currentFavorite = isFavorite
+            isArticleExpanded = false
             item = loadDetail(entry)
         }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-//            HStack(alignment: .firstTextBaseline, spacing: 10) {
-//                Text(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
-//                    .font(.title3.weight(.semibold))
-//                    .textSelection(.enabled)
-
-//            }
-
-//                if isFavorite {
-//                    Image(systemName: "star.fill")
-//                        .foregroundStyle(.yellow)
-//                        .accessibilityLabel("Favorite")
-//                }
             Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
-//                Text(entry.metadata.modelId)
-//                Text(entry.fileURL.lastPathComponent)
-
-//            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-//                Link(destination: url) {
-//                    Label(entry.metadata.url, systemImage: "link")
-//                        .font(.caption)
-//                        .lineLimit(2)
-//                }
-//            }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -112,8 +104,13 @@ struct LibraryItemDetailView: View {
                 TextSection(title: "Summary", text: item.summaryText, isMarkdown: true)
             }
             if !item.articleText.isEmpty {
-                Divider().opacity(0.2)
-                TextSection(title: "Article", text: item.articleText)
+                VStack(alignment: .leading, spacing: 8) {
+                    TextSection(
+                        title: "Article",
+                        text: item.articleText,
+                        lineLimit: isArticleExpanded ? nil : 5
+                    )
+                }
             }
         }
     }
@@ -123,6 +120,7 @@ private struct TextSection: View {
     var title: String
     var text: String
     var isMarkdown: Bool = false
+    var lineLimit: Int? = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -142,6 +140,7 @@ private struct TextSection: View {
                     .font(.body)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(lineLimit)
             }
         }
         .padding(.horizontal, isMarkdown ? 0 : 12)
