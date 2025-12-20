@@ -200,7 +200,8 @@ struct LibraryRootView: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .librarySearchBarBackground()
+//        .librarySearchBarBackground()
+        .glassedEffect(in: .capsule, interactive: true)
         .frame(maxWidth: isSearchFocused ? .infinity : 260)
         .padding(.horizontal, isSearchFocused ? 12 : 80)
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
@@ -252,6 +253,7 @@ extension View {
     func librarySearchBarBackground() -> some View {
         if #available(iOS 26.0, *) {
             self.glassEffect(.regular)
+
         } else {
             background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

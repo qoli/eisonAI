@@ -21,13 +21,12 @@ struct LibraryItemDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                header
+//                header
 //                    .padding(12)
 //                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12), interactive: false)
 
                 if let item {
                     outputs(item: item)
-//                    prompts(item: item)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
@@ -57,18 +56,6 @@ struct LibraryItemDetailView: View {
                     .accessibilityLabel("Open Page URL")
                 }
             }
-            ToolbarItem(placement: .bottomBar) {
-                if let item, !item.articleText.isEmpty, !isArticleExpanded {
-                    Button {
-                        withAnimation(.easeInOut) {
-                            isArticleExpanded = true
-                        }
-                    } label: {
-                        Label("Expand", systemImage: "arrow.up.left.and.arrow.down.right")
-                    }
-                    .accessibilityLabel("Expand Article")
-                }
-            }
         }
         .task {
             currentFavorite = isFavorite
@@ -89,10 +76,10 @@ struct LibraryItemDetailView: View {
     private func prompts(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if !item.systemPrompt.isEmpty {
-                TextSection(title: "System Prompt", text: item.systemPrompt)
+                TextSection(title: "System Prompt", text: item.systemPrompt, descirptionText: "")
             }
             if !item.userPrompt.isEmpty {
-                TextSection(title: "User Prompt", text: item.userPrompt)
+                TextSection(title: "User Prompt", text: item.userPrompt, descirptionText: "")
             }
         }
     }
@@ -101,15 +88,46 @@ struct LibraryItemDetailView: View {
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if !item.summaryText.isEmpty {
-                TextSection(title: "Summary", text: item.summaryText, isMarkdown: true)
+                TextSection(title: "Summary", text: item.summaryText, descirptionText: Self.dateFormatter.string(from: entry.metadata.createdAt), isMarkdown: true)
             }
             if !item.articleText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     TextSection(
                         title: "Article",
                         text: item.articleText,
+                        descirptionText: "",
                         lineLimit: isArticleExpanded ? nil : 5
                     )
+                    .overlay {
+                        if !isArticleExpanded {
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+
+                                    Button {
+                                        withAnimation(.easeInOut) {
+                                            isArticleExpanded.toggle()
+                                        }
+                                    } label: {
+                                        Label(
+                                            isArticleExpanded ? "Collapse" : "Expand",
+                                            systemImage: isArticleExpanded
+                                                ? "chevron.up"
+                                                : "chevron.down"
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel(isArticleExpanded ? "Collapse Article" : "Expand Article")
+                                    .padding(.horizontal)
+                                    .padding(.vertical)
+                                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12 + 6, style: .continuous), interactive: true)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 12)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -119,15 +137,30 @@ struct LibraryItemDetailView: View {
 private struct TextSection: View {
     var title: String
     var text: String
+    var descirptionText: String
     var isMarkdown: Bool = false
     var lineLimit: Int? = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
+            HStack {
+                if title != "" {
+                    Text(title)
+                        .font(.headline)
+                }
+
+                Spacer()
+
+                if descirptionText != "" {
+                    Text(descirptionText)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
 
             if isMarkdown {
+                Divider().opacity(0.2)
+
                 Markdown(text)
                     .markdownTheme(.librarySummary)
                     .padding(.horizontal, isMarkdown ? 0 : 12)
