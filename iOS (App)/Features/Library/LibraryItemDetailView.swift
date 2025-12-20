@@ -22,10 +22,6 @@ struct LibraryItemDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-//                header
-//                    .padding(12)
-//                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12), interactive: false)
-
                 if let item {
                     outputs(item: item)
                 } else {
@@ -33,8 +29,7 @@ struct LibraryItemDetailView: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 12)
+            .padding()
         }
 
         .navigationTitle(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
