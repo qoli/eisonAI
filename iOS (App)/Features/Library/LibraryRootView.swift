@@ -201,6 +201,7 @@ struct LibraryRootView: View {
         .padding(.horizontal)
         .padding(.vertical, 12)
         .librarySearchBarBackground()
+        .frame(maxWidth: isSearchFocused ? .infinity : 260)
         .padding(.horizontal, isSearchFocused ? 12 : 80)
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
         .animation(.easeInOut(duration: 0.15), value: searchText)
