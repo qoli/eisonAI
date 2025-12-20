@@ -5,7 +5,9 @@ struct LibraryItemDetailView: View {
     var entry: RawHistoryEntry
     var isFavorite: Bool
     var loadDetail: (RawHistoryEntry) -> RawHistoryItem?
+    var onToggleFavorite: ((RawHistoryEntry, Bool) -> Void)? = nil
 
+    @State private var currentFavorite: Bool = false
     @State private var item: RawHistoryItem?
 
     private static let dateFormatter: DateFormatter = {
@@ -19,10 +21,8 @@ struct LibraryItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
-                    .padding(12)
-                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12), interactive: false)
-
-//                Divider().opacity(0.25)
+//                    .padding(12)
+//                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12), interactive: false)
 
                 if let item {
                     outputs(item: item)
@@ -35,9 +35,30 @@ struct LibraryItemDetailView: View {
             .padding(.horizontal, 22)
             .padding(.vertical, 12)
         }
+
         .navigationTitle(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    currentFavorite.toggle()
+                    onToggleFavorite?(entry, currentFavorite)
+                } label: {
+                    Label(currentFavorite ? "Unfavorite" : "Favorite", systemImage: currentFavorite ? "star.fill" : "star")
+                }
+                .accessibilityLabel(currentFavorite ? "Remove from Favorites" : "Add to Favorites")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                    Link(destination: url) {
+                        Label("Open Link", systemImage: "link")
+                    }
+                    .accessibilityLabel("Open Page URL")
+                }
+            }
+        }
         .task {
+            currentFavorite = isFavorite
             item = loadDetail(entry)
         }
     }
@@ -51,27 +72,25 @@ struct LibraryItemDetailView: View {
 
 //            }
 
-            VStack(alignment: .leading, spacing: 4) {
-                if isFavorite {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(.yellow)
-                        .accessibilityLabel("Favorite")
-                }
-                Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
-                Text(entry.metadata.modelId)
-                Text(entry.fileURL.lastPathComponent)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+//                if isFavorite {
+//                    Image(systemName: "star.fill")
+//                        .foregroundStyle(.yellow)
+//                        .accessibilityLabel("Favorite")
+//                }
+            Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
+//                Text(entry.metadata.modelId)
+//                Text(entry.fileURL.lastPathComponent)
 
-            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                Link(destination: url) {
-                    Label(entry.metadata.url, systemImage: "link")
-                        .font(.caption)
-                        .lineLimit(2)
-                }
-            }
+//            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+//                Link(destination: url) {
+//                    Label(entry.metadata.url, systemImage: "link")
+//                        .font(.caption)
+//                        .lineLimit(2)
+//                }
+//            }
         }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder
@@ -93,6 +112,7 @@ struct LibraryItemDetailView: View {
                 TextSection(title: "Summary", text: item.summaryText, isMarkdown: true)
             }
             if !item.articleText.isEmpty {
+                Divider().opacity(0.2)
                 TextSection(title: "Article", text: item.articleText)
             }
         }
@@ -138,8 +158,6 @@ private struct TextSection: View {
         )
     }
 }
-
-import SwiftUI
 
 extension View {
     @ViewBuilder
