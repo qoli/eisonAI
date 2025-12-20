@@ -176,6 +176,11 @@ struct LibraryRootView: View {
             }
             .listStyle(.automatic)
             .animation(.easeInOut(duration: 0.15), value: visibleEntries.map(\.id))
+            .overlay(alignment: .bottom) {
+                VariableBlurView(maxBlurRadius: 2, direction: .blurredBottomClearTop)
+                    .ignoresSafeArea()
+                    .frame(height: 2)
+            }
         }
     }
 
