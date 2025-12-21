@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="${WORKSPACE:-$SCRIPT_DIR/eisonAI.xcodeproj/project.xcworkspace}"
 SCHEME="${SCHEME:-iOS}"
 CONFIGURATION="${CONFIGURATION:-Debug}"
-TARGET="${TARGET:-mymac}" # mymac | simulator
+TARGET="${TARGET:-catalyst}" # catalyst | mymac | simulator
 
 default_derived_data="$SCRIPT_DIR/build/DerivedData-$TARGET"
 DERIVED_DATA="${DERIVED_DATA:-$default_derived_data}"
@@ -123,6 +123,37 @@ if [[ "$TARGET" == "sim" || "$TARGET" == "simulator" ]]; then
 
   echo "Launching: $BUNDLE_ID"
   xcrun simctl launch --terminate-running-process "$SIMULATOR_UDID" "$BUNDLE_ID" >/dev/null
+  exit 0
+fi
+
+if [[ "$TARGET" == "catalyst" || "$TARGET" == "maccatalyst" ]]; then
+  DESTINATION="platform=macOS,variant=Mac Catalyst"
+  echo "Using My Mac (Mac Catalyst)"
+
+  xcodebuild \
+    -workspace "$WORKSPACE" \
+    -scheme "$SCHEME" \
+    -configuration "$CONFIGURATION" \
+    -destination "$DESTINATION" \
+    -derivedDataPath "$DERIVED_DATA" \
+    build
+
+  APP="$DERIVED_DATA/Build/Products/${CONFIGURATION}-maccatalyst/eisonAI.app"
+  if [[ ! -d "$APP" ]]; then
+    APP="$(find "$DERIVED_DATA/Build/Products" -maxdepth 2 -type d -name '*.app' -path "*-maccatalyst/*" -print -quit 2>/dev/null || true)"
+  fi
+  if [[ -z "${APP:-}" || ! -d "$APP" ]]; then
+    echo "Built .app not found under: $DERIVED_DATA/Build/Products" >&2
+    exit 1
+  fi
+
+  BUNDLE_ID="$(
+    /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" 2>/dev/null \
+      || plutil -extract CFBundleIdentifier raw -o - "$APP/Info.plist"
+  )"
+
+  echo "Launching: $BUNDLE_ID"
+  open "$APP"
   exit 0
 fi
 
