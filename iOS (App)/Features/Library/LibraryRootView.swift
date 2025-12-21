@@ -80,6 +80,7 @@ struct LibraryRootView: View {
                 syncErrorSheet
             }
             .refreshable {
+                viewModel.reload()
                 syncCoordinator.syncNow()
             }
             .task {
@@ -118,16 +119,23 @@ struct LibraryRootView: View {
         }
 
         ToolbarItem(placement: .title) {
-            if syncCoordinator.isSyncing {
-                syncStatusButton
-            } else {
+            ZStack {
                 Picker("", selection: $selection) {
-                    Image(systemName: "tray.full").tag(LibraryMode.all.rawValue)
-                    Image(systemName: "star").tag(LibraryMode.favorites.rawValue)
+                    if !syncCoordinator.isSyncing {
+                        Image(systemName: "tray.full").tag(LibraryMode.all.rawValue)
+                            .transition(.move(edge: .leading))
+                        Image(systemName: "star").tag(LibraryMode.favorites.rawValue)
+                            .transition(.move(edge: .trailing))
+                    }
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 120)
+
+                CircleProgressView(state: syncCoordinator.progressState)
+                    .frame(width: 16, height: 16, alignment: .center)
+                    .opacity(syncCoordinator.isSyncing ? 1 : 0)
             }
+            .animation(.easeInOut, value: syncCoordinator.isSyncing)
         }
 
         ToolbarItem(placement: .topBarTrailing) {
