@@ -23,15 +23,17 @@ struct LibraryItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let item {
+                    Divider().opacity(0.3)
+                    row()
+                    Divider().opacity(0.3)
                     outputs(item: item)
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .padding()
+            .padding(.horizontal)
         }
-
         .navigationTitle(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
@@ -67,6 +69,33 @@ struct LibraryItemDetailView: View {
     }
 
     @ViewBuilder
+    private func row() -> some View {
+        HStack {
+            Text("Date")
+                .font(.caption)
+                .fontWeight(.bold)
+
+            Spacer()
+
+            Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+
+        HStack {
+            Text("Model")
+                .font(.caption)
+                .fontWeight(.bold)
+
+            Spacer()
+
+            Text(entry.metadata.modelId)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
     private func prompts(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if !item.systemPrompt.isEmpty {
@@ -82,7 +111,7 @@ struct LibraryItemDetailView: View {
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if !item.summaryText.isEmpty {
-                TextSection(title: "Summary", text: item.summaryText, descirptionText: Self.dateFormatter.string(from: entry.metadata.createdAt), isMarkdown: true)
+                TextSection(title: "", text: item.summaryText, descirptionText: "", isMarkdown: true)
             }
             if !item.articleText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -136,25 +165,13 @@ private struct TextSection: View {
     var lineLimit: Int? = 5
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                if title != "" {
-                    Text(title)
-                        .font(.headline)
-                }
-
-                Spacer()
-
-                if descirptionText != "" {
-                    Text(descirptionText)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            if title != "" {
+                Text(title)
+                    .font(.headline)
             }
 
             if isMarkdown {
-                Divider().opacity(0.2)
-
                 Markdown(text)
                     .markdownTheme(.librarySummary)
                     .padding(.horizontal, isMarkdown ? 0 : 12)
@@ -171,7 +188,7 @@ private struct TextSection: View {
             }
         }
         .padding(.horizontal, isMarkdown ? 0 : 12)
-        .padding(.vertical, 12)
+        .padding(.vertical, isMarkdown ? 0 : 12)
         .background(
             Group {
                 if isMarkdown {
