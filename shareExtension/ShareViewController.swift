@@ -3,6 +3,40 @@ import UniformTypeIdentifiers
 
 final class ShareViewController: UIViewController {
     private var didHandle = false
+    private var didScheduleCompletion = false
+    private let statusLabel = UILabel()
+    private let detailLabel = UILabel()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .systemBackground
+
+        statusLabel.font = .preferredFont(forTextStyle: .headline)
+        statusLabel.textColor = .label
+        statusLabel.numberOfLines = 0
+        statusLabel.textAlignment = .center
+
+        detailLabel.font = .preferredFont(forTextStyle: .subheadline)
+        detailLabel.textColor = .secondaryLabel
+        detailLabel.numberOfLines = 0
+        detailLabel.textAlignment = .center
+
+        let stack = UIStackView(arrangedSubviews: [statusLabel, detailLabel])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        view.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            stack.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
+        ])
+
+        setStatus("Processing…", detail: "Please wait")
+    }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
@@ -15,7 +49,10 @@ final class ShareViewController: UIViewController {
     private func handleShare() async {
         guard let context = extensionContext else {
             log("extensionContext is nil")
-            completeRequest()
+            await MainActor.run {
+                setStatus("Share failed", detail: "Missing extension context.")
+                scheduleCompletion()
+            }
             return
         }
 
@@ -61,7 +98,10 @@ final class ShareViewController: UIViewController {
 
         guard (trimmedURL?.isEmpty == false) || (trimmedText?.isEmpty == false) else {
             log("no usable URL/text, completing request")
-            completeRequest()
+            await MainActor.run {
+                setStatus("No shareable content", detail: "Please share a URL or text.")
+                scheduleCompletion()
+            }
             return
         }
 
@@ -78,15 +118,35 @@ final class ShareViewController: UIViewController {
             log("saved payload: \(fileURL.lastPathComponent)")
         } catch {
             log("failed to save payload: \(error.localizedDescription)")
-            completeRequest()
+            await MainActor.run {
+                setStatus("Save failed", detail: error.localizedDescription)
+                scheduleCompletion()
+            }
             return
         }
 
-        completeRequest()
+        await MainActor.run {
+            setStatus("Saved", detail: "Closing in 2 seconds…")
+            scheduleCompletion()
+        }
     }
 
     private func completeRequest() {
         extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
+    }
+
+    private func setStatus(_ text: String, detail: String?) {
+        statusLabel.text = text
+        detailLabel.text = detail
+        detailLabel.isHidden = (detail == nil) || (detail?.isEmpty == true)
+    }
+
+    private func scheduleCompletion() {
+        guard !didScheduleCompletion else { return }
+        didScheduleCompletion = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.completeRequest()
+        }
     }
 
     private func loadURLString(from provider: NSItemProvider) async throws -> String? {
