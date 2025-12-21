@@ -142,6 +142,8 @@ struct LibraryRootView: View {
             Menu {
                 syncStatusButton
 
+                Divider()
+
                 NavigationLink {
                     SettingsView()
                 } label: {
