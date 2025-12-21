@@ -11,7 +11,7 @@ actor RawLibrarySyncService {
     private let favoriteIndexPath = AppConfig.rawLibraryFavoriteIndexFilename
     private let manifestFilename = AppConfig.rawLibrarySyncManifestFilename
 
-    func syncNow() async throws {
+    func syncNow(progress: RawLibrarySyncProgressHandler? = nil) async throws {
         let syncDate = Date()
         var manifest = try loadManifest()
 
@@ -35,7 +35,12 @@ actor RawLibrarySyncService {
         allPaths.formUnion(remoteByPath.keys)
         allPaths.formUnion(manifest.files.keys)
 
-        for path in allPaths.sorted() {
+        let sortedPaths = allPaths.sorted()
+        let totalCount = sortedPaths.count
+        progress?(RawLibrarySyncProgress(completed: 0, total: totalCount))
+
+        var completedCount = 0
+        for path in sortedPaths {
             let local = localByPath[path]
             let remote = remoteByPath[path]
             var entry = manifest.files[path] ?? ManifestEntry(path: path, recordName: RawLibraryCloudDatabase.recordName(for: path))
@@ -87,6 +92,8 @@ actor RawLibrarySyncService {
             }
 
             manifest.files[path] = entry
+            completedCount += 1
+            progress?(RawLibrarySyncProgress(completed: completedCount, total: totalCount))
         }
 
         manifest.updatedAt = syncDate
@@ -269,3 +276,10 @@ actor RawLibrarySyncService {
         return url
     }
 }
+
+struct RawLibrarySyncProgress: Sendable {
+    let completed: Int
+    let total: Int
+}
+
+typealias RawLibrarySyncProgressHandler = @Sendable (RawLibrarySyncProgress) -> Void

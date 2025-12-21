@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LibraryRootView: View {
     @StateObject private var viewModel = LibraryViewModel()
+    @StateObject private var syncCoordinator = RawLibrarySyncCoordinator.shared
 
     @State private var searchText: String = ""
     @State private var selection: Int = LibraryMode.all.rawValue
@@ -14,6 +15,7 @@ struct LibraryRootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppConfig.sharePollingEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var sharePollingEnabled = false
+    @State private var isSyncErrorSheetPresented = false
 
     private let sharePayloadStore = SharePayloadStore()
 
@@ -93,11 +95,21 @@ struct LibraryRootView: View {
                     }
                     .accessibilityLabel("Settings")
                 }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    ZStack {
+                        syncStatusButton
+                    }
+                    .frame(width: 22, height: 22, alignment: .center)
+                }
             }
             .sheet(item: $activeKeyPointInput, onDismiss: {
                 viewModel.reload()
             }) { input in
                 ClipboardKeyPointSheet(input: input)
+            }
+            .sheet(isPresented: $isSyncErrorSheetPresented) {
+                syncErrorSheet
             }
             .refreshable {
                 viewModel.reload()
@@ -120,21 +132,72 @@ struct LibraryRootView: View {
             .onChange(of: sharePollingEnabled) { _, _ in
                 refreshPolling(for: scenePhase)
             }
+            .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
+                viewModel.reload()
+            }
         }
     }
 
     private func triggerSyncIfNeeded(for phase: ScenePhase) {
         guard phase == .active else { return }
         Task {
-            do {
-                try await RawLibrarySyncService.shared.syncNow()
-                await MainActor.run {
-                    viewModel.reload()
+            syncCoordinator.syncNow()
+        }
+    }
+
+    @ViewBuilder
+    private var syncStatusButton: some View {
+        if syncCoordinator.isSyncing {
+            CircleProgressView(state: syncCoordinator.progressState)
+                .frame(width: 16, height: 16)
+                .accessibilityLabel("Syncing")
+        } else if syncCoordinator.lastErrorMessage != nil {
+            Button {
+                isSyncErrorSheetPresented = true
+            } label: {
+                Image(systemName: "exclamationmark.triangle")
+            }
+            .accessibilityLabel("Sync error")
+        } else {
+            Button {
+                syncCoordinator.syncNow()
+            } label: {
+                ZStack {
+                    Circle()
+                        .fill(Color.secondary)
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(.white)
+                        .font(.system(size: 10, weight: .black))
                 }
-            } catch {
-                print("[RawLibrarySync] sync error: \(error.localizedDescription)")
+                .frame(width: 22, height: 22)
+            }
+            .accessibilityLabel("Sync now")
+        }
+    }
+
+    private var syncErrorSheet: some View {
+        VStack(spacing: 16) {
+            Text("Sync Failed")
+                .font(.headline)
+            Text(syncCoordinator.lastErrorMessage ?? "Unknown error.")
+                .font(.callout)
+                .multilineTextAlignment(.leading)
+
+            HStack(spacing: 12) {
+                Button("Dismiss") {
+                    isSyncErrorSheetPresented = false
+                    syncCoordinator.clearError()
+                }
+                .buttonStyle(.bordered)
+
+                Button("Retry") {
+                    isSyncErrorSheetPresented = false
+                    syncCoordinator.syncNow()
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
+        .padding(20)
     }
 
     @ViewBuilder
@@ -346,6 +409,71 @@ struct LibraryRootView: View {
 
         Task { await checkForSharePayloadOnce() }
         startPolling()
+    }
+}
+
+private struct CircleProgressView: View {
+    static let progressColor = Color(
+        red: 1,
+        green: 201.0 / 255.0,
+        blue: 63.0 / 255.0
+    )
+
+    let state: RawLibrarySyncProgressState
+    private let lineWidth: CGFloat = 6
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Self.progressColor.opacity(0.2), lineWidth: lineWidth)
+
+            switch state {
+            case .waiting:
+                CircleProgressForeverView(
+                    color: Self.progressColor,
+                    lineWidth: lineWidth,
+                    progressForever: 0.25
+                )
+                .equatable()
+            case let .progress(value):
+                Circle()
+                    .trim(from: 0.0, to: clampedProgress(value))
+                    .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                    .foregroundStyle(Self.progressColor)
+                    .rotationEffect(.degrees(-90))
+            }
+        }
+    }
+
+    private func clampedProgress(_ value: Double) -> Double {
+        max(0, min(1, value))
+    }
+}
+
+private struct CircleProgressForeverView: View, Equatable {
+    let color: Color
+    let lineWidth: CGFloat
+    let progressForever: CGFloat
+
+    @State private var rotationForever: Angle = .degrees(0)
+
+    var body: some View {
+        Circle()
+            .trim(from: 0.0, to: progressForever)
+            .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+            .foregroundStyle(color)
+            .rotationEffect(rotationForever)
+            .task {
+                withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) {
+                    rotationForever = .degrees(360)
+                }
+            }
+    }
+
+    static func == (lhs: CircleProgressForeverView, rhs: CircleProgressForeverView) -> Bool {
+        lhs.color == rhs.color &&
+            lhs.lineWidth == rhs.lineWidth &&
+            lhs.progressForever == rhs.progressForever
     }
 }
 
