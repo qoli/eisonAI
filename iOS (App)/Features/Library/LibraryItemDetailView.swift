@@ -15,10 +15,7 @@ struct LibraryItemDetailView: View {
     private let foundationSettings = FoundationModelsSettingsStore()
     private let rawLibraryStore = RawLibraryStore()
 
-    private let titleSystemPrompt = """
-    請為內容構建一個合適的標題；
-    使用繁體中文。
-    """
+    private let titlePromptStore = TitlePromptStore()
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -202,6 +199,7 @@ struct LibraryItemDetailView: View {
             }
 
             do {
+                let systemPrompt = titlePromptStore.load()
                 let userPrompt = buildTitleUserPrompt(for: item)
                 let useFoundationModels = foundationSettings.isAppEnabled()
                     && FoundationModelsAvailability.currentStatus() == .available
@@ -209,9 +207,9 @@ struct LibraryItemDetailView: View {
                 if useFoundationModels {
                     log("title generation using FoundationModels")
                     let prefix = clampText(userPrompt, maxChars: 800)
-                    foundationModels.prewarm(systemPrompt: titleSystemPrompt, promptPrefix: prefix)
+                    foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prefix)
                     stream = try await foundationModels.streamChat(
-                        systemPrompt: titleSystemPrompt,
+                        systemPrompt: systemPrompt,
                         userPrompt: userPrompt,
                         temperature: 0.4,
                         maximumResponseTokens: 128
@@ -219,7 +217,7 @@ struct LibraryItemDetailView: View {
                 } else {
                     log("title generation using MLC")
                     try await mlc.loadIfNeeded()
-                    stream = try await mlc.streamChat(systemPrompt: titleSystemPrompt, userPrompt: userPrompt)
+                    stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
                 }
                 var output = ""
                 for try await chunk in stream {

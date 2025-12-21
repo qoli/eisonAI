@@ -2,11 +2,14 @@ import SwiftUI
 
 struct SettingsView: View {
     private let store = SystemPromptStore()
+    private let titlePromptStore = TitlePromptStore()
     private let foundationModelsStore = FoundationModelsSettingsStore()
     private let sharePollingStore = SharePollingSettingsStore()
 
     @State private var draftPrompt = ""
+    @State private var draftTitlePrompt = ""
     @State private var status = ""
+    @State private var titlePromptStatus = ""
     @State private var debugStatus = ""
     @State private var cloudSyncStatus = ""
     @State private var isCloudSyncing = false
@@ -101,6 +104,37 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Title prompt") {
+                Text("Used when rebuilding missing titles in the Library detail view.")
+                    .foregroundStyle(.secondary)
+
+                TextEditor(text: $draftTitlePrompt)
+                    .frame(minHeight: 120)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+
+                HStack {
+                    Button("Save") {
+                        titlePromptStore.save(draftTitlePrompt)
+                        draftTitlePrompt = titlePromptStore.load()
+                        titlePromptStatus = "Saved."
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    Button("Reset to default") {
+                        titlePromptStore.save(nil)
+                        draftTitlePrompt = titlePromptStore.load()
+                        titlePromptStatus = "Reset to default."
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                if !titlePromptStatus.isEmpty {
+                    Text(titlePromptStatus)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("Safari Extension") {
                 Text("Enable eisonAI’s Safari extension in Settings → Safari → Extensions.")
                 Text("Summaries run in the extension popup via WebLLM (bundled assets).")
@@ -171,6 +205,7 @@ struct SettingsView: View {
             guard !didLoad else { return }
             didLoad = true
             draftPrompt = store.load()
+            draftTitlePrompt = titlePromptStore.load()
 
             foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
             foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
