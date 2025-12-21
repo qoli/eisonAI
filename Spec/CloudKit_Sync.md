@@ -3,7 +3,7 @@
 ## 背景
 
 RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.json`、`RawLibrary/FavoriteItems/*.json`、`RawLibrary/Favorite.json`）。
-目標是把 RawLibrary 在多裝置間同步，且不依賴 iCloud Drive（避免 `.download`、File Provider 行為造成開發難題），改用 **CloudKit 私有資料庫 + 自訂 Zone**。
+目標是把 RawLibrary 在多裝置間同步，且不依賴 iCloud Drive（避免 `.download`、File Provider 行為造成開發難題），改用 **CloudKit 私有資料庫（Default Zone）**。
 
 ## 目標（to-be）
 
@@ -28,12 +28,12 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
 ## CloudKit 資料模型
 
 - **Database**：Private DB
-- **Zone**：`RawLibraryZone`
+- **Zone**：Default Zone（不使用自訂 Zone）
 - **Record Type**：`RawLibraryFile`
 - **Fields（最小化）**
   - `filename` (String)
   - `path` (String)  // e.g. `Items/xxx.json`, `FavoriteItems/xxx.json`, `Favorite.json`
-  - `filedata` (Asset or Bytes)
+  - `filedata` (CKAsset)
 
 > 註：為了確保結構變動仍可同步，只保存檔案與路徑，不依賴 JSON schema。
 
@@ -52,7 +52,7 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
 
 ### Pull（CloudKit → 本機）
 
-- 使用 `CKFetchRecordZoneChangesOperation` 以 change token 增量拉取。
+- 以 `path BEGINSWITH` 查詢取得清單（需要將 `path` 設為 Searchable index）。
 - 對每筆變更：
   - 下載 `filedata` 覆蓋本機檔案（必要時建立資料夾）。
   - 設置本機檔案 `modificationDate = record.modificationDate`。
@@ -104,7 +104,7 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
 需求：設定頁面提供一鍵功能，將 **本機資料完整覆蓋遠端**。
 
 流程：
-1) 取得 CloudKit `RawLibraryFile` 全量列表（Zone query）。
+1) 取得 CloudKit `RawLibraryFile` 全量列表（`path BEGINSWITH` 查詢或全量 query）。
 2) 比對本機檔案清單：
    - 遠端有、本機沒有 → delete record。
    - 本機有 → 上傳本機版本（強制覆蓋）。
@@ -128,7 +128,7 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
 ## 安全與容量
 
 - Private DB，僅使用者本人可讀寫。
-- CloudKit 單筆 record 若資料過大需改走 `CKAsset`。
+- CloudKit 檔案一律使用 `CKAsset`。
 - RawLibrary 有 200 筆限制，必要時同步後裁剪本機（避免爆量）。
 
 ## 測試與驗證
@@ -143,4 +143,3 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
 - App target 啟用 `iCloud` + `CloudKit`。
 - Entitlements 包含 `iCloud.com.qoli.eisonAI`。
 - CloudKit Dashboard 建立 `RawLibraryFile` record type 與必要索引。
-
