@@ -258,7 +258,8 @@ struct LibraryItemDetailView: View {
     }
 
     private func sanitizeTitle(_ text: String) -> String {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let strippedMarkdown = stripMarkdown(text)
+        let trimmed = strippedMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
         let firstLine = trimmed.components(separatedBy: .newlines).first ?? trimmed
         let stripped = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
         return stripped.trimmingCharacters(in: CharacterSet(charactersIn: "\"「」"))
@@ -281,6 +282,28 @@ struct LibraryItemDetailView: View {
         cleaned = cleaned.replacingOccurrences(of: "<think>", with: "", options: .caseInsensitive)
         cleaned = cleaned.replacingOccurrences(of: "</think>", with: "", options: .caseInsensitive)
         return cleaned
+    }
+
+    private func stripMarkdown(_ text: String) -> String {
+        var output = text
+        // Remove fenced code blocks
+        output = output.replacingOccurrences(of: "(?s)```.*?```", with: "", options: .regularExpression)
+        // Remove inline code
+        output = output.replacingOccurrences(of: "`([^`]*)`", with: "$1", options: .regularExpression)
+        // Images: ![alt](url) -> alt
+        output = output.replacingOccurrences(of: "!\\[([^\\]]*)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
+        // Links: [text](url) -> text
+        output = output.replacingOccurrences(of: "\\[([^\\]]+)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
+        // Headings and blockquotes
+        output = output.replacingOccurrences(of: "(?m)^(\\s{0,3}#{1,6}\\s+)", with: "", options: .regularExpression)
+        output = output.replacingOccurrences(of: "(?m)^(\\s*>\\s?)", with: "", options: .regularExpression)
+        // Bold/italic markers
+        output = output.replacingOccurrences(of: "(\\*\\*|__)", with: "", options: .regularExpression)
+        output = output.replacingOccurrences(of: "(\\*|_)", with: "", options: .regularExpression)
+        // List markers
+        output = output.replacingOccurrences(of: "(?m)^(\\s*[-+*]\\s+)", with: "", options: .regularExpression)
+        output = output.replacingOccurrences(of: "(?m)^(\\s*\\d+\\.\\s+)", with: "", options: .regularExpression)
+        return output
     }
 
     private func log(_ message: String) {
