@@ -147,12 +147,16 @@ if [[ "$TARGET" == "catalyst" || "$TARGET" == "maccatalyst" ]]; then
     exit 1
   fi
 
-  BUNDLE_ID="$(
-    /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist" 2>/dev/null \
-      || plutil -extract CFBundleIdentifier raw -o - "$APP/Info.plist"
-  )"
-
-  echo "Launching: $BUNDLE_ID"
+  INFO_PLIST="$APP/Contents/Info.plist"
+  if [[ -f "$INFO_PLIST" ]]; then
+    BUNDLE_ID="$(
+      /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST" 2>/dev/null \
+        || plutil -extract CFBundleIdentifier raw -o - "$INFO_PLIST"
+    )"
+    echo "Launching: $BUNDLE_ID"
+  else
+    echo "Info.plist not found at: $INFO_PLIST" >&2
+  fi
   open "$APP"
   exit 0
 fi
