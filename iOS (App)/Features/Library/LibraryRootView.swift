@@ -80,7 +80,7 @@ struct LibraryRootView: View {
                 syncErrorSheet
             }
             .refreshable {
-                viewModel.reload()
+                syncCoordinator.syncNow()
             }
             .task {
                 viewModel.reload()
@@ -117,10 +117,6 @@ struct LibraryRootView: View {
             .accessibilityLabel("Key-point from Clipboard")
         }
 
-//        if #available(iOS 26.0, *) {
-//            ToolbarSpacer(.fixed, placement: .bottomBar)
-//        }
-
         ToolbarItem(placement: .title) {
             if syncCoordinator.isSyncing {
                 syncStatusButton
@@ -141,11 +137,11 @@ struct LibraryRootView: View {
                 NavigationLink {
                     SettingsView()
                 } label: {
-                    Image(systemName: "gearshape")
+                    Label("Settings", systemImage: "gearshape")
                 }
-                .accessibilityLabel("Settings")
             } label: {
-                Image(systemName: "ellipsis")
+                Label("Menu", systemImage: "ellipsis")
+                    .labelStyle(.iconOnly)
             }
         }
     }
@@ -169,7 +165,9 @@ struct LibraryRootView: View {
                 syncCoordinator.syncNow()
             }
         } label: {
-            ZStack {
+            Label {
+                Text(syncCoordinator.isSyncing ? "Syncing" : (syncCoordinator.lastErrorMessage != nil ? "Sync error" : "Sync now"))
+            } icon: {
                 if syncCoordinator.isSyncing {
                     CircleProgressView(state: syncCoordinator.progressState)
                         .frame(width: 16, height: 16, alignment: .center)
@@ -179,9 +177,9 @@ struct LibraryRootView: View {
                     Image(systemName: "checkmark")
                 }
             }
+            .labelStyle(.iconOnly)
             .frame(width: 24, height: 24)
         }
-        .accessibilityLabel(syncCoordinator.isSyncing ? "Syncing" : (syncCoordinator.lastErrorMessage != nil ? "Sync error" : "Sync now"))
     }
 
     private var syncErrorSheet: some View {
