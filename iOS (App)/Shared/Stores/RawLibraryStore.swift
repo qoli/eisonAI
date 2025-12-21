@@ -11,6 +11,7 @@ import Foundation
 struct RawLibraryStore {
     private let fileManager = FileManager.default
     private let rawLibraryMaxItems = 200
+    private let syncService = RawLibrarySyncService.shared
 
     private func appGroupContainerURL() throws -> URL {
         guard
@@ -56,6 +57,25 @@ struct RawLibraryStore {
 
     private func favoriteIndexFileURL() throws -> URL {
         try rawLibraryRootURL().appendingPathComponent(AppConfig.rawLibraryFavoriteIndexFilename)
+    }
+
+    private func syncPath(for fileURL: URL) throws -> String? {
+        let itemsDir = try itemsDirectoryURL()
+        if fileURL.deletingLastPathComponent().standardizedFileURL == itemsDir.standardizedFileURL {
+            return "Items/\(fileURL.lastPathComponent)"
+        }
+
+        let favoriteItemsDir = try favoriteItemsDirectoryURL()
+        if fileURL.deletingLastPathComponent().standardizedFileURL == favoriteItemsDir.standardizedFileURL {
+            return "FavoriteItems/\(fileURL.lastPathComponent)"
+        }
+
+        let favoriteIndexURL = try favoriteIndexFileURL()
+        if fileURL.standardizedFileURL == favoriteIndexURL.standardizedFileURL {
+            return AppConfig.rawLibraryFavoriteIndexFilename
+        }
+
+        return nil
     }
 
     private func fileSystemPath(for url: URL) -> String {
@@ -203,6 +223,11 @@ struct RawLibraryStore {
 
     func deleteItem(fileURL: URL) throws {
         try fileManager.removeItem(at: fileURL)
+        if let path = try syncPath(for: fileURL) {
+            Task {
+                try? await syncService.recordLocalDeletions(paths: [path])
+            }
+        }
     }
 
     func setFavorite(filename: String, sourceFileURL: URL, isFavorite: Bool) throws {
@@ -230,6 +255,10 @@ struct RawLibraryStore {
         if fileManager.fileExists(atPath: destPath) {
             try? fileManager.removeItem(at: destURL)
         }
+        let favoritePath = "FavoriteItems/\(filename)"
+        Task {
+            try? await syncService.recordLocalDeletions(paths: [favoritePath])
+        }
         _ = try synchronizeFavoriteIndex()
     }
 
@@ -240,8 +269,14 @@ struct RawLibraryStore {
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         )
+        let deletionPaths = fileURLs
+            .filter { $0.pathExtension.lowercased() == "json" }
+            .map { "FavoriteItems/\($0.lastPathComponent)" }
         for fileURL in fileURLs where fileURL.pathExtension.lowercased() == "json" {
             try? fileManager.removeItem(at: fileURL)
+        }
+        Task {
+            try? await syncService.recordLocalDeletions(paths: deletionPaths)
         }
         _ = try synchronizeFavoriteIndex()
     }
@@ -320,8 +355,14 @@ struct RawLibraryStore {
             includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         )
+        let deletionPaths = fileURLs
+            .filter { $0.pathExtension.lowercased() == "json" }
+            .map { "Items/\($0.lastPathComponent)" }
         for fileURL in fileURLs where fileURL.pathExtension.lowercased() == "json" {
             try? fileManager.removeItem(at: fileURL)
+        }
+        Task {
+            try? await syncService.recordLocalDeletions(paths: deletionPaths)
         }
     }
 

@@ -34,6 +34,7 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
   - `filename` (String)
   - `path` (String)  // e.g. `Items/xxx.json`, `FavoriteItems/xxx.json`, `Favorite.json`
   - `filedata` (CKAsset)
+  - `deletedAt` (Date, optional)  // tombstone for cross-device delete
 
 > 註：為了確保結構變動仍可同步，只保存檔案與路徑，不依賴 JSON schema。
 
@@ -57,14 +58,14 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
   - 下載 `filedata` 覆蓋本機檔案（必要時建立資料夾）。
   - 設置本機檔案 `modificationDate = record.modificationDate`。
 - 對每筆刪除：
-  - 刪本機對應檔案。
+  - 若 `deletedAt` 存在，視為 tombstone，刪本機對應檔案。
 
 ### Push（本機 → CloudKit）
 
 - 掃描本機檔案清單。
 - 與 manifest 的 `lastLocalModifiedAt` / `lastKnownServerModifiedAt` 比對。
 - 本機較新 → 上傳 `filedata`。
-- 本機刪除 → 發送 record delete。
+- 本機刪除 → 更新 record `deletedAt`（tombstone）。
 
 ### 衝突策略（Last Write Wins）
 

@@ -7,12 +7,14 @@ struct RawLibraryFile {
     let filename: String
     let data: Data
     let modificationDate: Date?
+    let deletedAt: Date?
 
-    init(path: String, filename: String, data: Data, modificationDate: Date? = nil) {
+    init(path: String, filename: String, data: Data, modificationDate: Date? = nil, deletedAt: Date? = nil) {
         self.path = path
         self.filename = filename
         self.data = data
         self.modificationDate = modificationDate
+        self.deletedAt = deletedAt
     }
 }
 
@@ -39,6 +41,7 @@ final class RawLibraryCloudDatabase {
         case filename
         case path
         case filedata
+        case deletedAt
     }
 
     func saveFile(_ file: RawLibraryFile) async throws -> RawLibraryFile {
@@ -47,6 +50,7 @@ final class RawLibraryCloudDatabase {
         let record = CKRecord(recordType: recordType, recordID: recordID)
         record[Field.filename.rawValue] = file.filename as NSString
         record[Field.path.rawValue] = file.path as NSString
+        record[Field.deletedAt.rawValue] = nil
 
         let (asset, tempURL) = try makeAsset(from: file.data)
         defer { try? FileManager.default.removeItem(at: tempURL) }
@@ -58,13 +62,38 @@ final class RawLibraryCloudDatabase {
             path: file.path,
             filename: file.filename,
             data: file.data,
-            modificationDate: savedRecord.modificationDate
+            modificationDate: savedRecord.modificationDate,
+            deletedAt: nil
         )
     }
 
     func saveFile(path: String, filename: String, data: Data) async throws -> RawLibraryFile {
         let file = RawLibraryFile(path: path, filename: filename, data: data)
         return try await saveFile(file)
+    }
+
+    func saveTombstone(path: String, deletedAt: Date = Date()) async throws -> RawLibraryFile {
+        let filename = URL(fileURLWithPath: path).lastPathComponent
+        let recordID = CKRecord.ID(recordName: Self.recordName(for: path))
+        log("saveTombstone start path=\(path) recordID=\(recordID.recordName)")
+        let record = CKRecord(recordType: recordType, recordID: recordID)
+        record[Field.filename.rawValue] = filename as NSString
+        record[Field.path.rawValue] = path as NSString
+        record[Field.deletedAt.rawValue] = deletedAt as NSDate
+
+        let (asset, tempURL) = try makeAsset(from: Data())
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        record[Field.filedata.rawValue] = asset
+
+        let savedRecord = try await saveRecord(record)
+        log("saveTombstone success path=\(path) recordID=\(recordID.recordName)")
+        return RawLibraryFile(
+            path: path,
+            filename: filename,
+            data: Data(),
+            modificationDate: savedRecord.modificationDate,
+            deletedAt: deletedAt
+        )
     }
 
     func fetchFile(path: String) async throws -> RawLibraryFile? {
@@ -125,7 +154,14 @@ final class RawLibraryCloudDatabase {
             throw RawLibraryCloudDatabaseError.missingField(Field.path.rawValue)
         }
         let data = try extractData(from: record)
-        return RawLibraryFile(path: path, filename: filename, data: data, modificationDate: record.modificationDate)
+        let deletedAt = record[Field.deletedAt.rawValue] as? Date
+        return RawLibraryFile(
+            path: path,
+            filename: filename,
+            data: data,
+            modificationDate: record.modificationDate,
+            deletedAt: deletedAt
+        )
     }
 
     private func extractData(from record: CKRecord) throws -> Data {

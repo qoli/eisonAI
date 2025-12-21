@@ -24,7 +24,7 @@ actor RawLibrarySyncService {
         for (path, entry) in manifest.files {
             if localByPath[path] == nil {
                 if entry.lastDeletedAt == nil {
-                    manifest.files[path]?.lastDeletedAt = manifest.updatedAt
+                    manifest.files[path]?.lastDeletedAt = syncDate
                 }
             } else {
                 manifest.files[path]?.lastDeletedAt = nil
@@ -54,6 +54,28 @@ actor RawLibrarySyncService {
                 entry.lastKnownServerModifiedAt = remote.modificationDate
             }
 
+            if let remoteDeletedAt = remote?.deletedAt {
+                if let local {
+                    let localTime = local.modificationDate ?? .distantPast
+                    if localTime > remoteDeletedAt {
+                        let saved = try await uploadLocal(local)
+                        entry.lastKnownServerModifiedAt = saved.modificationDate
+                        entry.lastDeletedAt = nil
+                    } else {
+                        try deleteLocalFile(path: path)
+                        entry.lastLocalModifiedAt = remoteDeletedAt
+                        entry.lastDeletedAt = remoteDeletedAt
+                    }
+                } else {
+                    entry.lastDeletedAt = remoteDeletedAt
+                }
+
+                manifest.files[path] = entry
+                completedCount += 1
+                progress?(RawLibrarySyncProgress(completed: completedCount, total: totalCount))
+                continue
+            }
+
             switch (local, remote) {
             case let (local?, remote?):
                 let localTime = local.modificationDate ?? .distantPast
@@ -74,8 +96,12 @@ actor RawLibrarySyncService {
                 if let deletedAt = entry.lastDeletedAt {
                     let remoteTime = remote.modificationDate ?? .distantPast
                     if deletedAt > remoteTime {
-                        try await cloud.deleteFile(path: path)
-                        manifest.files.removeValue(forKey: path)
+                        let tombstone = try await cloud.saveTombstone(path: path, deletedAt: deletedAt)
+                        entry.lastKnownServerModifiedAt = tombstone.modificationDate
+                        entry.lastDeletedAt = deletedAt
+                        manifest.files[path] = entry
+                        completedCount += 1
+                        progress?(RawLibrarySyncProgress(completed: completedCount, total: totalCount))
                         continue
                     }
                 }
@@ -85,8 +111,17 @@ actor RawLibrarySyncService {
                 entry.lastDeletedAt = nil
 
             case (nil, nil):
-                if entry.lastDeletedAt != nil {
+                if let deletedAt = entry.lastDeletedAt {
+                    let tombstone = try await cloud.saveTombstone(path: path, deletedAt: deletedAt)
+                    entry.lastKnownServerModifiedAt = tombstone.modificationDate
+                    manifest.files[path] = entry
+                    completedCount += 1
+                    progress?(RawLibrarySyncProgress(completed: completedCount, total: totalCount))
+                    continue
+                } else {
                     manifest.files.removeValue(forKey: path)
+                    completedCount += 1
+                    progress?(RawLibrarySyncProgress(completed: completedCount, total: totalCount))
                     continue
                 }
             }
@@ -121,6 +156,22 @@ actor RawLibrarySyncService {
         }
 
         manifest.updatedAt = syncDate
+        try saveManifest(manifest)
+    }
+
+    func recordLocalDeletions(paths: [String], deletedAt: Date = Date()) throws {
+        guard !paths.isEmpty else { return }
+        var manifest = try loadManifest()
+        for path in paths {
+            var entry = manifest.files[path] ?? ManifestEntry(
+                path: path,
+                recordName: RawLibraryCloudDatabase.recordName(for: path)
+            )
+            entry.lastDeletedAt = deletedAt
+            entry.lastLocalModifiedAt = nil
+            manifest.files[path] = entry
+        }
+        manifest.updatedAt = deletedAt
         try saveManifest(manifest)
     }
 
@@ -189,6 +240,12 @@ actor RawLibrarySyncService {
         if let modifiedAt {
             try? fileManager.setAttributes([.modificationDate: modifiedAt], ofItemAtPath: fileURL.path)
         }
+    }
+
+    private func deleteLocalFile(path: String) throws {
+        let root = try rawLibraryRootURL()
+        let fileURL = root.appendingPathComponent(path)
+        try? fileManager.removeItem(at: fileURL)
     }
 
     // MARK: - Remote Files
