@@ -69,39 +69,7 @@ struct LibraryRootView: View {
             )
             .navigationTitle("Library")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        activeKeyPointInput = .clipboard
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Key-point from Clipboard")
-                }
-
-                ToolbarItem(placement: .title) {
-                    Picker("", selection: $selection) {
-                        Image(systemName: "tray.full").tag(LibraryMode.all.rawValue)
-                        Image(systemName: "star").tag(LibraryMode.favorites.rawValue)
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 120)
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        SettingsView()
-                    } label: {
-                        Image(systemName: "gearshape")
-                    }
-                    .accessibilityLabel("Settings")
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    ZStack {
-                        syncStatusButton
-                    }
-                    .frame(width: 22, height: 22, alignment: .center)
-                }
+                toolbarContent
             }
             .sheet(item: $activeKeyPointInput, onDismiss: {
                 viewModel.reload()
@@ -138,6 +106,50 @@ struct LibraryRootView: View {
         }
     }
 
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button {
+                activeKeyPointInput = .clipboard
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Key-point from Clipboard")
+        }
+
+//        if #available(iOS 26.0, *) {
+//            ToolbarSpacer(.fixed, placement: .bottomBar)
+//        }
+
+        ToolbarItem(placement: .title) {
+            if syncCoordinator.isSyncing {
+                syncStatusButton
+            } else {
+                Picker("", selection: $selection) {
+                    Image(systemName: "tray.full").tag(LibraryMode.all.rawValue)
+                    Image(systemName: "star").tag(LibraryMode.favorites.rawValue)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 120)
+            }
+        }
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Menu {
+                syncStatusButton
+
+                NavigationLink {
+                    SettingsView()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+        }
+    }
+
     private func triggerSyncIfNeeded(for phase: ScenePhase) {
         guard phase == .active else { return }
         Task {
@@ -147,32 +159,29 @@ struct LibraryRootView: View {
 
     @ViewBuilder
     private var syncStatusButton: some View {
-        if syncCoordinator.isSyncing {
-            CircleProgressView(state: syncCoordinator.progressState)
-                .frame(width: 16, height: 16)
-                .accessibilityLabel("Syncing")
-        } else if syncCoordinator.lastErrorMessage != nil {
-            Button {
+        Button {
+            if syncCoordinator.isSyncing {
+                return
+            }
+            if syncCoordinator.lastErrorMessage != nil {
                 isSyncErrorSheetPresented = true
-            } label: {
-                Image(systemName: "exclamationmark.triangle")
-            }
-            .accessibilityLabel("Sync error")
-        } else {
-            Button {
+            } else {
                 syncCoordinator.syncNow()
-            } label: {
-                ZStack {
-                    Circle()
-                        .fill(Color.secondary)
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(.white)
-                        .font(.system(size: 10, weight: .black))
-                }
-                .frame(width: 22, height: 22)
             }
-            .accessibilityLabel("Sync now")
+        } label: {
+            ZStack {
+                if syncCoordinator.isSyncing {
+                    CircleProgressView(state: syncCoordinator.progressState)
+                        .frame(width: 16, height: 16, alignment: .center)
+                } else if syncCoordinator.lastErrorMessage != nil {
+                    Image(systemName: "exclamationmark.triangle")
+                } else {
+                    Image(systemName: "checkmark")
+                }
+            }
+            .frame(width: 24, height: 24)
         }
+        .accessibilityLabel(syncCoordinator.isSyncing ? "Syncing" : (syncCoordinator.lastErrorMessage != nil ? "Sync error" : "Sync now"))
     }
 
     private var syncErrorSheet: some View {
