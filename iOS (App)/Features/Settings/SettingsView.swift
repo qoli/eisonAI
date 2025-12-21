@@ -3,12 +3,15 @@ import SwiftUI
 struct SettingsView: View {
     private let store = SystemPromptStore()
     private let foundationModelsStore = FoundationModelsSettingsStore()
+    private let sharePollingStore = SharePollingSettingsStore()
 
     @State private var draftPrompt = ""
     @State private var status = ""
+    @State private var debugStatus = ""
     @State private var didLoad = false
     @State private var foundationModelsAppEnabled = false
     @State private var foundationModelsExtensionEnabled = false
+    @State private var sharePollingEnabled = false
 
     var body: some View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
@@ -101,6 +104,40 @@ struct SettingsView: View {
                 Text("Summaries run in the extension popup via WebLLM (bundled assets).")
                     .foregroundStyle(.secondary)
             }
+
+            Section("Share Extension") {
+                Toggle(
+                    "Enable Share polling (foreground only)",
+                    isOn: Binding(
+                        get: { sharePollingEnabled },
+                        set: { newValue in
+                            sharePollingEnabled = newValue
+                            sharePollingStore.setEnabled(newValue)
+                        }
+                    )
+                )
+
+                Text("When enabled, the app checks for shared payloads on foreground and polls every 2 seconds while active.")
+                    .foregroundStyle(.secondary)
+            }
+
+            #if DEBUG
+                Section("Share Payload (Debug)") {
+                    Button("Clear pending share payloads") {
+                        do {
+                            let count = try SharePayloadStore().clearAllPending()
+                            debugStatus = "Cleared \(count) payload(s)."
+                        } catch {
+                            debugStatus = "Clear failed: \(error.localizedDescription)"
+                        }
+                    }
+
+                    if !debugStatus.isEmpty {
+                        Text(debugStatus)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            #endif
         }
         .navigationTitle("Settings")
         .onAppear {
@@ -110,6 +147,7 @@ struct SettingsView: View {
 
             foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
             foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
+            sharePollingEnabled = sharePollingStore.isEnabled()
 
             if FoundationModelsAvailability.currentStatus() != .available {
                 foundationModelsAppEnabled = false

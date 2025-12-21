@@ -12,6 +12,8 @@ struct LibraryRootView: View {
     @State private var activeKeyPointInput: KeyPointInput?
     @State private var pollingTask: Task<Void, Never>?
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(AppConfig.sharePollingEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
+    private var sharePollingEnabled = false
 
     private let sharePayloadStore = SharePayloadStore()
 
@@ -105,22 +107,16 @@ struct LibraryRootView: View {
             }
             .onAppear {
                 viewModel.reload()
-                if scenePhase == .active {
-                    Task { await checkForSharePayloadOnce() }
-                    startPolling()
-                }
+                refreshPolling(for: scenePhase)
             }
             .onOpenURL { url in
                 handleShareURL(url)
             }
             .onChange(of: scenePhase) { _, newValue in
-                switch newValue {
-                case .active:
-                    Task { await checkForSharePayloadOnce() }
-                    startPolling()
-                default:
-                    stopPolling()
-                }
+                refreshPolling(for: newValue)
+            }
+            .onChange(of: sharePollingEnabled) { _, _ in
+                refreshPolling(for: scenePhase)
             }
         }
     }
@@ -324,6 +320,16 @@ struct LibraryRootView: View {
     private func stopPolling() {
         pollingTask?.cancel()
         pollingTask = nil
+    }
+
+    private func refreshPolling(for phase: ScenePhase) {
+        guard phase == .active, sharePollingEnabled else {
+            stopPolling()
+            return
+        }
+
+        Task { await checkForSharePayloadOnce() }
+        startPolling()
     }
 }
 

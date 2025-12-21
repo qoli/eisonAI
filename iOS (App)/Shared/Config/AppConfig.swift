@@ -12,6 +12,7 @@ enum AppConfig {
     static let systemPromptKey = "eison.systemPrompt"
     static let foundationModelsAppEnabledKey = "eison.foundationModels.app.enabled"
     static let foundationModelsExtensionEnabledKey = "eison.foundationModels.extension.enabled"
+    static let sharePollingEnabledKey = "eison.share.polling.enabled"
     static let rawLibraryRootPathComponents = ["RawLibrary"]
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
     static let rawLibraryFavoriteItemsPathComponents = ["RawLibrary", "FavoriteItems"]
@@ -21,8 +22,7 @@ enum AppConfig {
     static let defaultSystemPrompt: String = {
         if
             let url = Bundle.main.url(forResource: "default_system_prompt", withExtension: "txt"),
-            let text = try? String(contentsOf: url, encoding: .utf8)
-        {
+            let text = try? String(contentsOf: url, encoding: .utf8) {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
         }

@@ -62,6 +62,15 @@ struct SharePayloadStore {
         return payload
     }
 
+    @discardableResult
+    func clearAllPending() throws -> Int {
+        let items = try pendingPayloadFileURLs()
+        for url in items {
+            try? fileManager.removeItem(at: url)
+        }
+        return items.count
+    }
+
     func loadAndDelete(id: String) throws -> SharePayload? {
         let fileURL = try payloadFileURL(id: id)
         guard fileManager.fileExists(atPath: fileURL.path) else { return nil }
