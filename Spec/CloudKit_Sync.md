@@ -83,7 +83,6 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
 {
   "v": 1,
   "updatedAt": "2025-12-21T00:00:00Z",
-  "changeTokenData": "...",
   "files": {
     "Items/abc.json": {
       "path": "Items/abc.json",

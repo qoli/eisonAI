@@ -18,6 +18,8 @@
 - ✅ 清理：移除 `Shared (App)` 舊的 WKWebView/HTML 設定頁（不保留 legacy 回退支持）。
 - ✅ 整理：`iOS (App)` 目錄按 App/Features/Shared 分層，提升可維護性（並同步更新 Xcode 專案引用）。
 - ✅ 新增 `mlc-package-config.json`（供 `mlc_llm package` 產生 `dist/`），並在 `.gitignore` 忽略大型 `dist/` 產物。
+- ✅ Library 詳細頁：缺標題時自動使用本地模型補全標題並回寫 JSON；Toolbar 提供「重建 Title」。
+- ✅ 設定：可編輯/儲存/重置 Title Prompt（用於缺標題補全）。
 
 ## 🔜 下一步
 

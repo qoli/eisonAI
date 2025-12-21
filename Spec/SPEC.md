@@ -18,6 +18,7 @@
 - 離線優先：popup 不做 runtime 下載；`IndexedDB` cache 關閉（避免依賴持久儲存）。
 - 同一套 popup 亦可用於 macOS Safari（包含 “My Mac (Designed for iPad)”）。
 - iOS 主 App：以 SwiftUI 提供 onboarding 與輕量設定（例如 System Prompt），資料透過 App Group 與 extension 共用。
+- iOS 主 App：Library 詳細頁若標題為空，會在進入頁面時用本地模型生成標題並回寫 JSON；Toolbar 提供「重建 Title」手動觸發。
 - iOS 主 App（dev/demo）：新增一個 **原生 MLC Swift SDK**（`MLCSwift`/`MLCEngine`）的 Qwen3 0.6B 單輪 streaming demo，用於驗證模型打包與推理鏈路（不依賴 WebView / WebLLM）。
 
 ## 非目標（non-goals）
@@ -44,6 +45,7 @@
 - 主要功能：
   - Onboarding：引導使用者到「設定 → Safari → Extensions」開啟擴充功能。
   - 設定：編輯/儲存/重置 System Prompt（給 popup 摘要用）。
+  - 設定：編輯/儲存/重置 Title Prompt（給 Library 缺標題補全用）。
   - Demo（dev）：`MLCQwenDemoView` 單輪 streaming chat（入口 `NavigationLink`）。
 - 資料儲存（與 extension 共用）：
   - App Group：`group.com.qoli.eisonAI`

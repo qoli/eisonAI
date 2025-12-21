@@ -49,6 +49,14 @@ python3 Scripts/download_webllm_assets.py
 open eisonAI.xcodeproj
 ```
 
+## macOS（Mac Catalyst）建置
+
+使用預設腳本建置 Mac Catalyst（My Mac）：
+
+```bash
+./buildMacOS.sh TARGET=catalyst
+```
+
 ## 常見限制
 
 - 需要 WebGPU；若裝置/系統不支援，popup 會提示無法載入模型。
