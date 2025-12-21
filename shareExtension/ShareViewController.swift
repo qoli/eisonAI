@@ -8,16 +8,19 @@ final class ShareViewController: UIViewController {
         super.viewDidAppear(animated)
         guard !didHandle else { return }
         didHandle = true
+        log("viewDidAppear, starting handleShare")
         Task { await handleShare() }
     }
 
     private func handleShare() async {
         guard let context = extensionContext else {
+            log("extensionContext is nil")
             completeRequest()
             return
         }
 
         let items = context.inputItems.compactMap { $0 as? NSExtensionItem }
+        log("inputItems count: \(items.count)")
 
         var urlString: String?
         var text: String?
@@ -28,19 +31,23 @@ final class ShareViewController: UIViewController {
                !itemTitle.isEmpty,
                title == nil {
                 title = itemTitle
+                log("picked title: \(itemTitle.prefix(120))")
             }
 
             let providers = item.attachments ?? []
+            log("attachments count: \(providers.count)")
             for provider in providers {
                 if urlString == nil, provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                     if let url = try? await loadURLString(from: provider) {
                         urlString = url
+                        log("loaded url: \(url)")
                     }
                 }
 
                 if text == nil, provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
                     if let loadedText = try? await loadTextString(from: provider) {
                         text = loadedText
+                        log("loaded text length: \(loadedText.count)")
                     }
                 }
 
@@ -53,6 +60,7 @@ final class ShareViewController: UIViewController {
         let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard (trimmedURL?.isEmpty == false) || (trimmedText?.isEmpty == false) else {
+            log("no usable URL/text, completing request")
             completeRequest()
             return
         }
@@ -66,12 +74,15 @@ final class ShareViewController: UIViewController {
         )
 
         do {
-            try SharePayloadStore().save(payload)
+            let fileURL = try SharePayloadStore().save(payload)
+            log("saved payload: \(fileURL.lastPathComponent)")
         } catch {
+            log("failed to save payload: \(error.localizedDescription)")
             completeRequest()
             return
         }
 
+        log("opening host app with id: \(payload.id)")
         await openHostApp(with: payload.id)
         completeRequest()
     }
@@ -85,6 +96,7 @@ final class ShareViewController: UIViewController {
 
         await withCheckedContinuation { continuation in
             extensionContext?.open(url, completionHandler: { _ in
+                self.log("open host app completed")
                 continuation.resume()
             })
         }
@@ -132,5 +144,11 @@ final class ShareViewController: UIViewController {
                 continuation.resume(returning: item)
             }
         }
+    }
+
+    private func log(_ message: String) {
+        #if DEBUG
+            print("[ShareExtension] \(message)")
+        #endif
     }
 }

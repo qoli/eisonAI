@@ -45,6 +45,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         isRunning = true
         status = "Preparing…"
         shouldDismiss = false
+        log("run started, input=\(inputDescription)")
 
         runTask = Task { [weak self] in
             guard let self else { return }
@@ -56,6 +57,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                     guard !clip.isEmpty else {
                         self.status = "Clipboard is empty."
+                        self.log("clipboard empty")
                         self.isRunning = false
                         return
                     }
@@ -66,6 +68,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     normalized = try await self.prepareInput(fromSharePayload: payload)
                 }
                 if Task.isCancelled { throw CancellationError() }
+                log("prepared input url=\(normalized.url.isEmpty ? "nil" : normalized.url) titleCount=\(normalized.title.count) textCount=\(normalized.text.count)")
 
                 let systemPrompt = self.loadKeyPointSystemPrompt()
                 let userPrompt = Self.buildUserPrompt(title: normalized.title, text: normalized.text)
@@ -108,6 +111,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let trimmed = finalText.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     self.status = "Done (empty output)"
+                    self.log("empty output")
                     self.isRunning = false
                     return
                 }
@@ -125,10 +129,13 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 self.status = "Done (saved)"
                 self.shouldDismiss = true
+                self.log("saved output, dismissing")
             } catch is CancellationError {
                 self.status = "Canceled"
+                self.log("canceled")
             } catch {
                 self.status = "Error: \(error.localizedDescription)"
+                self.log("error: \(error.localizedDescription)")
             }
 
             self.isRunning = false
@@ -221,5 +228,20 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         if text.count <= maxChars { return text }
         let idx = text.index(text.startIndex, offsetBy: maxChars)
         return String(text[..<idx])
+    }
+
+    private var inputDescription: String {
+        switch input {
+        case .clipboard:
+            return "clipboard"
+        case .share(let payload):
+            return "share(id=\(payload.id))"
+        }
+    }
+
+    private func log(_ message: String) {
+        #if DEBUG
+        print("[KeyPoint] \(message)")
+        #endif
     }
 }

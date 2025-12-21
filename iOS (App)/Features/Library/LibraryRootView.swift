@@ -246,16 +246,30 @@ struct LibraryRootView: View {
             !id.isEmpty
         else { return }
 
+        #if DEBUG
+        print("[SharePayload] received url: \(url.absoluteString)")
+        #endif
+
         Task {
             do {
                 if let payload = try sharePayloadStore.loadAndDelete(id: id) {
+                    #if DEBUG
+                    let urlSummary = payload.url ?? "nil"
+                    let textCount = payload.text?.count ?? 0
+                    let titleSummary = payload.title ?? "nil"
+                    print("[SharePayload] loaded id=\(payload.id) url=\(urlSummary) textCount=\(textCount) title=\(titleSummary)")
+                    #endif
                     await MainActor.run {
                         activeKeyPointInput = .share(payload)
                     }
+                } else {
+                    #if DEBUG
+                    print("[SharePayload] payload not found for id=\(id)")
+                    #endif
                 }
             } catch {
                 #if DEBUG
-                    print("[SharePayload] Failed to load payload: \(error)")
+                print("[SharePayload] Failed to load payload: \(error)")
                 #endif
             }
         }
