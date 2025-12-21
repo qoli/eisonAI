@@ -44,6 +44,9 @@ struct LibraryItemDetailView: View {
                     row()
                     Divider().opacity(0.3)
                     outputs(item: item)
+
+                    Color.clear.frame(height: 80)
+
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)
