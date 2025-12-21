@@ -221,6 +221,20 @@ struct RawLibraryStore {
         return try decoder.decode(RawHistoryItem.self, from: data)
     }
 
+    func updateTitle(fileURL: URL, title: String) throws -> RawHistoryItem {
+        var item = try loadItem(fileURL: fileURL)
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return item }
+        item.title = trimmed
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(item)
+        try data.write(to: fileURL, options: [.atomic])
+        return item
+    }
+
     func deleteItem(fileURL: URL) throws {
         try fileManager.removeItem(at: fileURL)
         if let path = try syncPath(for: fileURL) {

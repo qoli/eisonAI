@@ -1,3 +1,4 @@
+import Foundation
 import MarkdownUI
 import SwiftUI
 
@@ -7,6 +8,17 @@ struct LibraryItemDetailView: View {
 
     @State private var item: RawHistoryItem?
     @State private var isArticleExpanded: Bool = false
+    @State private var isGeneratingTitle: Bool = false
+
+    private let mlc = MLCClient()
+    private let foundationModels = FoundationModelsClient()
+    private let foundationSettings = FoundationModelsSettingsStore()
+    private let rawLibraryStore = RawLibraryStore()
+
+    private let titleSystemPrompt = """
+    請為內容構建一個合適的標題；
+    使用繁體中文。
+    """
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -17,6 +29,14 @@ struct LibraryItemDetailView: View {
 
     private var isFavorite: Bool {
         viewModel.isFavorited(entry)
+    }
+
+    private var displayTitle: String {
+        let itemTitle = item?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !itemTitle.isEmpty {
+            return itemTitle
+        }
+        return entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title
     }
 
     var body: some View {
@@ -34,7 +54,7 @@ struct LibraryItemDetailView: View {
             }
             .padding(.horizontal)
         }
-        .navigationTitle(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
+        .navigationTitle(displayTitle)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -53,10 +73,20 @@ struct LibraryItemDetailView: View {
                     .accessibilityLabel("Open Page URL")
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("重建標題") {
+                        generateTitleIfNeeded(force: true)
+                    }
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+            }
         }
         .task {
             isArticleExpanded = false
             item = viewModel.loadDetail(for: entry)
+            generateTitleIfNeeded(force: false)
         }
     }
 
@@ -154,6 +184,109 @@ struct LibraryItemDetailView: View {
                 }
             }
         }
+    }
+
+    private func generateTitleIfNeeded(force: Bool) {
+        guard !isGeneratingTitle else { return }
+        guard let item else { return }
+        let currentTitle = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !force && !currentTitle.isEmpty { return }
+
+        isGeneratingTitle = true
+        log("title generation start force=\(force) path=\(entry.fileURL.lastPathComponent)")
+        Task {
+            defer {
+                Task { @MainActor in
+                    isGeneratingTitle = false
+                }
+            }
+
+            do {
+                let userPrompt = buildTitleUserPrompt(for: item)
+                let useFoundationModels = foundationSettings.isAppEnabled()
+                    && FoundationModelsAvailability.currentStatus() == .available
+                let stream: AsyncThrowingStream<String, Error>
+                if useFoundationModels {
+                    log("title generation using FoundationModels")
+                    let prefix = clampText(userPrompt, maxChars: 800)
+                    foundationModels.prewarm(systemPrompt: titleSystemPrompt, promptPrefix: prefix)
+                    stream = try await foundationModels.streamChat(
+                        systemPrompt: titleSystemPrompt,
+                        userPrompt: userPrompt,
+                        temperature: 0.4,
+                        maximumResponseTokens: 128
+                    )
+                } else {
+                    log("title generation using MLC")
+                    try await mlc.loadIfNeeded()
+                    stream = try await mlc.streamChat(systemPrompt: titleSystemPrompt, userPrompt: userPrompt)
+                }
+                var output = ""
+                for try await chunk in stream {
+                    output += chunk
+                }
+
+                if !useFoundationModels, isQwen3Model(mlc.loadedModelID) {
+                    log("title generation stripping <think> tags for qwen3")
+                    output = stripThinkTags(output)
+                }
+
+                let title = sanitizeTitle(output)
+                guard !title.isEmpty else { return }
+                log("title generation result=\"\(title)\"")
+                let updated = try rawLibraryStore.updateTitle(fileURL: entry.fileURL, title: title)
+                await MainActor.run {
+                    self.item = updated
+                    viewModel.reload()
+                }
+            } catch {
+                log("title generation error \(error.localizedDescription)")
+                // No-op: failure strategy is silent.
+            }
+        }
+    }
+
+    private func buildTitleUserPrompt(for item: RawHistoryItem) -> String {
+        let pieces = [
+            item.summaryText,
+            item.articleText,
+        ]
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n\n")
+
+        let content = pieces.isEmpty ? item.url : pieces
+        return clampText(content, maxChars: 4000)
+    }
+
+    private func sanitizeTitle(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstLine = trimmed.components(separatedBy: .newlines).first ?? trimmed
+        let stripped = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        return stripped.trimmingCharacters(in: CharacterSet(charactersIn: "\"「」"))
+    }
+
+    private func clampText(_ text: String, maxChars: Int) -> String {
+        guard text.count > maxChars else { return text }
+        let idx = text.index(text.startIndex, offsetBy: maxChars)
+        return String(text[..<idx])
+    }
+
+    private func isQwen3Model(_ modelID: String?) -> Bool {
+        guard let modelID else { return false }
+        return modelID.lowercased().contains("qwen3-0.6b")
+    }
+
+    private func stripThinkTags(_ text: String) -> String {
+        let pattern = "(?is)<think>.*?</think>"
+        var cleaned = text.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(of: "<think>", with: "", options: .caseInsensitive)
+        cleaned = cleaned.replacingOccurrences(of: "</think>", with: "", options: .caseInsensitive)
+        return cleaned
+    }
+
+    private func log(_ message: String) {
+        print("[TitleRebuild] \(message)")
     }
 }
 
