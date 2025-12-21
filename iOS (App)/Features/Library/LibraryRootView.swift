@@ -108,15 +108,31 @@ struct LibraryRootView: View {
             .onAppear {
                 viewModel.reload()
                 refreshPolling(for: scenePhase)
+                triggerSyncIfNeeded(for: scenePhase)
             }
             .onOpenURL { url in
                 handleShareURL(url)
             }
             .onChange(of: scenePhase) { _, newValue in
                 refreshPolling(for: newValue)
+                triggerSyncIfNeeded(for: newValue)
             }
             .onChange(of: sharePollingEnabled) { _, _ in
                 refreshPolling(for: scenePhase)
+            }
+        }
+    }
+
+    private func triggerSyncIfNeeded(for phase: ScenePhase) {
+        guard phase == .active else { return }
+        Task {
+            do {
+                try await RawLibrarySyncService.shared.syncNow()
+                await MainActor.run {
+                    viewModel.reload()
+                }
+            } catch {
+                print("[RawLibrarySync] sync error: \(error.localizedDescription)")
             }
         }
     }

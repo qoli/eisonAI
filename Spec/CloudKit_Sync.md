@@ -88,7 +88,8 @@ RawLibrary 目前以 App Group 本地 JSON 檔案為主（`RawLibrary/Items/*.js
       "path": "Items/abc.json",
       "recordName": "<sha256>",
       "lastLocalModifiedAt": "...",
-      "lastKnownServerModifiedAt": "..."
+      "lastKnownServerModifiedAt": "...",
+      "lastDeletedAt": "..."
     }
   }
 }

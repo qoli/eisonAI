@@ -8,6 +8,8 @@ struct SettingsView: View {
     @State private var draftPrompt = ""
     @State private var status = ""
     @State private var debugStatus = ""
+    @State private var cloudSyncStatus = ""
+    @State private var isCloudSyncing = false
     @State private var didLoad = false
     @State private var foundationModelsAppEnabled = false
     @State private var foundationModelsExtensionEnabled = false
@@ -119,6 +121,31 @@ struct SettingsView: View {
 
                 Text("When enabled, the app checks for shared payloads on foreground and polls every 2 seconds while active.")
                     .foregroundStyle(.secondary)
+            }
+
+            Section("CloudKit Sync") {
+                Button(isCloudSyncing ? "Syncing..." : "Overwrite CloudKit with Local Data") {
+                    isCloudSyncing = true
+                    cloudSyncStatus = ""
+                    Task {
+                        do {
+                            try await RawLibrarySyncService.shared.overwriteRemoteWithLocal()
+                            cloudSyncStatus = "Completed."
+                        } catch {
+                            cloudSyncStatus = "Failed: \(error.localizedDescription)"
+                        }
+                        isCloudSyncing = false
+                    }
+                }
+                .disabled(isCloudSyncing)
+
+                Text("This deletes all remote RawLibrary records and re-uploads local files.")
+                    .foregroundStyle(.secondary)
+
+                if !cloudSyncStatus.isEmpty {
+                    Text(cloudSyncStatus)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             #if DEBUG

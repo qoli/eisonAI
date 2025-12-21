@@ -17,6 +17,7 @@ enum AppConfig {
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
     static let rawLibraryFavoriteItemsPathComponents = ["RawLibrary", "FavoriteItems"]
     static let rawLibraryFavoriteIndexFilename = "Favorite.json"
+    static let rawLibrarySyncManifestFilename = "sync_manifest.json"
     static let sharePayloadsPathComponents = ["SharePayloads"]
 
     static let defaultSystemPrompt: String = {
