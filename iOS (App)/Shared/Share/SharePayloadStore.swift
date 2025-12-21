@@ -32,6 +32,36 @@ struct SharePayloadStore {
         try payloadsDirectoryURL().appendingPathComponent("\(id).json", isDirectory: false)
     }
 
+    private func pendingPayloadFileURLs() throws -> [URL] {
+        let directoryURL = try payloadsDirectoryURL()
+        let items = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        )
+        return items.filter { $0.pathExtension.lowercased() == "json" }
+    }
+
+    func loadNextPending() throws -> SharePayload? {
+        let items = try pendingPayloadFileURLs()
+        guard !items.isEmpty else { return nil }
+
+        let sorted = items.sorted { lhs, rhs in
+            let leftDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let rightDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            if leftDate != rightDate { return leftDate < rightDate }
+            return lhs.lastPathComponent < rhs.lastPathComponent
+        }
+
+        let fileURL = sorted[0]
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+        let payload = try decoder.decode(SharePayload.self, from: data)
+        try? fileManager.removeItem(at: fileURL)
+        return payload
+    }
+
     func loadAndDelete(id: String) throws -> SharePayload? {
         let fileURL = try payloadFileURL(id: id)
         guard fileManager.fileExists(atPath: fileURL.path) else { return nil }

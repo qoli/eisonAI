@@ -10,6 +10,8 @@ struct LibraryRootView: View {
 
     @State private var segmentedTransitionEdge: Edge = .trailing
     @State private var activeKeyPointInput: KeyPointInput?
+    @State private var pollingTask: Task<Void, Never>?
+    @Environment(\.scenePhase) private var scenePhase
 
     private let sharePayloadStore = SharePayloadStore()
 
@@ -103,9 +105,22 @@ struct LibraryRootView: View {
             }
             .onAppear {
                 viewModel.reload()
+                if scenePhase == .active {
+                    Task { await checkForSharePayloadOnce() }
+                    startPolling()
+                }
             }
             .onOpenURL { url in
                 handleShareURL(url)
+            }
+            .onChange(of: scenePhase) { _, newValue in
+                switch newValue {
+                case .active:
+                    Task { await checkForSharePayloadOnce() }
+                    startPolling()
+                default:
+                    stopPolling()
+                }
             }
         }
     }
@@ -247,32 +262,68 @@ struct LibraryRootView: View {
         else { return }
 
         #if DEBUG
-        print("[SharePayload] received url: \(url.absoluteString)")
+            print("[SharePayload] received url: \(url.absoluteString)")
         #endif
 
         Task {
             do {
                 if let payload = try sharePayloadStore.loadAndDelete(id: id) {
                     #if DEBUG
-                    let urlSummary = payload.url ?? "nil"
-                    let textCount = payload.text?.count ?? 0
-                    let titleSummary = payload.title ?? "nil"
-                    print("[SharePayload] loaded id=\(payload.id) url=\(urlSummary) textCount=\(textCount) title=\(titleSummary)")
+                        let urlSummary = payload.url ?? "nil"
+                        let textCount = payload.text?.count ?? 0
+                        let titleSummary = payload.title ?? "nil"
+                        print("[SharePayload] loaded id=\(payload.id) url=\(urlSummary) textCount=\(textCount) title=\(titleSummary)")
                     #endif
                     await MainActor.run {
                         activeKeyPointInput = .share(payload)
                     }
                 } else {
                     #if DEBUG
-                    print("[SharePayload] payload not found for id=\(id)")
+                        print("[SharePayload] payload not found for id=\(id)")
                     #endif
                 }
             } catch {
                 #if DEBUG
-                print("[SharePayload] Failed to load payload: \(error)")
+                    print("[SharePayload] Failed to load payload: \(error)")
                 #endif
             }
         }
+    }
+
+    @MainActor
+    private func checkForSharePayloadOnce() async {
+        guard activeKeyPointInput == nil else { return }
+        do {
+            if let payload = try sharePayloadStore.loadNextPending() {
+                #if DEBUG
+                    let urlSummary = payload.url ?? "nil"
+                    let textCount = payload.text?.count ?? 0
+                    let titleSummary = payload.title ?? "nil"
+                    print("[SharePayload] polled id=\(payload.id) url=\(urlSummary) textCount=\(textCount) title=\(titleSummary)")
+                #endif
+                activeKeyPointInput = .share(payload)
+            }
+        } catch {
+            #if DEBUG
+                print("[SharePayload] poll failed: \(error)")
+            #endif
+        }
+    }
+
+    private func startPolling() {
+        guard pollingTask == nil else { return }
+        pollingTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 2000000000)
+                if Task.isCancelled { break }
+                await checkForSharePayloadOnce()
+            }
+        }
+    }
+
+    private func stopPolling() {
+        pollingTask?.cancel()
+        pollingTask = nil
     }
 }
 

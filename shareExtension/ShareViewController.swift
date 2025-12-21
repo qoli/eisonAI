@@ -82,24 +82,7 @@ final class ShareViewController: UIViewController {
             return
         }
 
-        log("opening host app with id: \(payload.id)")
-        await openHostApp(with: payload.id)
         completeRequest()
-    }
-
-    private func openHostApp(with id: String) async {
-        var components = URLComponents()
-        components.scheme = "eisonai"
-        components.host = "share"
-        components.queryItems = [URLQueryItem(name: "id", value: id)]
-        guard let url = components.url else { return }
-
-        await withCheckedContinuation { continuation in
-            extensionContext?.open(url, completionHandler: { _ in
-                self.log("open host app completed")
-                continuation.resume()
-            })
-        }
     }
 
     private func completeRequest() {
@@ -107,41 +90,63 @@ final class ShareViewController: UIViewController {
     }
 
     private func loadURLString(from provider: NSItemProvider) async throws -> String? {
-        guard let item = try await loadItem(for: UTType.url, from: provider) else { return nil }
-        if let url = item as? URL {
+        if let url = try await loadObject(NSURL.self, from: provider) {
             return url.absoluteString
         }
-        if let string = item as? String {
-            return string
-        }
-        if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+
+        if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
+           let data = try await loadDataRepresentation(for: UTType.url, from: provider),
+           let url = URL(dataRepresentation: data, relativeTo: nil)
+        {
             return url.absoluteString
         }
+
+        if let string = try await loadObject(NSString.self, from: provider) {
+            return string as String
+        }
+
         return nil
     }
 
     private func loadTextString(from provider: NSItemProvider) async throws -> String? {
-        guard let item = try await loadItem(for: UTType.plainText, from: provider) else { return nil }
-        if let string = item as? String {
-            return string
+        if let string = try await loadObject(NSString.self, from: provider) {
+            return string as String
         }
-        if let attributed = item as? NSAttributedString {
+
+        if let attributed = try await loadObject(NSAttributedString.self, from: provider) {
             return attributed.string
         }
-        if let data = item as? Data {
+
+        if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
+           let data = try await loadDataRepresentation(for: UTType.plainText, from: provider)
+        {
             return String(data: data, encoding: .utf8)
         }
+
         return nil
     }
 
-    private func loadItem(for type: UTType, from provider: NSItemProvider) async throws -> Any? {
-        try await withCheckedThrowingContinuation { continuation in
-            provider.loadItem(forTypeIdentifier: type.identifier, options: nil) { item, error in
+    private func loadObject<T: NSItemProviderReading>(_ type: T.Type, from provider: NSItemProvider) async throws -> T? {
+        guard provider.canLoadObject(ofClass: type) else { return nil }
+        return try await withCheckedThrowingContinuation { continuation in
+            provider.loadObject(ofClass: type) { object, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                     return
                 }
-                continuation.resume(returning: item)
+                continuation.resume(returning: object as? T)
+            }
+        }
+    }
+
+    private func loadDataRepresentation(for type: UTType, from provider: NSItemProvider) async throws -> Data? {
+        try await withCheckedThrowingContinuation { continuation in
+            provider.loadDataRepresentation(forTypeIdentifier: type.identifier) { data, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: data)
             }
         }
     }
