@@ -5,6 +5,8 @@ import UIKit
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
 
+    private let input: KeyPointInput
+
     @Published var status: String = "Ready"
     @Published var output: String = ""
     @Published var sourceDescription: String = ""
@@ -19,6 +21,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private var runTask: Task<Void, Never>?
 
+    init(input: KeyPointInput = .clipboard) {
+        self.input = input
+    }
+
     func cancel() {
         runTask?.cancel()
         runTask = nil
@@ -30,28 +36,35 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         }
     }
 
-    func runFromClipboard() {
+    func run() {
         runTask?.cancel()
         runTask = nil
 
         output = ""
         sourceDescription = ""
         isRunning = true
-        status = "Reading clipboard…"
+        status = "Preparing…"
         shouldDismiss = false
 
         runTask = Task { [weak self] in
             guard let self else { return }
 
             do {
-                let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                guard !clip.isEmpty else {
-                    self.status = "Clipboard is empty."
-                    self.isRunning = false
-                    return
+                let normalized: PreparedInput
+                switch self.input {
+                case .clipboard:
+                    let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    guard !clip.isEmpty else {
+                        self.status = "Clipboard is empty."
+                        self.isRunning = false
+                        return
+                    }
+                    self.status = "Reading clipboard…"
+                    normalized = try await self.prepareInput(from: clip)
+                case .share(let payload):
+                    self.status = "Reading shared content…"
+                    normalized = try await self.prepareInput(fromSharePayload: payload)
                 }
-
-                let normalized = try await self.prepareInput(from: clip)
                 if Task.isCancelled { throw CancellationError() }
 
                 let systemPrompt = self.loadKeyPointSystemPrompt()
@@ -143,6 +156,38 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         sourceDescription = "Plain text (\(clipboardText.count) chars)"
         status = "Using clipboard text"
         return PreparedInput(url: "", title: "", text: clipboardText)
+    }
+
+    private func prepareInput(fromSharePayload payload: SharePayload) async throws -> PreparedInput {
+        let trimmedURL = payload.url?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedTitle = payload.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let text = trimmedText, !text.isEmpty {
+            if let urlString = trimmedURL, !urlString.isEmpty {
+                sourceDescription = urlString
+            } else {
+                sourceDescription = "Shared text (\(text.count) chars)"
+            }
+            status = "Using shared text"
+            return PreparedInput(url: trimmedURL ?? "", title: trimmedTitle ?? "", text: text)
+        }
+
+        if let urlString = trimmedURL, !urlString.isEmpty, let url = URL(string: urlString) {
+            sourceDescription = urlString
+            status = "Loading URL…"
+            let article = try await extractor.extract(from: url)
+            let title = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let body = article.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            status = "Extracted article text"
+            return PreparedInput(url: article.url, title: title, text: body)
+        }
+
+        throw NSError(
+            domain: "EisonAI.SharePayload",
+            code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "Shared content is empty."]
+        )
     }
 
     private func loadKeyPointSystemPrompt() -> String {

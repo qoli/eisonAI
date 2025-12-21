@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct LibraryRootView: View {
@@ -8,7 +9,9 @@ struct LibraryRootView: View {
     @FocusState private var isSearchFocused: Bool
 
     @State private var segmentedTransitionEdge: Edge = .trailing
-    @State private var showClipboardKeyPoint = false
+    @State private var activeKeyPointInput: KeyPointInput?
+
+    private let sharePayloadStore = SharePayloadStore()
 
     private var mode: LibraryMode {
         LibraryMode(rawValue: selection) ?? .all
@@ -62,7 +65,7 @@ struct LibraryRootView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        showClipboardKeyPoint = true
+                        activeKeyPointInput = .clipboard
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -87,10 +90,10 @@ struct LibraryRootView: View {
                     .accessibilityLabel("Settings")
                 }
             }
-            .sheet(isPresented: $showClipboardKeyPoint, onDismiss: {
+            .sheet(item: $activeKeyPointInput, onDismiss: {
                 viewModel.reload()
-            }) {
-                ClipboardKeyPointSheet()
+            }) { input in
+                ClipboardKeyPointSheet(input: input)
             }
             .refreshable {
                 viewModel.reload()
@@ -100,6 +103,9 @@ struct LibraryRootView: View {
             }
             .onAppear {
                 viewModel.reload()
+            }
+            .onOpenURL { url in
+                handleShareURL(url)
             }
         }
     }
@@ -116,17 +122,31 @@ struct LibraryRootView: View {
                     .padding(.bottom, 26)
             }
         #else
+
+            // iPad detection and handling: use a wider, non-collapsing search bar on iPad
+            let isPad: Bool = {
+                #if os(iOS)
+                    if UIDevice.current.userInterfaceIdiom == .pad { return true }
+                #endif
+                return false
+            }()
+
             if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
-//                content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
                 content.safeAreaInset(edge: .bottom) {
                     searchBar
                         .padding(.bottom, 26)
                 }
+            } else if isPad {
+                // On iPad, keep consistent bottom padding and a wider layout
+                content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
+
             } else {
-                content.safeAreaInset(edge: .bottom) {
-                    searchBar
-                        .padding(.bottom, isSearchFocused ? 26 : 0)
-                }
+                // On iPhone, adjust bottom padding with focus to avoid jumping with keyboard
+                content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
+//                content.safeAreaInset(edge: .bottom) {
+//                    searchBar
+//                        .padding(.bottom, isSearchFocused ? 26 : 0)
+//                }
             }
         #endif
     }
@@ -215,6 +235,30 @@ struct LibraryRootView: View {
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
         .animation(.easeInOut(duration: 0.15), value: searchText)
         .offset(y: 10)
+    }
+
+    private func handleShareURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "eisonai" else { return }
+        guard url.host?.lowercased() == "share" else { return }
+        guard
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let id = components.queryItems?.first(where: { $0.name == "id" })?.value,
+            !id.isEmpty
+        else { return }
+
+        Task {
+            do {
+                if let payload = try sharePayloadStore.loadAndDelete(id: id) {
+                    await MainActor.run {
+                        activeKeyPointInput = .share(payload)
+                    }
+                }
+            } catch {
+                #if DEBUG
+                    print("[SharePayload] Failed to load payload: \(error)")
+                #endif
+            }
+        }
     }
 }
 

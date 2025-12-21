@@ -2,7 +2,11 @@ import SwiftUI
 
 struct ClipboardKeyPointSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var model = ClipboardKeyPointViewModel()
+    @StateObject private var model: ClipboardKeyPointViewModel
+
+    init(input: KeyPointInput) {
+        _model = StateObject(wrappedValue: ClipboardKeyPointViewModel(input: input))
+    }
 
     var body: some View {
         NavigationStack {
@@ -31,7 +35,7 @@ struct ClipboardKeyPointSheet: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             .padding()
-            .navigationTitle("Key-point (Clipboard)")
+            .navigationTitle("Key-point")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -46,13 +50,13 @@ struct ClipboardKeyPointSheet: View {
                         if model.isRunning {
                             model.cancel()
                         } else {
-                            model.runFromClipboard()
+                            model.run()
                         }
                     }
                 }
             }
             .task {
-                model.runFromClipboard()
+                model.run()
             }
             .onChange(of: model.shouldDismiss) { _, newValue in
                 if newValue {
