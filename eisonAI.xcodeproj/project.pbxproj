@@ -16,6 +16,7 @@
 		CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */; };
 		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
 		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
+		EA506FDE2EF937D2003B07D5 /* GPTEncoder in Frameworks */ = {isa = PBXBuildFile; productRef = EA506FDD2EF937D2003B07D5 /* GPTEncoder */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
@@ -126,6 +127,7 @@
 				EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */,
 				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
 				EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */,
+				EA506FDE2EF937D2003B07D5 /* GPTEncoder in Frameworks */,
 				0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */,
 				E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */,
 				49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */,
@@ -344,6 +346,7 @@
 			packageReferences = (
 				EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */,
 				EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				EA506FDC2EF937D2003B07D5 /* XCRemoteSwiftPackageReference "GPTEncoder" */,
 			);
 			productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
 			projectDirPath = "";
@@ -881,6 +884,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		EA506FDC2EF937D2003B07D5 /* XCRemoteSwiftPackageReference "GPTEncoder" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/alfianlosari/GPTEncoder.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.4;
+			};
+		};
 		EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
@@ -900,6 +911,11 @@
 		EA31AC152EF3D31F0067EC57 /* MLCSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MLCSwift;
+		};
+		EA506FDD2EF937D2003B07D5 /* GPTEncoder */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EA506FDC2EF937D2003B07D5 /* XCRemoteSwiftPackageReference "GPTEncoder" */;
+			productName = GPTEncoder;
 		};
 		EA8B1B262EF55A2500D8845B /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;
