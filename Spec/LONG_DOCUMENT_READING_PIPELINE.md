@@ -26,10 +26,18 @@
 - **閱讀錨點（Reading Anchors）**與**摘要展示（Presentation Summary）**明確分離
 - 精度優先的輸出與展示導向的輸出分層處理
 
+### 2.4 Token 估算一致性（Token Estimation Consistency）
+- 以 Swift 原生模組為單一 Token 估算來源，便於多入口共用
+- 使用 **GPTEncoder（GPT-2 BPE）** 估算 Token，重視可靠性與一致性，不追求與模型 tokenizer 完全對齊
+
 ## 3. Pipeline 總覽
 
 ```
 原文
+  ↓
+Step 0  Token 估算與分流（GPTEncoder）
+  ├─ ≤ 2600 tokens：走原本單次摘要流程
+  └─ > 2600 tokens：進入長文 Pipeline
   ↓
 Step 1  Token 切割
   ↓
@@ -42,13 +50,29 @@ Step 3  展示用摘要生成
 
 ## 4. Pipeline 詳細步驟
 
+### Step 0：Token 估算與分流（Routing）
+
+**目的**  
+在進入長文 pipeline 前，先判斷是否需要分段處理。
+
+**實作方式**
+- 使用 Swift 原生 **GPTEncoder（GPT-2 BPE）** 估算 Token
+- 分流門檻：**2600 tokens**
+  - `≤ 2600`：沿用原本單次摘要流程
+  - `> 2600`：進入長文 pipeline
+
+**Safari Extension 實作要點**
+- 使用 `browser.runtime.sendNativeMessage` 將 Readability 正文交給原生層估算
+- 以 **16KB** 為單位分塊傳遞正文（避免 payload 上限）
+- 原生端在收到最後一塊後回傳**總 token 數**
+
 ### Step 1：長文切割（Chunking）
 
 **目的**  
 將超長文本切割為可被模型安全處理的段落。
 
 **實作方式**
-- 使用 `NLTokenizer`
+- 使用 **GPTEncoder（GPT-2 BPE）** 計算 Token
 - 以 **2000 token** 為單位切割
 
 **設計理由**
