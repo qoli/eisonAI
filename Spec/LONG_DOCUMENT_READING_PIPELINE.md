@@ -30,6 +30,26 @@
 - 以 Swift 原生模組為單一 Token 估算來源，便於多入口共用
 - 使用 **GPTEncoder（GPT-2 BPE）** 估算 Token，重視可靠性與一致性，不追求與模型 tokenizer 完全對齊
 
+### 2.5 輸出資料結構（Raw Library Schema）
+- 長文 Pipeline 需要保存逐段閱讀錨點與估算資訊
+- 既有欄位不刪除，新增可選欄位以保持向後相容
+
+**建議新增欄位**
+```
+readingAnchors: [
+  {
+    index: Int,        // chunk 序號（0-based）
+    tokenCount: Int,   // 該 chunk 的 GPTEncoder token 數
+    text: String       // Step 2 輸出的閱讀錨點
+  }
+]
+tokenEstimate: Int        // 原文總 token（GPTEncoder）
+tokenEstimator: String    // "gpt2-bpe"
+chunkTokenSize: Int       // 2000
+routingThreshold: Int     // 2600
+isLongDocument: Bool      // 是否走長文 pipeline
+```
+
 ## 3. Pipeline 總覽
 
 ```
@@ -65,6 +85,18 @@ Step 3  展示用摘要生成
 - 使用 `browser.runtime.sendNativeMessage` 將 Readability 正文交給原生層估算
 - 以 **16KB** 為單位分塊傳遞正文（避免 payload 上限）
 - 原生端在收到最後一塊後回傳**總 token 數**
+
+**Native message 建議協定**
+- command：`token.estimate`
+- payload：
+  - `requestId`: String
+  - `chunkIndex`: Int (0-based)
+  - `chunkTotal`: Int
+  - `text`: String (16KB 內)
+  - `isLast`: Bool
+- response：
+  - 非最後一塊：`{ ok: true, received: chunkIndex }`
+  - 最後一塊：`{ ok: true, totalTokens: Int }`
 
 ### Step 1：長文切割（Chunking）
 
@@ -125,14 +157,7 @@ Step 3  展示用摘要生成
 
 **Prompt（newPrompt）**
 
-```text
-將內容整理為簡短簡報，包含重點摘要。
-
-輸出要求：
-
-- 合適的格式結構
-- 使用繁體中文。
-```
+使用 `AppConfig.defaultSystemPrompt`
 
 **設計說明**
 - 不再使用角色定位
@@ -156,6 +181,10 @@ Step 3  展示用摘要生成
 - `summary`：展示用摘要  
   - 低風險、低成本  
   - 用於快速掃描與 UI 呈現
+
+**UI 呈現**
+- Library detail：保留 summary 位置
+- 長文 pipeline 的 `array X` 顯示於 Library detail（作為閱讀錨點）
 
 ## 6. 已知限制
 
