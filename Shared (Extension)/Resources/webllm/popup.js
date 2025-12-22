@@ -6,6 +6,9 @@ const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
+const LONG_DOCUMENT_TOKEN_THRESHOLD = 2600;
+const CHUNK_TOKEN_SIZE = 2000;
+const TOKEN_ESTIMATE_CHUNK_BYTES = 16 * 1024;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
@@ -554,6 +557,10 @@ let autoSummarizeQueued = false;
 let activeModelIdOverride = "";
 let foundationJobId = "";
 let foundationCursor = 0;
+let lastTokenEstimate = 0;
+let lastTokenEstimateRequestId = "";
+let lastReadingAnchors = [];
+let lastSummarySystemPrompt = "";
 
 const FOUNDATION_MODEL_ID = "foundation-models";
 const FOUNDATION_POLL_INTERVAL_MS = 120;
@@ -718,6 +725,97 @@ async function shouldUseFoundationModels() {
   return Boolean(info.enabled && info.available);
 }
 
+function generateRequestId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function splitTextByByteLength(text, maxBytes) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  let current = "";
+  let currentBytes = 0;
+
+  for (const char of String(text ?? "")) {
+    const charBytes = encoder.encode(char).length;
+    if (currentBytes + charBytes > maxBytes && current) {
+      chunks.push(current);
+      current = "";
+      currentBytes = 0;
+    }
+    current += char;
+    currentBytes += charBytes;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+async function estimateTokensViaNative(text) {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    const fallback = estimateTokensFromText(text);
+    return { requestId: "", totalTokens: fallback };
+  }
+
+  const requestId = generateRequestId();
+  const chunks = splitTextByByteLength(text, TOKEN_ESTIMATE_CHUNK_BYTES);
+  const chunkTotal = chunks.length || 1;
+  let totalTokens = 0;
+
+  for (let i = 0; i < chunks.length; i += 1) {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "token.estimate",
+      payload: {
+        requestId,
+        chunkIndex: i,
+        chunkTotal,
+        text: chunks[i],
+        isLast: i === chunks.length - 1,
+      },
+    });
+
+    const payload = resp?.payload ?? resp;
+    if (resp?.type === "error") {
+      const msg = typeof payload?.message === "string" ? payload.message : "native token estimate failed";
+      throw new Error(msg);
+    }
+
+    if (payload?.totalTokens != null) {
+      totalTokens = Number(payload.totalTokens) || 0;
+    }
+  }
+
+  return { requestId, totalTokens };
+}
+
+async function requestTokenChunks({ requestId, chunkTokenSize }) {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    throw new Error("native messaging unavailable");
+  }
+
+  const resp = await browser.runtime.sendNativeMessage({
+    v: 1,
+    command: "token.chunk",
+    payload: {
+      requestId,
+      chunkTokenSize,
+    },
+  });
+
+  const payload = resp?.payload ?? resp;
+  if (resp?.type === "error") {
+    const msg = typeof payload?.message === "string" ? payload.message : "native token chunk failed";
+    throw new Error(msg);
+  }
+
+  return {
+    totalTokens: Number(payload?.totalTokens) || 0,
+    chunks: Array.isArray(payload?.chunks) ? payload.chunks : [],
+  };
+}
+
 async function prewarmFoundationModels({ systemPrompt, promptPrefix }) {
   const resp = await browser.runtime.sendNativeMessage({
     v: 1,
@@ -809,9 +907,15 @@ async function saveRawHistoryItem({ title, text, url }) {
     title: String(title ?? ""),
     articleText: String(text ?? ""),
     summaryText,
-    systemPrompt: String(systemPrompt ?? ""),
+    systemPrompt: String(lastSummarySystemPrompt || systemPrompt || ""),
     userPrompt: String(cachedUserPrompt || buildSummaryUserPrompt({ title, text, url }) || ""),
     modelId: String(activeModelIdOverride || modelSelect?.value || MODEL_ID),
+    readingAnchors: Array.isArray(lastReadingAnchors) ? lastReadingAnchors : [],
+    tokenEstimate: Number(lastTokenEstimate) || 0,
+    tokenEstimator: "gpt2-bpe",
+    chunkTokenSize: lastReadingAnchors?.length ? CHUNK_TOKEN_SIZE : undefined,
+    routingThreshold: LONG_DOCUMENT_TOKEN_THRESHOLD,
+    isLongDocument: Boolean(lastReadingAnchors?.length),
   };
 
   try {
@@ -844,10 +948,21 @@ async function prepareSummaryContext() {
       return null;
     }
 
+    try {
+      const tokenResult = await estimateTokensViaNative(normalized.text);
+      lastTokenEstimate = tokenResult.totalTokens;
+      lastTokenEstimateRequestId = tokenResult.requestId;
+      setInputTokenEstimate(lastTokenEstimate);
+    } catch (err) {
+      console.warn("[WebLLM Demo] Native token estimate failed, falling back:", err);
+      lastTokenEstimate = estimateTokensFromText(normalized.text);
+      lastTokenEstimateRequestId = "";
+      setInputTokenEstimate(lastTokenEstimate);
+    }
+
     cachedUserPrompt = buildSummaryUserPrompt(normalized);
     preparedMessagesForTokenEstimate = buildSummaryMessages(normalized);
-    setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
-    return normalized;
+    return { ...normalized, tokenEstimate: lastTokenEstimate, tokenRequestId: lastTokenEstimateRequestId };
   } catch (err) {
     cachedUserPrompt = "";
     preparedMessagesForTokenEstimate = [];
@@ -1026,12 +1141,261 @@ async function streamChatWithRecovery(messages, { retry = true } = {}) {
   }
 }
 
+async function ensureWebLLMEngineLoaded() {
+  if (engine) return;
+  loadButton.disabled = true;
+  modelSelect.disabled = true;
+  setShareVisible(false);
+  setThink("");
+  setOutput("");
+  try {
+    await loadEngine(modelSelect.value);
+  } finally {
+    loadButton.disabled = false;
+    modelSelect.disabled = false;
+  }
+}
+
+async function generateTextWithWebLLM(messages, { renderOutput = false } = {}) {
+  if (!engine) throw new Error("Engine is not loaded.");
+  if (engineLoading) throw new Error("Engine is still loading.");
+
+  let acc = "";
+  await engine.resetChat();
+  const completion = await engine.chat.completions.create({
+    stream: true,
+    stream_options: { include_usage: true },
+    messages,
+    temperature: 0.4,
+    max_tokens: MAX_OUTPUT_TOKENS,
+    extra_body: { enable_thinking: true },
+  });
+
+  for await (const chunk of completion) {
+    if (generationInterrupted) break;
+    const delta = chunk?.choices?.[0]?.delta?.content ?? "";
+    if (!delta) continue;
+    acc += delta;
+    if (renderOutput) {
+      renderModelOutput(acc);
+    }
+  }
+  return acc;
+}
+
+async function generateTextWithFoundationModels({ systemPrompt, userPrompt, renderOutput = false }) {
+  const prewarmPrefix = String(userPrompt ?? "").slice(0, FOUNDATION_PREWARM_PREFIX_LIMIT);
+  try {
+    await prewarmFoundationModels({ systemPrompt, promptPrefix: prewarmPrefix });
+  } catch (err) {
+    console.warn("[WebLLM Demo] fm.prewarm failed:", err);
+  }
+
+  const started = await startFoundationModelsStream({
+    systemPrompt,
+    userPrompt,
+  });
+
+  foundationJobId = started.jobId;
+  foundationCursor = started.cursor || 0;
+
+  let acc = "";
+  while (!generationInterrupted) {
+    const polled = await pollFoundationModelsStream({
+      jobId: foundationJobId,
+      cursor: foundationCursor,
+    });
+
+    if (polled.error) {
+      throw new Error(polled.error);
+    }
+
+    if (polled.delta) {
+      acc += polled.delta;
+      if (renderOutput) {
+        renderModelOutput(acc);
+      }
+    }
+
+    foundationCursor = polled.cursor || foundationCursor;
+    if (polled.done) {
+      break;
+    }
+
+    await delay(FOUNDATION_POLL_INTERVAL_MS);
+  }
+
+  return acc;
+}
+
+function buildReadingAnchorSystemPrompt({ index, total }) {
+  return [
+    "你是一個文字整理員。",
+    "",
+    "你目前的任務是，正在協助用戶完整閱讀超長內容。",
+    "",
+    `- 當前這是原文中的一個段落（chunks ${index} of ${total}）`,
+    "- 擷取此文章的關鍵點",
+  ].join("\n");
+}
+
+function buildReadingAnchorUserPrompt(text) {
+  const trimmed = String(text ?? "").trim();
+  return `【正文】\\n${trimmed || "(empty)"}`;
+}
+
+function buildSummaryUserPromptFromAnchors(anchors) {
+  if (!anchors?.length) return "(empty)";
+  return anchors
+    .map((anchor) => `Chunk ${anchor.index + 1}\\n${anchor.text}`.trim())
+    .join("\\n\\n");
+}
+
+async function runLongDocumentPipeline(ctx) {
+  const useFoundation = await shouldUseFoundationModels();
+  const requestId = ctx.tokenRequestId || lastTokenEstimateRequestId;
+  const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
+
+  if (!requestId) {
+    throw new Error("Missing token request id for chunking.");
+  }
+
+  if (!useFoundation) {
+    await ensureWebLLMEngineLoaded();
+  }
+
+  generationBackend = useFoundation ? "foundation-models" : "webllm";
+  activeModelIdOverride = useFoundation ? FOUNDATION_MODEL_ID : "";
+  generationInterrupted = false;
+  generating = true;
+  runButton.disabled = true;
+  summarizeButton.disabled = true;
+  stopButton.disabled = false;
+  loadButton.disabled = true;
+  unloadButton.disabled = true;
+  modelSelect.disabled = true;
+  setStatus("Preparing long document…", 0);
+  setShareVisible(false);
+  setThinkBoxVisible(!useFoundation);
+  setThink("");
+  setOutput("");
+  lastModelOutputMarkdown = "";
+
+  let summaryText = "";
+  try {
+    const chunkInfo = await requestTokenChunks({
+      requestId,
+      chunkTokenSize: CHUNK_TOKEN_SIZE,
+    });
+    const chunks = chunkInfo.chunks.map((chunk) => ({
+      index: Number(chunk.index) || 0,
+      tokenCount: Number(chunk.tokenCount) || 0,
+      startUTF16: Number(chunk.startUTF16) || 0,
+      endUTF16: Number(chunk.endUTF16) || 0,
+    }));
+    if (!chunks.length) {
+      throw new Error("Chunking returned no chunks.");
+    }
+
+    lastReadingAnchors = [];
+
+    for (const chunk of chunks) {
+      if (generationInterrupted) break;
+      const chunkText = ctx.text.slice(chunk.startUTF16, chunk.endUTF16);
+      setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
+
+      const systemPrompt = buildReadingAnchorSystemPrompt({
+        index: chunk.index + 1,
+        total: chunks.length,
+      });
+      const userPrompt = buildReadingAnchorUserPrompt(chunkText);
+
+      const anchorText = useFoundation
+        ? await generateTextWithFoundationModels({
+            systemPrompt,
+            userPrompt,
+            renderOutput: false,
+          })
+        : await generateTextWithWebLLM(
+            [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            { renderOutput: false },
+          );
+
+      const cleanedAnchor = (() => {
+        const { final } = splitModelThinking(anchorText);
+        return stripTrailingWhitespace(stripLeadingBlankLines(final));
+      })();
+
+      lastReadingAnchors.push({
+        index: chunk.index,
+        tokenCount: chunk.tokenCount,
+        text: String(cleanedAnchor ?? "").trim(),
+        startUTF16: chunk.startUTF16,
+        endUTF16: chunk.endUTF16,
+      });
+    }
+
+    if (generationInterrupted) {
+      return "";
+    }
+
+    setStatus("Generating summary…", 0);
+    const summaryUserPrompt = buildSummaryUserPromptFromAnchors(lastReadingAnchors);
+    const summarySystemPrompt = await getDefaultSystemPromptFallback();
+    lastSummarySystemPrompt = summarySystemPrompt;
+    cachedUserPrompt = summaryUserPrompt;
+
+    summaryText = useFoundation
+      ? await generateTextWithFoundationModels({
+          systemPrompt: summarySystemPrompt,
+          userPrompt: summaryUserPrompt,
+          renderOutput: true,
+        })
+      : await generateTextWithWebLLM(
+          [
+            { role: "system", content: summarySystemPrompt },
+            { role: "user", content: summaryUserPrompt },
+          ],
+          { renderOutput: true },
+        );
+
+    lastTokenEstimate = totalTokens;
+  } finally {
+    if (generationInterrupted && generationBackend === "foundation-models" && foundationJobId) {
+      await cancelFoundationModelsStream(foundationJobId);
+    }
+
+    foundationJobId = "";
+    foundationCursor = 0;
+    generating = false;
+    stopButton.disabled = true;
+    runButton.disabled = false;
+    summarizeButton.disabled = false;
+    loadButton.disabled = false;
+    unloadButton.disabled = !engine;
+    modelSelect.disabled = false;
+    setStatus("Ready", 1);
+
+    if (!generationInterrupted) {
+      const markdown = String(lastModelOutputMarkdown ?? "").trim();
+      renderModelOutputAsHtml();
+      setShareVisible(Boolean(markdown) && markdown !== NO_SUMMARY_TEXT_MESSAGE);
+    }
+  }
+
+  return summaryText;
+}
+
 async function streamSummaryWithFoundationModels(ctx) {
   if (generating) throw new Error("Generation is already running.");
 
   setThinkBoxVisible(false);
   generationBackend = "foundation-models";
   activeModelIdOverride = FOUNDATION_MODEL_ID;
+  lastSummarySystemPrompt = systemPrompt;
 
   preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
   setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
@@ -1160,6 +1524,15 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
       return;
     }
 
+    lastReadingAnchors = [];
+    lastSummarySystemPrompt = "";
+    const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
+    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD && ctx.tokenRequestId) {
+      await runLongDocumentPipeline(ctx);
+      await saveRawHistoryItem(ctx);
+      return;
+    }
+
     try {
       if (await shouldUseFoundationModels()) {
         try {
@@ -1185,6 +1558,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
               modelSelect.disabled = false;
             }
           }
+          lastSummarySystemPrompt = systemPrompt;
           await streamChatWithRecovery(buildSummaryMessages(ctx));
         }
       } else {
@@ -1206,6 +1580,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
             modelSelect.disabled = false;
           }
         }
+        lastSummarySystemPrompt = systemPrompt;
         await streamChatWithRecovery(buildSummaryMessages(ctx));
       }
       await saveRawHistoryItem(ctx);
@@ -1368,6 +1743,14 @@ summarizeButton.addEventListener("click", async () => {
       setOutput(NO_SUMMARY_TEXT_MESSAGE);
       return;
     }
+    lastReadingAnchors = [];
+    lastSummarySystemPrompt = "";
+    const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
+    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD && ctx.tokenRequestId) {
+      await runLongDocumentPipeline(ctx);
+      await saveRawHistoryItem(ctx);
+      return;
+    }
     if (await shouldUseFoundationModels()) {
       try {
         await streamSummaryWithFoundationModels(ctx);
@@ -1388,6 +1771,7 @@ summarizeButton.addEventListener("click", async () => {
             modelSelect.disabled = false;
           }
         }
+        lastSummarySystemPrompt = systemPrompt;
         await streamChatWithRecovery(buildSummaryMessages(ctx));
       }
     } else {
@@ -1405,6 +1789,7 @@ summarizeButton.addEventListener("click", async () => {
           modelSelect.disabled = false;
         }
       }
+      lastSummarySystemPrompt = systemPrompt;
       await streamChatWithRecovery(buildSummaryMessages(ctx));
     }
     await saveRawHistoryItem(ctx);

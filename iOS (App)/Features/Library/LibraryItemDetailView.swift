@@ -140,6 +140,22 @@ struct LibraryItemDetailView: View {
     @ViewBuilder
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let anchors = item.readingAnchors, !anchors.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Reading Anchors")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.secondary)
+
+                    ForEach(anchors) { anchor in
+                        TextSection(
+                            title: "Chunk \(anchor.index + 1) (\(anchor.tokenCount) tokens)",
+                            text: anchor.text,
+                            descirptionText: ""
+                        )
+                    }
+                }
+            }
             if !item.summaryText.isEmpty {
                 TextSection(title: "", text: item.summaryText, descirptionText: "", isMarkdown: true)
             }

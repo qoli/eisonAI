@@ -4,6 +4,9 @@ import UIKit
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
+    private static let longDocumentRoutingThreshold = 2600
+    private static let chunkTokenSize = 2000
+    private static let readingAnchorMaxResponseTokens = 1024
 
     private let input: KeyPointInput
 
@@ -18,6 +21,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private let foundationSettings = FoundationModelsSettingsStore()
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
+    private let tokenEstimator = GPTTokenEstimator.shared
 
     private var runTask: Task<Void, Never>?
 
@@ -70,36 +74,23 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 if Task.isCancelled { throw CancellationError() }
                 log("prepared input url=\(normalized.url.isEmpty ? "nil" : normalized.url) titleCount=\(normalized.title.count) textCount=\(normalized.text.count)")
 
-                let systemPrompt = self.loadKeyPointSystemPrompt()
-                let userPrompt = Self.buildUserPrompt(title: normalized.title, text: normalized.text)
-
                 let useFoundationModels = self.foundationSettings.isAppEnabled()
                     && FoundationModelsAvailability.currentStatus() == .available
 
-                let stream: AsyncThrowingStream<String, Error>
-                if useFoundationModels {
-                    let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
-                    foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prewarmPrefix)
-                    self.status = "Generating…"
-                    stream = try await self.foundationModels.streamChat(
-                        systemPrompt: systemPrompt,
-                        userPrompt: userPrompt,
-                        temperature: 0.4,
-                        maximumResponseTokens: 2048
+                let tokenEstimate = self.tokenEstimator.estimateTokenCount(for: normalized.text)
+                let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
+
+                let result: PipelineResult
+                if isLongDocument {
+                result = try await self.runLongDocumentPipeline(
+                        normalized,
+                        useFoundationModels: useFoundationModels
                     )
                 } else {
-                    self.status = "Loading model…"
-                    try await self.mlc.loadIfNeeded()
-
-                    self.status = "Generating…"
-                    stream = try await self.mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
-                }
-
-                var finalText = ""
-                for try await delta in stream {
-                    if Task.isCancelled { break }
-                    finalText.append(delta)
-                    self.output = finalText
+                result = try await self.runSingleSummary(
+                        normalized,
+                        useFoundationModels: useFoundationModels
+                    )
                 }
 
                 if Task.isCancelled {
@@ -108,7 +99,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     return
                 }
 
-                let trimmed = finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmed = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     self.status = "Done (empty output)"
                     self.log("empty output")
@@ -122,9 +113,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     title: normalized.title,
                     articleText: normalized.text,
                     summaryText: trimmed,
-                    systemPrompt: systemPrompt,
-                    userPrompt: userPrompt,
-                    modelId: useFoundationModels ? "foundation-models" : (self.mlc.loadedModelID ?? "")
+                    systemPrompt: result.systemPrompt,
+                    userPrompt: result.userPrompt,
+                    modelId: result.modelId,
+                    readingAnchors: result.readingAnchors,
+                    tokenEstimate: tokenEstimate,
+                    tokenEstimator: "gpt2-bpe",
+                    chunkTokenSize: isLongDocument ? Self.chunkTokenSize : nil,
+                    routingThreshold: Self.longDocumentRoutingThreshold,
+                    isLongDocument: isLongDocument
                 )
 
                 self.status = "Done (saved)"
@@ -146,6 +143,14 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         var url: String
         var title: String
         var text: String
+    }
+
+    private struct PipelineResult {
+        var summary: String
+        var systemPrompt: String
+        var userPrompt: String
+        var modelId: String
+        var readingAnchors: [ReadingAnchorChunk]?
     }
 
     private func prepareInput(from clipboardText: String) async throws -> PreparedInput {
@@ -195,6 +200,172 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             code: 2,
             userInfo: [NSLocalizedDescriptionKey: "Shared content is empty."]
         )
+    }
+
+    private func runSingleSummary(
+        _ input: PreparedInput,
+        useFoundationModels: Bool
+    ) async throws -> PipelineResult {
+        let systemPrompt = loadKeyPointSystemPrompt()
+        let userPrompt = Self.buildUserPrompt(title: input.title, text: input.text)
+
+        let modelId: String
+        let summary: String
+        if useFoundationModels {
+            let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
+            foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prewarmPrefix)
+            status = "Generating…"
+            let stream = try await foundationModels.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: 0.4,
+                maximumResponseTokens: 2048
+            )
+            summary = try await collectStream(stream, updateOutput: true)
+            modelId = "foundation-models"
+        } else {
+            status = "Loading model…"
+            try await mlc.loadIfNeeded()
+            status = "Generating…"
+            let stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+            summary = try await collectStream(stream, updateOutput: true)
+            modelId = mlc.loadedModelID ?? ""
+        }
+
+        return PipelineResult(
+            summary: summary,
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            modelId: modelId,
+            readingAnchors: nil
+        )
+    }
+
+    private func runLongDocumentPipeline(
+        _ input: PreparedInput,
+        useFoundationModels: Bool
+    ) async throws -> PipelineResult {
+        status = "Chunking…"
+        let chunks = tokenEstimator.chunk(text: input.text, chunkTokenSize: Self.chunkTokenSize)
+        if chunks.isEmpty {
+            throw NSError(
+                domain: "EisonAI.LongDocument",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Chunking produced no output."]
+            )
+        }
+
+        if !useFoundationModels {
+            status = "Loading model…"
+            try await mlc.loadIfNeeded()
+        }
+
+        var readingAnchors: [ReadingAnchorChunk] = []
+        readingAnchors.reserveCapacity(chunks.count)
+
+        for chunk in chunks {
+            if Task.isCancelled { throw CancellationError() }
+            status = "Reading chunk \(chunk.index + 1)/\(chunks.count)…"
+
+            let anchorSystemPrompt = buildReadingAnchorSystemPrompt(
+                chunkIndex: chunk.index + 1,
+                chunkTotal: chunks.count
+            )
+            let anchorUserPrompt = buildReadingAnchorUserPrompt(text: chunk.text)
+
+            let anchorText: String
+            if useFoundationModels {
+                let stream = try await foundationModels.streamChat(
+                    systemPrompt: anchorSystemPrompt,
+                    userPrompt: anchorUserPrompt,
+                    temperature: 0.4,
+                    maximumResponseTokens: Self.readingAnchorMaxResponseTokens
+                )
+                anchorText = try await collectStream(stream, updateOutput: false)
+            } else {
+                let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
+                anchorText = try await collectStream(stream, updateOutput: false)
+            }
+
+            let trimmedAnchor = anchorText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let anchor = ReadingAnchorChunk(
+                index: chunk.index,
+                tokenCount: chunk.tokenCount,
+                text: trimmedAnchor,
+                startUTF16: chunk.startUTF16,
+                endUTF16: chunk.endUTF16
+            )
+            readingAnchors.append(anchor)
+        }
+
+        let summarySystemPrompt = AppConfig.defaultSystemPrompt
+        let summaryUserPrompt = buildSummaryUserPrompt(from: readingAnchors)
+
+        status = "Generating summary…"
+        let summary: String
+        let modelId: String
+        if useFoundationModels {
+            let prewarmPrefix = Self.clampText(summaryUserPrompt, maxChars: Self.prewarmPrefixMaxChars)
+            foundationModels.prewarm(systemPrompt: summarySystemPrompt, promptPrefix: prewarmPrefix)
+            let stream = try await foundationModels.streamChat(
+                systemPrompt: summarySystemPrompt,
+                userPrompt: summaryUserPrompt,
+                temperature: 0.4,
+                maximumResponseTokens: 2048
+            )
+            summary = try await collectStream(stream, updateOutput: true)
+            modelId = "foundation-models"
+        } else {
+            let stream = try await mlc.streamChat(systemPrompt: summarySystemPrompt, userPrompt: summaryUserPrompt)
+            summary = try await collectStream(stream, updateOutput: true)
+            modelId = mlc.loadedModelID ?? ""
+        }
+
+        return PipelineResult(
+            summary: summary,
+            systemPrompt: summarySystemPrompt,
+            userPrompt: summaryUserPrompt,
+            modelId: modelId,
+            readingAnchors: readingAnchors
+        )
+    }
+
+    private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
+        return """
+        你是一個文字整理員。
+
+        你目前的任務是，正在協助用戶完整閱讀超長內容。
+
+        - 當前這是原文中的一個段落（chunks \(chunkIndex) of \(chunkTotal)）
+        - 擷取此文章的關鍵點
+        """
+    }
+
+    private func buildReadingAnchorUserPrompt(text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return "【正文】\n\(trimmed.isEmpty ? "(empty)" : trimmed)"
+    }
+
+    private func buildSummaryUserPrompt(from anchors: [ReadingAnchorChunk]) -> String {
+        if anchors.isEmpty { return "(empty)" }
+        return anchors
+            .map { chunk in
+                let label = "Chunk \(chunk.index + 1)"
+                return "\(label)\n\(chunk.text)"
+            }
+            .joined(separator: "\n\n")
+    }
+
+    private func collectStream(_ stream: AsyncThrowingStream<String, Error>, updateOutput: Bool) async throws -> String {
+        var finalText = ""
+        for try await delta in stream {
+            if Task.isCancelled { break }
+            finalText.append(delta)
+            if updateOutput {
+                output = finalText
+            }
+        }
+        return finalText
     }
 
     private func loadKeyPointSystemPrompt() -> String {

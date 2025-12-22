@@ -17,6 +17,16 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
     var modelId: String
 }
 
+struct ReadingAnchorChunk: Codable, Identifiable, Hashable {
+    var index: Int
+    var tokenCount: Int
+    var text: String
+    var startUTF16: Int?
+    var endUTF16: Int?
+
+    var id: Int { index }
+}
+
 struct RawHistoryItem: Codable, Identifiable {
     var v: Int
     var id: String
@@ -28,6 +38,12 @@ struct RawHistoryItem: Codable, Identifiable {
     var systemPrompt: String
     var userPrompt: String
     var modelId: String
+    var readingAnchors: [ReadingAnchorChunk]?
+    var tokenEstimate: Int?
+    var tokenEstimator: String?
+    var chunkTokenSize: Int?
+    var routingThreshold: Int?
+    var isLongDocument: Bool?
 }
 
 struct RawHistoryEntry: Identifiable {

@@ -303,7 +303,13 @@ struct RawLibraryStore {
         summaryText: String,
         systemPrompt: String,
         userPrompt: String,
-        modelId: String
+        modelId: String,
+        readingAnchors: [ReadingAnchorChunk]? = nil,
+        tokenEstimate: Int? = nil,
+        tokenEstimator: String? = nil,
+        chunkTokenSize: Int? = nil,
+        routingThreshold: Int? = nil,
+        isLongDocument: Bool? = nil
     ) throws -> (id: String, filename: String) {
         let directoryURL = try itemsDirectoryURL()
 
@@ -347,7 +353,13 @@ struct RawLibraryStore {
             summaryText: normalizedSummary,
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
-            modelId: modelId
+            modelId: modelId,
+            readingAnchors: readingAnchors,
+            tokenEstimate: tokenEstimate,
+            tokenEstimator: tokenEstimator,
+            chunkTokenSize: chunkTokenSize,
+            routingThreshold: routingThreshold,
+            isLongDocument: isLongDocument
         )
 
         let encoder = JSONEncoder()
