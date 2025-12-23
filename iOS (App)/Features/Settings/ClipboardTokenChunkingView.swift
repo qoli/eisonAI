@@ -1,4 +1,3 @@
-import NaturalLanguage
 import SwiftUI
 import UIKit
 
@@ -9,13 +8,14 @@ struct ClipboardTokenChunkingView: View {
     @State private var chunkTokenCounts: [Int] = []
     @State private var tokenCount = 0
     @State private var status = ""
+    private let tokenEstimator = GPTTokenEstimator.shared
 
     var body: some View {
         Form {
             Section("Input") {
                 Text("Paste or type text, then split into \(tokensPerChunk)-token chunks.")
                     .foregroundStyle(.secondary)
-                Text("Tokenizer: iOS NaturalLanguage word tokenizer (approximate, not model-specific).")
+                Text("Tokenizer: GPTEncoder (GPT-2 BPE), same as Key-point pipeline.")
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 12) {
@@ -135,47 +135,22 @@ struct ClipboardTokenChunkingView: View {
             return
         }
 
-        let ranges = tokenRanges(for: trimmed)
-        tokenCount = ranges.count
-        guard !ranges.isEmpty else {
+        let totalTokens = tokenEstimator.estimateTokenCount(for: trimmed)
+        tokenCount = totalTokens
+        guard totalTokens > 0 else {
             chunks = [trimmed]
             chunkTokenCounts = [0]
             status = "Tokenizer produced no tokens."
             return
         }
 
-        var newChunks: [String] = []
-        var newTokenCounts: [Int] = []
-        var index = 0
-
-        while index < ranges.count {
-            let start = ranges[index].lowerBound
-            let endIndex = ranges[min(index + tokensPerChunk - 1, ranges.count - 1)].upperBound
-            let chunkText = String(trimmed[start..<endIndex])
-            newChunks.append(chunkText)
-
-            let count = min(tokensPerChunk, ranges.count - index)
-            newTokenCounts.append(count)
-            index += tokensPerChunk
-        }
+        let chunkSize = max(1, tokensPerChunk)
+        let gptChunks = tokenEstimator.chunk(text: trimmed, chunkTokenSize: chunkSize)
+        let newChunks = gptChunks.map { $0.text }
+        let newTokenCounts = gptChunks.map { $0.tokenCount }
 
         chunks = newChunks
         chunkTokenCounts = newTokenCounts
         status = "Split into \(newChunks.count) chunk(s)."
-    }
-
-    private func tokenRanges(for text: String) -> [Range<String.Index>] {
-        let tokenizer = NLTokenizer(unit: .word)
-        tokenizer.string = text
-
-        var ranges: [Range<String.Index>] = []
-        tokenizer.enumerateTokens(in: text.startIndex..<text.endIndex) { range, _ in
-            ranges.append(range)
-            return true
-        }
-        if ranges.isEmpty, !text.isEmpty {
-            return [text.startIndex..<text.endIndex]
-        }
-        return ranges
     }
 }

@@ -62,5 +62,5 @@ func encodeString(text: String) -> [UInt8] {
 }
 
 func decodeString(array: [UInt8], byteEncoder: [Int: String]) -> String {
-    String(bytes: array, encoding: .isoLatin1) ?? ""
+    String(bytes: array, encoding: .utf8) ?? ""
 }
