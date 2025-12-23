@@ -250,6 +250,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         _ input: PreparedInput,
         useFoundationModels: Bool
     ) async throws -> PipelineResult {
+        log("longdoc:start useFoundationModels=\(useFoundationModels)")
         status = "Chunking…"
         let chunks = tokenEstimator.chunk(text: input.text, chunkTokenSize: Self.chunkTokenSize)
         log("chunking done count=\(chunks.count) textCount=\(input.text.count)")
@@ -272,6 +273,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         for chunk in chunks {
             if Task.isCancelled { throw CancellationError() }
             status = "Reading chunk \(chunk.index + 1)/\(chunks.count)…"
+            log("longdoc:chunk-start index=\(chunk.index) total=\(chunks.count)")
 
             let resolvedChunkText: String
             if chunk.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -294,6 +296,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             )
             let anchorUserPrompt = buildReadingAnchorUserPrompt(text: resolvedChunkText)
             log("chunk[\(chunk.index)] anchorUserPromptCount=\(anchorUserPrompt.count)")
+            log("longdoc:anchor-generate backend=\(useFoundationModels ? "foundation" : "mlc")")
 
             let anchorText: String
             if useFoundationModels {
@@ -303,14 +306,17 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     temperature: 0.4,
                     maximumResponseTokens: Self.readingAnchorMaxResponseTokens
                 )
-                anchorText = try await collectStream(stream, updateOutput: false)
+                anchorText = try await collectStream(stream, updateOutput: false, label: "longdoc-anchor-\(chunk.index)")
             } else {
                 let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
-                anchorText = try await collectStream(stream, updateOutput: false)
+                anchorText = try await collectStream(stream, updateOutput: false, label: "longdoc-anchor-\(chunk.index)")
             }
 
             let trimmedAnchor = anchorText.trimmingCharacters(in: .whitespacesAndNewlines)
             log("chunk[\(chunk.index)] anchorTextCount=\(anchorText.count) trimmedAnchorCount=\(trimmedAnchor.count)")
+            if trimmedAnchor.isEmpty {
+                log("chunk[\(chunk.index)] anchor empty after generation")
+            }
             let anchor = ReadingAnchorChunk(
                 index: chunk.index,
                 tokenCount: chunk.tokenCount,
@@ -323,8 +329,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
         let summarySystemPrompt = AppConfig.defaultSystemPrompt
         let summaryUserPrompt = buildSummaryUserPrompt(from: readingAnchors)
+        log("longdoc:summary-prompt systemCount=\(summarySystemPrompt.count) userCount=\(summaryUserPrompt.count)")
 
         status = "Generating summary…"
+        log("longdoc:summary-generate backend=\(useFoundationModels ? "foundation" : "mlc")")
         let summary: String
         let modelId: String
         if useFoundationModels {
@@ -336,13 +344,14 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 temperature: 0.4,
                 maximumResponseTokens: 2048
             )
-            summary = try await collectStream(stream, updateOutput: true)
+            summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
             modelId = "foundation-models"
         } else {
             let stream = try await mlc.streamChat(systemPrompt: summarySystemPrompt, userPrompt: summaryUserPrompt)
-            summary = try await collectStream(stream, updateOutput: true)
+            summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
             modelId = mlc.loadedModelID ?? ""
         }
+        log("longdoc:summary-done count=\(summary.count)")
 
         return PipelineResult(
             summary: summary,
@@ -354,7 +363,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
-        return """
+        let prompt = """
         你是一個文字整理員。
 
         你目前的任務是，正在協助用戶完整閱讀超長內容。
@@ -362,24 +371,37 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         - 當前這是原文中的一個段落（chunks \(chunkIndex) of \(chunkTotal)）
         - 擷取此文章的關鍵點
         """
+        log("longdoc:anchor-system-prompt index=\(chunkIndex) total=\(chunkTotal) count=\(prompt.count)")
+        return prompt
     }
 
     private func buildReadingAnchorUserPrompt(text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return "【正文】\n\(trimmed.isEmpty ? "(empty)" : trimmed)"
+        let prompt = "【正文】\n\(trimmed.isEmpty ? "(empty)" : trimmed)"
+        log("longdoc:anchor-user-prompt textCount=\(text.count) trimmedCount=\(trimmed.count) promptCount=\(prompt.count)")
+        return prompt
     }
 
     private func buildSummaryUserPrompt(from anchors: [ReadingAnchorChunk]) -> String {
         if anchors.isEmpty { return "(empty)" }
-        return anchors
+        let prompt = anchors
             .map { chunk in
                 let label = "Chunk \(chunk.index + 1)"
                 return "\(label)\n\(chunk.text)"
             }
             .joined(separator: "\n\n")
+        log("longdoc:summary-user-prompt anchors=\(anchors.count) promptCount=\(prompt.count)")
+        return prompt
     }
 
-    private func collectStream(_ stream: AsyncThrowingStream<String, Error>, updateOutput: Bool) async throws -> String {
+    private func collectStream(
+        _ stream: AsyncThrowingStream<String, Error>,
+        updateOutput: Bool,
+        label: String = ""
+    ) async throws -> String {
+        if !label.isEmpty {
+            log("longdoc:collect-start label=\(label)")
+        }
         var finalText = ""
         for try await delta in stream {
             if Task.isCancelled { break }
@@ -387,6 +409,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             if updateOutput {
                 output = finalText
             }
+        }
+        if !label.isEmpty {
+            log("longdoc:collect-end label=\(label) count=\(finalText.count)")
         }
         return finalText
     }
@@ -397,7 +422,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let end = max(start, min(endUTF16, utf16Count))
         let startIndex = String.Index(utf16Offset: start, in: text)
         let endIndex = String.Index(utf16Offset: end, in: text)
-        return String(text[startIndex..<endIndex])
+        let sliced = String(text[startIndex..<endIndex])
+        log("longdoc:slice startUTF16=\(start) endUTF16=\(end) slicedCount=\(sliced.count)")
+        return sliced
     }
 
     private func loadKeyPointSystemPrompt() -> String {
