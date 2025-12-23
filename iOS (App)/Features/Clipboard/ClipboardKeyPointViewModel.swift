@@ -82,6 +82,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let tokenEstimate = self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
                 self.pipelineStatus = isLongDocument ? "長文 pipeline：是" : "長文 pipeline：否"
+                self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
 
                 let result: PipelineResult
                 if isLongDocument {
@@ -250,6 +251,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     ) async throws -> PipelineResult {
         status = "Chunking…"
         let chunks = tokenEstimator.chunk(text: input.text, chunkTokenSize: Self.chunkTokenSize)
+        log("chunking done count=\(chunks.count) textCount=\(input.text.count)")
         if chunks.isEmpty {
             throw NSError(
                 domain: "EisonAI.LongDocument",
@@ -277,10 +279,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     startUTF16: chunk.startUTF16,
                     endUTF16: chunk.endUTF16
                 )
+                log("chunk[\(chunk.index)] empty text fallback startUTF16=\(chunk.startUTF16) endUTF16=\(chunk.endUTF16) slicedCount=\(sliced.count)")
                 resolvedChunkText = sliced.isEmpty ? chunk.text : sliced
             } else {
                 resolvedChunkText = chunk.text
             }
+            log("chunk[\(chunk.index)] tokenCount=\(chunk.tokenCount) textCount=\(resolvedChunkText.count)")
 
             let anchorSystemPrompt = buildReadingAnchorSystemPrompt(
                 chunkIndex: chunk.index + 1,
