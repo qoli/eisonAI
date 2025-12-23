@@ -15,6 +15,12 @@ struct ClipboardKeyPointSheet: View {
                     Text(model.status)
                         .foregroundStyle(.secondary)
 
+                    if !model.pipelineStatus.isEmpty {
+                        Text(model.pipelineStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
                     if !model.sourceDescription.isEmpty {
                         Text(model.sourceDescription)
                             .font(.footnote)

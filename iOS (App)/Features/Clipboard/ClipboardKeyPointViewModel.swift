@@ -13,6 +13,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var status: String = "Ready"
     @Published var output: String = ""
     @Published var sourceDescription: String = ""
+    @Published var pipelineStatus: String = ""
     @Published var isRunning: Bool = false
     @Published var shouldDismiss: Bool = false
 
@@ -46,6 +47,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
         output = ""
         sourceDescription = ""
+        pipelineStatus = ""
         isRunning = true
         status = "Preparing…"
         shouldDismiss = false
@@ -79,6 +81,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 let tokenEstimate = self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
+                self.pipelineStatus = isLongDocument ? "長文 pipeline：是" : "長文 pipeline：否"
 
                 let result: PipelineResult
                 if isLongDocument {
@@ -267,11 +270,23 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             if Task.isCancelled { throw CancellationError() }
             status = "Reading chunk \(chunk.index + 1)/\(chunks.count)…"
 
+            let resolvedChunkText: String
+            if chunk.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                let sliced = sliceText(
+                    input.text,
+                    startUTF16: chunk.startUTF16,
+                    endUTF16: chunk.endUTF16
+                )
+                resolvedChunkText = sliced.isEmpty ? chunk.text : sliced
+            } else {
+                resolvedChunkText = chunk.text
+            }
+
             let anchorSystemPrompt = buildReadingAnchorSystemPrompt(
                 chunkIndex: chunk.index + 1,
                 chunkTotal: chunks.count
             )
-            let anchorUserPrompt = buildReadingAnchorUserPrompt(text: chunk.text)
+            let anchorUserPrompt = buildReadingAnchorUserPrompt(text: resolvedChunkText)
 
             let anchorText: String
             if useFoundationModels {
@@ -366,6 +381,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             }
         }
         return finalText
+    }
+
+    private func sliceText(_ text: String, startUTF16: Int, endUTF16: Int) -> String {
+        let utf16Count = text.utf16.count
+        let start = max(0, min(startUTF16, utf16Count))
+        let end = max(start, min(endUTF16, utf16Count))
+        let startIndex = String.Index(utf16Offset: start, in: text)
+        let endIndex = String.Index(utf16Offset: end, in: text)
+        return String(text[startIndex..<endIndex])
     }
 
     private func loadKeyPointSystemPrompt() -> String {
