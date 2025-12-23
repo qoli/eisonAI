@@ -20,7 +20,7 @@
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
-		EA886FBE2EF7D4D8003B59A9 /* shareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA886F342EF7D254003B59A9 /* shareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		EA886FBE2EF7D4D8003B59A9 /* shareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA886F342EF7D254003B59A9 /* shareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 /* End PBXBuildFile section */
 
@@ -421,7 +421,6 @@
 		};
 		EA886FC02EF7D4D8003B59A9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			platformFilter = ios;
 			target = EA886F332EF7D254003B59A9 /* shareExtension */;
 			targetProxy = EA886FBF2EF7D4D8003B59A9 /* PBXContainerItemProxy */;
 		};
@@ -708,7 +707,7 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -766,7 +765,7 @@
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = YES;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;

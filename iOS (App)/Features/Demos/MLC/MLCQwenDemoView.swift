@@ -226,11 +226,20 @@ final class MLCQwenDemoViewModel: ObservableObject {
     }
 
     private func resolveModelDirFromWebLLMAssets(modelDirName: String) -> URL? {
+        let embeddedBundleURL = resolveEmbeddedExtensionBundleURL()
+        let embeddedResourceURL = embeddedBundleURL.flatMap { Bundle(url: $0)?.resourceURL }
+        let mainBundleURL = Bundle.main.bundleURL
+        let mainResourceURL = Bundle.main.resourceURL
+
         let modelDirCandidates = [
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: resolveEmbeddedExtensionBundleURL()),
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: resolveEmbeddedExtensionBundleURL()),
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: Bundle.main.bundleURL),
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: Bundle.main.bundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: embeddedResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: embeddedResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: embeddedBundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: embeddedBundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: mainResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: mainResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: mainBundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: mainBundleURL),
         ]
 
         for url in modelDirCandidates {

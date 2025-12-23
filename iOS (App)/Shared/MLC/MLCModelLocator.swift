@@ -39,9 +39,9 @@ enum MLCModelLocatorError: LocalizedError {
         case .missingBundledModel(let modelID):
             return "Model not found in `mlc-app-config.json`: \(modelID)"
         case .missingModelDirectory(let dir):
-            return "Missing model directory: \(dir)"
+            return "Missing model directory: \(dir). Run `python3 Scripts/download_webllm_assets.py` and rebuild the app to bundle WebLLM assets."
         case .missingModelFile(let path):
-            return "Missing model file: \(path)"
+            return "Missing model file: \(path). Run `python3 Scripts/download_webllm_assets.py` and rebuild the app to bundle WebLLM assets."
         }
     }
 }
@@ -107,12 +107,28 @@ struct MLCModelLocator {
     }
 
     private func resolveModelDirFromWebLLMAssets(modelDirName: String) -> URL? {
+        let embeddedBundleURL = resolveEmbeddedExtensionBundleURL()
+        let embeddedResourceURL = embeddedBundleURL.flatMap { Bundle(url: $0)?.resourceURL }
+        let mainBundleURL = Bundle.main.bundleURL
+        let mainResourceURL = Bundle.main.resourceURL
+
         let modelDirCandidates = [
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: resolveEmbeddedExtensionBundleURL()),
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: resolveEmbeddedExtensionBundleURL()),
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: Bundle.main.bundleURL),
-            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: Bundle.main.bundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: embeddedResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: embeddedResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: embeddedBundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: embeddedBundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: mainResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: mainResourceURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: mainBundleURL),
+            URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: mainBundleURL),
         ]
+
+        let candidatePaths = modelDirCandidates.map { $0.path() }
+        print("[MLCModelLocator] embeddedExtensionBundleURL=", embeddedBundleURL?.path() ?? "nil")
+        print("[MLCModelLocator] embeddedExtensionResourceURL=", embeddedResourceURL?.path() ?? "nil")
+        print("[MLCModelLocator] mainBundleURL=", mainBundleURL.path())
+        print("[MLCModelLocator] mainBundleResourceURL=", mainResourceURL?.path() ?? "nil")
+        print("[MLCModelLocator] modelDirCandidates=", candidatePaths)
 
         for url in modelDirCandidates {
             var isDir: ObjCBool = false
@@ -140,4 +156,3 @@ struct MLCModelLocator {
         return extensionBundle?.bundleURL
     }
 }
-
