@@ -83,6 +83,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
                 self.pipelineStatus = isLongDocument ? "長文 pipeline：是" : "長文 pipeline：否"
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
+                self.log("useFoundationModels=\(useFoundationModels)")
 
                 let result: PipelineResult
                 if isLongDocument {
@@ -284,13 +285,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             } else {
                 resolvedChunkText = chunk.text
             }
-            log("chunk[\(chunk.index)] tokenCount=\(chunk.tokenCount) textCount=\(resolvedChunkText.count)")
+            let resolvedTrimmedCount = resolvedChunkText.trimmingCharacters(in: .whitespacesAndNewlines).count
+            log("chunk[\(chunk.index)] tokenCount=\(chunk.tokenCount) startUTF16=\(chunk.startUTF16) endUTF16=\(chunk.endUTF16) textCount=\(resolvedChunkText.count) trimmedCount=\(resolvedTrimmedCount)")
 
             let anchorSystemPrompt = buildReadingAnchorSystemPrompt(
                 chunkIndex: chunk.index + 1,
                 chunkTotal: chunks.count
             )
             let anchorUserPrompt = buildReadingAnchorUserPrompt(text: resolvedChunkText)
+            log("chunk[\(chunk.index)] anchorUserPromptCount=\(anchorUserPrompt.count)")
 
             let anchorText: String
             if useFoundationModels {
@@ -307,6 +310,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             }
 
             let trimmedAnchor = anchorText.trimmingCharacters(in: .whitespacesAndNewlines)
+            log("chunk[\(chunk.index)] anchorTextCount=\(anchorText.count) trimmedAnchorCount=\(trimmedAnchor.count)")
             let anchor = ReadingAnchorChunk(
                 index: chunk.index,
                 tokenCount: chunk.tokenCount,

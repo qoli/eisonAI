@@ -123,13 +123,6 @@ struct MLCModelLocator {
             URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)", relativeTo: mainBundleURL),
         ]
 
-        let candidatePaths = modelDirCandidates.map { $0.path() }
-        print("[MLCModelLocator] embeddedExtensionBundleURL=", embeddedBundleURL?.path() ?? "nil")
-        print("[MLCModelLocator] embeddedExtensionResourceURL=", embeddedResourceURL?.path() ?? "nil")
-        print("[MLCModelLocator] mainBundleURL=", mainBundleURL.path())
-        print("[MLCModelLocator] mainBundleResourceURL=", mainResourceURL?.path() ?? "nil")
-        print("[MLCModelLocator] modelDirCandidates=", candidatePaths)
-
         for url in modelDirCandidates {
             var isDir: ObjCBool = false
             if FileManager.default.fileExists(atPath: url.path(), isDirectory: &isDir), isDir.boolValue {
