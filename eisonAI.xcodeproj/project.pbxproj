@@ -696,7 +696,6 @@
 					WebKit,
 					"-weak_framework",
 					FoundationModels,
-					"-Wl,-all_load",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
@@ -754,7 +753,6 @@
 					WebKit,
 					"-weak_framework",
 					FoundationModels,
-					"-Wl,-all_load",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
