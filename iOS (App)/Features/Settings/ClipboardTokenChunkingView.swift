@@ -48,7 +48,7 @@ struct ClipboardTokenChunkingView: View {
             Section("Input") {
                 Text("Paste or type text, then split into \(tokensPerChunk)-token chunks.")
                     .foregroundStyle(.secondary)
-                Text("Tokenizer: Tiktoken (o200k_base), same as Key-point pipeline.")
+                Text("Tokenizer: SwiftikToken (o200k_base), same as Key-point pipeline.")
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 12) {

@@ -28,7 +28,7 @@
 
 ### 2.4 Token 估算一致性（Token Estimation Consistency）
 - 以 **o200k_base** 作為唯一計數基準，確保 Extension 與 App token 對齊
-- App 使用 `TiktokenSwift`，Extension 使用 `gpt-tokenizer`
+- App 使用 `SwiftikToken`，Extension 使用 `gpt-tokenizer`
 
 ### 2.5 輸出資料結構（Raw Library Schema）
 - 長文 Pipeline 需要保存逐段閱讀錨點與估算資訊
@@ -77,7 +77,7 @@ Step 3  展示用摘要生成
 
 **實作方式**
 - 使用 **o200k_base** 估算 Token
-  - App：`TiktokenSwift`
+  - App：`SwiftikToken`
   - Extension：`gpt-tokenizer`
 - 分流門檻：**3200 tokens**
   - `≤ 3200`：沿用原本單次摘要流程

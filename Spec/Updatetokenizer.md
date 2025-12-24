@@ -27,8 +27,8 @@
 - **Safari Extension**：`gpt-tokenizer`（JS）
   - repo：https://github.com/niieani/gpt-tokenizer
   - encoding：`o200k_base`
-- **App 原生端**：`TiktokenSwift`（Swift）
-  - repo：https://github.com/narner/TiktokenSwift
+- **App 原生端**：`SwiftikToken`（Swift，無 FFI）
+  - 路徑：`SwiftikToken/`
   - encoding：`o200k_base`
 
 > 備註：兩端都統一使用 `o200k_base`，確保 token 數與 chunk 邊界一致。
@@ -48,8 +48,8 @@
   - 以 JS tokenizer 直接計算 token 與切段（保留 heuristic fallback）
   - `saveRawHistoryItem()` 的 `tokenEstimator` 欄位需更新
 - **iOS App（Clipboard/Share）**
-  - `GPTTokenEstimator` 改為 `TiktokenSwift`
-  - `ClipboardTokenChunkingView` 文案更新（GPTEncoder → Tiktoken)
+- `GPTTokenEstimator` 改為 `SwiftikToken`
+  - `ClipboardTokenChunkingView` 文案更新（GPTEncoder → SwiftikToken）
   - `RawHistoryItem.tokenEstimator` 更新
 
 > 關聯文件：
@@ -89,7 +89,7 @@
 
 ### 6.1 取代 GPTEncoder
 
-- `GPTTokenEstimator` 改用 `TiktokenSwift`
+- `GPTTokenEstimator` 改用 `SwiftikToken`
 - encoding 固定 `o200k_base`
 - 僅使用 `encode` 作為 token 計算來源（不要求 decode 回原文）
 - 分流門檻：`3200` tokens；切段大小：`2600` tokens
@@ -101,14 +101,15 @@
 ```swift
 // Encode text
 let text = "Hello, world!"
-let tokens = encoder.encode(text: text, allowedSpecial: [])
+let tokenizer = Tiktoken(encoding: .o200k)
+let tokens = try await tokenizer.encode(text: text, allowedSpecial: [])
 print("Tokens: \(tokens)")
 ```
 
 ### 6.2 UI / 文案更新
 
 - `ClipboardTokenChunkingView` 說明文案同步更新
-  - 「GPTEncoder (GPT-2 BPE)」→「Tiktoken (o200k_base)」
+  - 「GPTEncoder (GPT-2 BPE)」→「SwiftikToken (o200k_base)」
 
 ### 6.3 Raw Library 欄位
 

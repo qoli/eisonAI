@@ -122,7 +122,7 @@
 
 ### B4. Token 估算與分流（App）
 `ClipboardKeyPointViewModel.run()`
-- `tokenEstimator.estimateTokenCount(for:)` → `TiktokenSwift (o200k_base)`
+- `tokenEstimator.estimateTokenCount(for:)` → `SwiftikToken (o200k_base)`
 - `tokenEstimate > longDocumentRoutingThreshold (3200)` → 長文 Pipeline
 - 否則 → 單次摘要
 
@@ -185,7 +185,7 @@
 **Step 0 Token 估算與分流**
 - Spec：`o200k_base` 估算，門檻 3200
 - Extension：`estimateTokensWithTokenizer()`（popup 內 `gpt-tokenizer`）
-- App：`tokenEstimator.estimateTokenCount()`（`TiktokenSwift`）
+- App：`tokenEstimator.estimateTokenCount()`（`SwiftikToken`）
 
 **Step 1 Chunk 切割**
 - Spec：2600 tokens/chunk

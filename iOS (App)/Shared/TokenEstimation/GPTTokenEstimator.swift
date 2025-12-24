@@ -1,5 +1,4 @@
 import Foundation
-import TiktokenSwift
 
 struct GPTTokenChunk: Codable, Hashable {
     let index: Int
@@ -9,31 +8,62 @@ struct GPTTokenChunk: Codable, Hashable {
     let endUTF16: Int
 }
 
-actor TokenizerStore {
-    static let shared = TokenizerStore()
+actor SwiftikTokenStore {
+    static let shared = SwiftikTokenStore()
 
-    private var encoder: CoreBpe?
+    enum Error: Swift.Error {
+        case vocabularyFileNotFound
+    }
 
-    func loadEncoder() async throws -> CoreBpe {
-        if let encoder {
-            return encoder
+    private let encoding: Encoding = .o200k
+    private var tokenizer: Tokenizer?
+
+    func loadTokenizer() async throws -> Tokenizer {
+        if let tokenizer {
+            return tokenizer
         }
-        let loaded = try await CoreBpe.o200kBase()
-        encoder = loaded
-        return loaded
+
+        guard let fileURL = Bundle.main.url(
+            forResource: encoding.rawValue,
+            withExtension: "tiktoken"
+        ) else {
+            throw Error.vocabularyFileNotFound
+        }
+
+        let encoder = try await Loader().load(fileURL: fileURL)
+        let regex = try encoding.pattern.makeRegex()
+        let tokenEncoder = TokenEncoder(
+            encoder: encoder,
+            specialTokenEncoder: encoding.specialTokenEncoder,
+            regex: regex
+        )
+        let tokenizer = Tokenizer(
+            encoder: tokenEncoder,
+            specialTokens: encoding.specialTokens
+        )
+        self.tokenizer = tokenizer
+        return tokenizer
+    }
+
+    func encode(text: String) async throws -> [Token] {
+        let tokenizer = try await loadTokenizer()
+        return try tokenizer.encode(
+            text: text,
+            allowedSpecial: [],
+            disallowedSpecial: []
+        )
     }
 }
 
 final class GPTTokenEstimator {
     static let shared = GPTTokenEstimator()
 
-    private let store = TokenizerStore.shared
+    private let store = SwiftikTokenStore.shared
 
     func estimateTokenCount(for text: String) async -> Int {
         guard !text.isEmpty else { return 0 }
         do {
-            let encoder = try await store.loadEncoder()
-            return encoder.encode(text: text, allowedSpecial: []).count
+            return try await store.encode(text: text).count
         } catch {
             return 0
         }
@@ -43,45 +73,71 @@ final class GPTTokenEstimator {
         guard chunkTokenSize > 0 else { return [] }
         guard !text.isEmpty else { return [] }
 
-        let tokens: [UInt32]
-        let encoder: CoreBpe
-        do {
-            encoder = try await store.loadEncoder()
-            tokens = encoder.encode(text: text, allowedSpecial: [])
-        } catch {
-            return []
-        }
-        guard !tokens.isEmpty else { return [] }
+        let indices = Array(text.indices)
+        guard !indices.isEmpty else { return [] }
 
         var chunks: [GPTTokenChunk] = []
-        chunks.reserveCapacity((tokens.count + chunkTokenSize - 1) / chunkTokenSize)
+        chunks.reserveCapacity(max(1, indices.count / chunkTokenSize))
 
-        var tokenIndex = 0
+        var startPos = 0
         var utf16Offset = 0
-        while tokenIndex < tokens.count {
-            let endIndex = min(tokenIndex + chunkTokenSize, tokens.count)
-            let tokenSlice = Array(tokens[tokenIndex ..< endIndex])
-            let chunkText: String
-            do {
-                chunkText = try encoder.decode(tokens: tokenSlice) ?? ""
-            } catch {
-                chunkText = ""
-            }
+        while startPos < indices.count {
+            let endPos = await findChunkEnd(
+                text: text,
+                indices: indices,
+                startPos: startPos,
+                chunkTokenSize: chunkTokenSize
+            )
+            let startIndex = indices[startPos]
+            let endIndex = endPos < indices.count ? indices[endPos] : text.endIndex
+            let chunkText = String(text[startIndex..<endIndex])
+            let tokenCount = await estimateTokenCount(for: chunkText)
             let chunkUTF16Count = chunkText.utf16.count
 
-            let chunk = GPTTokenChunk(
-                index: chunks.count,
-                tokenCount: tokenSlice.count,
-                text: chunkText,
-                startUTF16: utf16Offset,
-                endUTF16: utf16Offset + chunkUTF16Count
+            chunks.append(
+                GPTTokenChunk(
+                    index: chunks.count,
+                    tokenCount: tokenCount,
+                    text: chunkText,
+                    startUTF16: utf16Offset,
+                    endUTF16: utf16Offset + chunkUTF16Count
+                )
             )
-            chunks.append(chunk)
 
             utf16Offset += chunkUTF16Count
-            tokenIndex = endIndex
+            startPos = max(endPos, startPos + 1)
         }
 
         return chunks
+    }
+
+    private func findChunkEnd(
+        text: String,
+        indices: [String.Index],
+        startPos: Int,
+        chunkTokenSize: Int
+    ) async -> Int {
+        let totalCount = indices.count
+        let startIndex = indices[startPos]
+
+        var low = startPos + 1
+        var high = totalCount
+        var best = min(startPos + 1, totalCount)
+
+        while low <= high {
+            let mid = (low + high) / 2
+            let endIndex = mid < totalCount ? indices[mid] : text.endIndex
+            let slice = String(text[startIndex..<endIndex])
+            let tokenCount = await estimateTokenCount(for: slice)
+
+            if tokenCount <= chunkTokenSize {
+                best = mid
+                low = mid + 1
+            } else {
+                high = mid - 1
+            }
+        }
+
+        return best
     }
 }
