@@ -698,6 +698,16 @@
 					"-weak_framework",
 					FoundationModels,
 				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"$(inherited)",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64-maccatalyst/libmlc_llm.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64-maccatalyst/libtvm_ffi_static.a",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
 				REGISTER_APP_GROUPS = YES;
@@ -754,6 +764,16 @@
 					WebKit,
 					"-weak_framework",
 					FoundationModels,
+				);
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"$(inherited)",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64-maccatalyst/libmlc_llm.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64-maccatalyst/libtvm_ffi_static.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
