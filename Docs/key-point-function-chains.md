@@ -20,7 +20,7 @@
         - `getArticleTextFromContentScript()`
         - `browser.tabs.sendMessage(..., { command: "getArticleText" })`
         - `content.js` 解析正文（見 A2）
-        - `estimateTokensViaNative(text)` → `token.estimate`（見 A3）
+        - `estimateTokensWithTokenizer(text)`（見 A3）
      3) 依 token 分流
         - `tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD` → `runLongDocumentPipeline()`（見 A4）
         - 否則進入短文摘要（見 A5）
@@ -33,26 +33,21 @@
 3. `new Readability(document.cloneNode(true)).parse()`
 4. 回傳 `{ command: "articleTextResponse", title, body }`
 
-### A3. Token 估算 / 切段（Native Messaging）
+### A3. Token 估算 / 切段（Tokenizer in Popup）
 `Shared (Extension)/Resources/webllm/popup.js`
-- `estimateTokensViaNative(text)`
-  - `splitTextByByteLength(text, TOKEN_ESTIMATE_CHUNK_BYTES = 16KB)`
-  - `browser.runtime.sendNativeMessage({ command: "token.estimate", payload })`
-`Shared (Extension)/SafariWebExtensionHandler.swift`
-- `handleTokenEstimate()`
-  - 使用 `GPTTokenEstimator.estimateTokenCount()`
-  - 回傳 `totalTokens`
+- `estimateTokensWithTokenizer(text)`
+  - 使用 `gpt-tokenizer`（`o200k_base`）估算 token
+  - tokenizer 初始化失敗時 fallback 回 heuristic
 
 長文切段：
-`popup.js` → `requestTokenChunks({ requestId, chunkTokenSize })`
-- native message：`token.chunk`
-`SafariWebExtensionHandler.handleTokenChunk()`
-- `GPTTokenEstimator.chunk(text:chunkTokenSize:)` → 回傳 `{ index, tokenCount, startUTF16, endUTF16 }`
+`popup.js` → `chunkByTokens(text, chunkTokenSize)`
+- 以 `o200k_base` tokenizer 切段
+- 不再走 native messaging 的 `token.estimate` / `token.chunk`
 
 ### A4. 長文 Pipeline（Popup）
 `Shared (Extension)/Resources/webllm/popup.js` → `runLongDocumentPipeline(ctx)`
-1. **Step 0 分流**：`tokenEstimate` 由 `estimateTokensViaNative()` 回傳
-2. **Step 1 切段**：`requestTokenChunks()` → native `token.chunk`
+1. **Step 0 分流**：`tokenEstimate` 由 tokenizer 估算
+2. **Step 1 切段**：`chunkByTokens()`（popup 內部 tokenizer）
 3. **Step 2 閱讀錨點**（逐段）
    - `buildReadingAnchorSystemPrompt()`
    - `buildReadingAnchorUserPrompt()`
@@ -127,13 +122,13 @@
 
 ### B4. Token 估算與分流（App）
 `ClipboardKeyPointViewModel.run()`
-- `tokenEstimator.estimateTokenCount(for:)` → `GPTTokenEstimator`
-- `tokenEstimate > longDocumentRoutingThreshold (2600)` → 長文 Pipeline
+- `tokenEstimator.estimateTokenCount(for:)` → `TiktokenSwift (o200k_base)`
+- `tokenEstimate > longDocumentRoutingThreshold (3200)` → 長文 Pipeline
 - 否則 → 單次摘要
 
 ### B5. 長文 Pipeline（App）
 `ClipboardKeyPointViewModel.runLongDocumentPipeline()`
-1. **Step 1 切段**：`tokenEstimator.chunk(text:chunkTokenSize:2000)`
+1. **Step 1 切段**：`tokenEstimator.chunk(text:chunkTokenSize:2600)`
 2. **Step 2 閱讀錨點**（逐段）
    - `buildReadingAnchorSystemPrompt()`
    - `buildReadingAnchorUserPrompt()`
@@ -188,14 +183,14 @@
 
 ### D2. 規格步驟（Spec → 實作）
 **Step 0 Token 估算與分流**
-- Spec：`GPTEncoder` 估算，門檻 2600
-- Extension：`estimateTokensViaNative()` → `handleTokenEstimate()` → `GPTTokenEstimator`
-- App：`tokenEstimator.estimateTokenCount()`
+- Spec：`o200k_base` 估算，門檻 3200
+- Extension：`estimateTokensWithTokenizer()`（popup 內 `gpt-tokenizer`）
+- App：`tokenEstimator.estimateTokenCount()`（`TiktokenSwift`）
 
 **Step 1 Chunk 切割**
-- Spec：2000 tokens/chunk
-- Extension：`requestTokenChunks()` → `handleTokenChunk()` → `GPTTokenEstimator.chunk()`
-- App：`tokenEstimator.chunk(text:chunkTokenSize:2000)`
+- Spec：2600 tokens/chunk
+- Extension：`chunkByTokens()`（popup 內 tokenizer）
+- App：`tokenEstimator.chunk(text:chunkTokenSize:2600)`
 
 **Step 2 Chunk 級閱讀錨點**
 - Spec：`buildReadingAnchorSystemPrompt` + `buildReadingAnchorUserPrompt`

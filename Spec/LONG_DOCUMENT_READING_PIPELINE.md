@@ -27,8 +27,8 @@
 - 精度優先的輸出與展示導向的輸出分層處理
 
 ### 2.4 Token 估算一致性（Token Estimation Consistency）
-- 以 Swift 原生模組為單一 Token 估算來源，便於多入口共用
-- 使用 **GPTEncoder（GPT-2 BPE）** 估算 Token，重視可靠性與一致性，不追求與模型 tokenizer 完全對齊
+- 以 **o200k_base** 作為唯一計數基準，確保 Extension 與 App token 對齊
+- App 使用 `TiktokenSwift`，Extension 使用 `gpt-tokenizer`
 
 ### 2.5 輸出資料結構（Raw Library Schema）
 - 長文 Pipeline 需要保存逐段閱讀錨點與估算資訊
@@ -39,14 +39,14 @@
 readingAnchors: [
   {
     index: Int,        // chunk 序號（0-based）
-    tokenCount: Int,   // 該 chunk 的 GPTEncoder token 數
+    tokenCount: Int,   // 該 chunk 的 token 數（o200k_base）
     text: String       // Step 2 輸出的閱讀錨點
   }
 ]
-tokenEstimate: Int        // 原文總 token（GPTEncoder）
-tokenEstimator: String    // "gpt2-bpe"
-chunkTokenSize: Int       // 2000
-routingThreshold: Int     // 2600
+tokenEstimate: Int        // 原文總 token（o200k_base）
+tokenEstimator: String    // "o200k_base"
+chunkTokenSize: Int       // 2600
+routingThreshold: Int     // 3200
 isLongDocument: Bool      // 是否走長文 pipeline
 ```
 
@@ -55,9 +55,9 @@ isLongDocument: Bool      // 是否走長文 pipeline
 ```
 原文
   ↓
-Step 0  Token 估算與分流（GPTEncoder）
-  ├─ ≤ 2600 tokens：走原本單次摘要流程
-  └─ > 2600 tokens：進入長文 Pipeline
+Step 0  Token 估算與分流（o200k_base）
+  ├─ ≤ 3200 tokens：走原本單次摘要流程
+  └─ > 3200 tokens：進入長文 Pipeline
   ↓
 Step 1  Token 切割
   ↓
@@ -76,27 +76,17 @@ Step 3  展示用摘要生成
 在進入長文 pipeline 前，先判斷是否需要分段處理。
 
 **實作方式**
-- 使用 Swift 原生 **GPTEncoder（GPT-2 BPE）** 估算 Token
-- 分流門檻：**2600 tokens**
-  - `≤ 2600`：沿用原本單次摘要流程
-  - `> 2600`：進入長文 pipeline
+- 使用 **o200k_base** 估算 Token
+  - App：`TiktokenSwift`
+  - Extension：`gpt-tokenizer`
+- 分流門檻：**3200 tokens**
+  - `≤ 3200`：沿用原本單次摘要流程
+  - `> 3200`：進入長文 pipeline
 
 **Safari Extension 實作要點**
-- 使用 `browser.runtime.sendNativeMessage` 將 Readability 正文交給原生層估算
-- 以 **16KB** 為單位分塊傳遞正文（避免 payload 上限）
-- 原生端在收到最後一塊後回傳**總 token 數**
-
-**Native message 建議協定**
-- command：`token.estimate`
-- payload：
-  - `requestId`: String
-  - `chunkIndex`: Int (0-based)
-  - `chunkTotal`: Int
-  - `text`: String (16KB 內)
-  - `isLast`: Bool
-- response：
-  - 非最後一塊：`{ ok: true, received: chunkIndex }`
-  - 最後一塊：`{ ok: true, totalTokens: Int }`
+- popup 內直接使用 JS tokenizer 估算
+- 不再走 native messaging 的 `token.estimate`
+- tokenizer 初始化失敗時，fallback 回 heuristic 估算
 
 ### Step 1：長文切割（Chunking）
 
@@ -104,8 +94,8 @@ Step 3  展示用摘要生成
 將超長文本切割為可被模型安全處理的段落。
 
 **實作方式**
-- 使用 **GPTEncoder（GPT-2 BPE）** 計算 Token
-- 以 **2000 token** 為單位切割
+- 使用 **o200k_base** 計算 Token
+- 以 **2600 token** 為單位切割
 
 **設計理由**
 - 保留段落語義完整性
