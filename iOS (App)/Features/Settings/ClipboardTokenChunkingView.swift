@@ -12,6 +12,39 @@ struct ClipboardTokenChunkingView: View {
 
     var body: some View {
         Form {
+            Section("Actions") {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        Button("Read Clipboard") {
+                            readClipboard()
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button("Split") {
+                            splitIntoChunks()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button("Clear") {
+                            clear()
+                        }
+                        .buttonStyle(.bordered)
+
+                        if !chunks.isEmpty {
+                            ForEach(chunks.indices, id: \.self) { index in
+                                Button("Copy \(index + 1)") {
+                                    UIPasteboard.general.string = chunks[index]
+                                    status = "Copied chunk \(index + 1)."
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             Section("Input") {
                 Text("Paste or type text, then split into \(tokensPerChunk)-token chunks.")
                     .foregroundStyle(.secondary)
@@ -37,24 +70,6 @@ struct ClipboardTokenChunkingView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
 
-                HStack(spacing: 12) {
-                    Button("Read Clipboard") {
-                        readClipboard()
-                    }
-                    .buttonStyle(.bordered)
-
-                    Button("Split") {
-                        splitIntoChunks()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                    Button("Clear") {
-                        clear()
-                    }
-                    .buttonStyle(.bordered)
-                }
-
                 if !status.isEmpty {
                     Text(status)
                         .foregroundStyle(.secondary)
@@ -65,26 +80,6 @@ struct ClipboardTokenChunkingView: View {
                 Text("Tokens: \(tokenCount)")
                 Text("Chunks: \(chunks.count)")
                     .foregroundStyle(.secondary)
-            }
-
-            Section("Copy") {
-                if chunks.isEmpty {
-                    Text("No chunks yet.")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(chunks.indices, id: \.self) { index in
-                                Button("Copy \(index + 1)") {
-                                    UIPasteboard.general.string = chunks[index]
-                                    status = "Copied chunk \(index + 1)."
-                                }
-                                .buttonStyle(.bordered)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
             }
 
             Section("Chunks") {
