@@ -3,7 +3,7 @@ import UIKit
 
 struct ClipboardTokenChunkingView: View {
     @State private var inputText = ""
-    @State private var tokensPerChunk = 2000
+    @State private var tokensPerChunk = 2600
     @State private var chunks: [String] = []
     @State private var chunkTokenCounts: [Int] = []
     @State private var tokenCount = 0
@@ -15,12 +15,12 @@ struct ClipboardTokenChunkingView: View {
             Section("Input") {
                 Text("Paste or type text, then split into \(tokensPerChunk)-token chunks.")
                     .foregroundStyle(.secondary)
-                Text("Tokenizer: GPTEncoder (GPT-2 BPE), same as Key-point pipeline.")
+                Text("Tokenizer: Tiktoken (o200k_base), same as Key-point pipeline.")
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 12) {
                     Text("Tokens per chunk")
-                    TextField("2000", value: $tokensPerChunk, format: .number)
+                    TextField("2600", value: $tokensPerChunk, format: .number)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                         .frame(minWidth: 80, maxWidth: 120)
@@ -135,22 +135,26 @@ struct ClipboardTokenChunkingView: View {
             return
         }
 
-        let totalTokens = tokenEstimator.estimateTokenCount(for: trimmed)
-        tokenCount = totalTokens
-        guard totalTokens > 0 else {
-            chunks = [trimmed]
-            chunkTokenCounts = [0]
-            status = "Tokenizer produced no tokens."
-            return
+        Task {
+            let totalTokens = await tokenEstimator.estimateTokenCount(for: trimmed)
+            let chunkSize = max(1, tokensPerChunk)
+            let gptChunks = await tokenEstimator.chunk(text: trimmed, chunkTokenSize: chunkSize)
+            let newChunks = gptChunks.map { $0.text }
+            let newTokenCounts = gptChunks.map { $0.tokenCount }
+
+            await MainActor.run {
+                tokenCount = totalTokens
+                guard totalTokens > 0 else {
+                    chunks = [trimmed]
+                    chunkTokenCounts = [0]
+                    status = "Tokenizer produced no tokens."
+                    return
+                }
+
+                chunks = newChunks
+                chunkTokenCounts = newTokenCounts
+                status = "Split into \(newChunks.count) chunk(s)."
+            }
         }
-
-        let chunkSize = max(1, tokensPerChunk)
-        let gptChunks = tokenEstimator.chunk(text: trimmed, chunkTokenSize: chunkSize)
-        let newChunks = gptChunks.map { $0.text }
-        let newTokenCounts = gptChunks.map { $0.tokenCount }
-
-        chunks = newChunks
-        chunkTokenCounts = newTokenCounts
-        status = "Split into \(newChunks.count) chunk(s)."
     }
 }

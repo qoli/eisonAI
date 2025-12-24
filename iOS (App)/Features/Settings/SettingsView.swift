@@ -29,10 +29,10 @@ struct SettingsView: View {
                 Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
                     .foregroundStyle(.secondary)
 
-                NavigationLink("Clipboard 2000-Token Splitter") {
+                NavigationLink("Clipboard 2600-Token Splitter") {
                     ClipboardTokenChunkingView()
                 }
-                Text("Paste from clipboard and split long text into 2000-token chunks (GPT-2 BPE tokenizer).")
+                Text("Paste from clipboard and split long text into 2600-token chunks (o200k_base tokenizer).")
                     .foregroundStyle(.secondary)
             }
 

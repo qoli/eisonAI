@@ -6,9 +6,8 @@ const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
-const LONG_DOCUMENT_TOKEN_THRESHOLD = 2600;
-const CHUNK_TOKEN_SIZE = 2000;
-const TOKEN_ESTIMATE_CHUNK_BYTES = 16 * 1024;
+const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
+const CHUNK_TOKEN_SIZE = 2600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
@@ -311,6 +310,17 @@ async function recoverEngine(err) {
 }
 
 const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
+const CJK_SINGLE_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
+
+let tokenizerInstance = null;
+
+function getTokenizer() {
+  if (tokenizerInstance) return tokenizerInstance;
+  const tokenizer = globalThis.GPTTokenizer_o200k_base;
+  if (!tokenizer) return null;
+  tokenizerInstance = tokenizer;
+  return tokenizerInstance;
+}
 
 function estimateTokensFromText(text) {
   const value = String(text ?? "");
@@ -322,6 +332,113 @@ function estimateTokensFromText(text) {
   return Math.max(1, Math.ceil(estimate));
 }
 
+function estimateTokensWithTokenizer(text) {
+  const value = String(text ?? "");
+  if (!value) return 0;
+  const tokenizer = getTokenizer();
+  if (!tokenizer) return estimateTokensFromText(value);
+  try {
+    if (typeof tokenizer.countTokens === "function") {
+      return Number(tokenizer.countTokens(value)) || 0;
+    }
+    const tokens = tokenizer.encode(value);
+    return Array.isArray(tokens) ? tokens.length : 0;
+  } catch (err) {
+    console.warn("[WebLLM Demo] Tokenizer failed, falling back:", err);
+    return estimateTokensFromText(value);
+  }
+}
+
+function chunkByEstimatedTokens(text, chunkTokenSize) {
+  const value = String(text ?? "");
+  if (!value || chunkTokenSize <= 0) {
+    return { totalTokens: 0, chunks: [] };
+  }
+
+  const chunks = [];
+  let buffer = "";
+  let cjkCount = 0;
+  let nonCjkCount = 0;
+  let utf16Offset = 0;
+
+  const flush = () => {
+    if (!buffer) return;
+    const tokenCount = Math.max(1, Math.ceil(cjkCount + nonCjkCount / 4));
+    const chunkLength = buffer.length;
+    chunks.push({
+      index: chunks.length,
+      tokenCount,
+      text: buffer,
+      startUTF16: utf16Offset,
+      endUTF16: utf16Offset + chunkLength,
+    });
+    utf16Offset += chunkLength;
+    buffer = "";
+    cjkCount = 0;
+    nonCjkCount = 0;
+  };
+
+  for (const char of value) {
+    buffer += char;
+    if (CJK_SINGLE_REGEX.test(char)) {
+      cjkCount += 1;
+    } else {
+      nonCjkCount += 1;
+    }
+    const estimatedTokens = Math.ceil(cjkCount + nonCjkCount / 4);
+    if (estimatedTokens >= chunkTokenSize) {
+      flush();
+    }
+  }
+
+  flush();
+
+  return { totalTokens: estimateTokensFromText(value), chunks };
+}
+
+function chunkByTokens(text, chunkTokenSize) {
+  const value = String(text ?? "");
+  if (!value || chunkTokenSize <= 0) {
+    return { totalTokens: 0, chunks: [] };
+  }
+
+  const tokenizer = getTokenizer();
+  if (!tokenizer) {
+    return chunkByEstimatedTokens(value, chunkTokenSize);
+  }
+
+  const tokens = tokenizer.encode(value);
+  if (!Array.isArray(tokens) || tokens.length === 0) {
+    return { totalTokens: 0, chunks: [] };
+  }
+
+  const chunks = [];
+  let utf16Offset = 0;
+
+  for (let i = 0; i < tokens.length; i += chunkTokenSize) {
+    const slice = tokens.slice(i, i + chunkTokenSize);
+    let chunkText = "";
+    try {
+      chunkText = String(tokenizer.decode(slice) ?? "");
+    } catch (err) {
+      console.warn("[WebLLM Demo] Tokenizer decode failed, using empty chunk:", err);
+      chunkText = "";
+    }
+
+    const chunkLength = chunkText.length;
+    chunks.push({
+      index: chunks.length,
+      tokenCount: slice.length,
+      text: chunkText,
+      startUTF16: utf16Offset,
+      endUTF16: utf16Offset + chunkLength,
+    });
+    utf16Offset += chunkLength;
+  }
+
+  return { totalTokens: tokens.length, chunks };
+}
+
 function estimateTokensForMessages(messages) {
   if (!Array.isArray(messages)) return 0;
   let total = 0;
@@ -329,11 +446,11 @@ function estimateTokensForMessages(messages) {
     if (!msg) continue;
     const content = msg.content;
     if (typeof content === "string") {
-      total += estimateTokensFromText(content);
+      total += estimateTokensWithTokenizer(content);
     } else if (Array.isArray(content)) {
       for (const part of content) {
         if (part?.type === "text" && typeof part.text === "string") {
-          total += estimateTokensFromText(part.text);
+          total += estimateTokensWithTokenizer(part.text);
         }
       }
     }
@@ -558,7 +675,6 @@ let activeModelIdOverride = "";
 let foundationJobId = "";
 let foundationCursor = 0;
 let lastTokenEstimate = 0;
-let lastTokenEstimateRequestId = "";
 let lastReadingAnchors = [];
 let lastSummarySystemPrompt = "";
 
@@ -725,97 +841,6 @@ async function shouldUseFoundationModels() {
   return Boolean(info.enabled && info.available);
 }
 
-function generateRequestId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.crypto.randomUUID();
-  }
-  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-}
-
-function splitTextByByteLength(text, maxBytes) {
-  const encoder = new TextEncoder();
-  const chunks = [];
-  let current = "";
-  let currentBytes = 0;
-
-  for (const char of String(text ?? "")) {
-    const charBytes = encoder.encode(char).length;
-    if (currentBytes + charBytes > maxBytes && current) {
-      chunks.push(current);
-      current = "";
-      currentBytes = 0;
-    }
-    current += char;
-    currentBytes += charBytes;
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
-
-async function estimateTokensViaNative(text) {
-  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
-    const fallback = estimateTokensFromText(text);
-    return { requestId: "", totalTokens: fallback };
-  }
-
-  const requestId = generateRequestId();
-  const chunks = splitTextByByteLength(text, TOKEN_ESTIMATE_CHUNK_BYTES);
-  const chunkTotal = chunks.length || 1;
-  let totalTokens = 0;
-
-  for (let i = 0; i < chunks.length; i += 1) {
-    const resp = await browser.runtime.sendNativeMessage({
-      v: 1,
-      command: "token.estimate",
-      payload: {
-        requestId,
-        chunkIndex: i,
-        chunkTotal,
-        text: chunks[i],
-        isLast: i === chunks.length - 1,
-      },
-    });
-
-    const payload = resp?.payload ?? resp;
-    if (resp?.type === "error") {
-      const msg = typeof payload?.message === "string" ? payload.message : "native token estimate failed";
-      throw new Error(msg);
-    }
-
-    if (payload?.totalTokens != null) {
-      totalTokens = Number(payload.totalTokens) || 0;
-    }
-  }
-
-  return { requestId, totalTokens };
-}
-
-async function requestTokenChunks({ requestId, chunkTokenSize }) {
-  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
-    throw new Error("native messaging unavailable");
-  }
-
-  const resp = await browser.runtime.sendNativeMessage({
-    v: 1,
-    command: "token.chunk",
-    payload: {
-      requestId,
-      chunkTokenSize,
-    },
-  });
-
-  const payload = resp?.payload ?? resp;
-  if (resp?.type === "error") {
-    const msg = typeof payload?.message === "string" ? payload.message : "native token chunk failed";
-    throw new Error(msg);
-  }
-
-  return {
-    totalTokens: Number(payload?.totalTokens) || 0,
-    chunks: Array.isArray(payload?.chunks) ? payload.chunks : [],
-  };
-}
-
 async function prewarmFoundationModels({ systemPrompt, promptPrefix }) {
   const resp = await browser.runtime.sendNativeMessage({
     v: 1,
@@ -912,7 +937,7 @@ async function saveRawHistoryItem({ title, text, url }) {
     modelId: String(activeModelIdOverride || modelSelect?.value || MODEL_ID),
     readingAnchors: Array.isArray(lastReadingAnchors) ? lastReadingAnchors : [],
     tokenEstimate: Number(lastTokenEstimate) || 0,
-    tokenEstimator: "gpt2-bpe",
+    tokenEstimator: "o200k_base",
     chunkTokenSize: lastReadingAnchors?.length ? CHUNK_TOKEN_SIZE : undefined,
     routingThreshold: LONG_DOCUMENT_TOKEN_THRESHOLD,
     isLongDocument: Boolean(lastReadingAnchors?.length),
@@ -948,21 +973,12 @@ async function prepareSummaryContext() {
       return null;
     }
 
-    try {
-      const tokenResult = await estimateTokensViaNative(normalized.text);
-      lastTokenEstimate = tokenResult.totalTokens;
-      lastTokenEstimateRequestId = tokenResult.requestId;
-      setInputTokenEstimate(lastTokenEstimate);
-    } catch (err) {
-      console.warn("[WebLLM Demo] Native token estimate failed, falling back:", err);
-      lastTokenEstimate = estimateTokensFromText(normalized.text);
-      lastTokenEstimateRequestId = "";
-      setInputTokenEstimate(lastTokenEstimate);
-    }
+    lastTokenEstimate = estimateTokensWithTokenizer(normalized.text);
+    setInputTokenEstimate(lastTokenEstimate);
 
     cachedUserPrompt = buildSummaryUserPrompt(normalized);
     preparedMessagesForTokenEstimate = buildSummaryMessages(normalized);
-    return { ...normalized, tokenEstimate: lastTokenEstimate, tokenRequestId: lastTokenEstimateRequestId };
+    return { ...normalized, tokenEstimate: lastTokenEstimate };
   } catch (err) {
     cachedUserPrompt = "";
     preparedMessagesForTokenEstimate = [];
@@ -1253,12 +1269,7 @@ function buildSummaryUserPromptFromAnchors(anchors) {
 
 async function runLongDocumentPipeline(ctx) {
   const useFoundation = await shouldUseFoundationModels();
-  const requestId = ctx.tokenRequestId || lastTokenEstimateRequestId;
   const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-
-  if (!requestId) {
-    throw new Error("Missing token request id for chunking.");
-  }
 
   if (!useFoundation) {
     await ensureWebLLMEngineLoaded();
@@ -1283,13 +1294,11 @@ async function runLongDocumentPipeline(ctx) {
 
   let summaryText = "";
   try {
-    const chunkInfo = await requestTokenChunks({
-      requestId,
-      chunkTokenSize: CHUNK_TOKEN_SIZE,
-    });
+    const chunkInfo = chunkByTokens(ctx.text, CHUNK_TOKEN_SIZE);
     const chunks = chunkInfo.chunks.map((chunk) => ({
       index: Number(chunk.index) || 0,
       tokenCount: Number(chunk.tokenCount) || 0,
+      text: String(chunk.text ?? ""),
       startUTF16: Number(chunk.startUTF16) || 0,
       endUTF16: Number(chunk.endUTF16) || 0,
     }));
@@ -1301,7 +1310,7 @@ async function runLongDocumentPipeline(ctx) {
 
     for (const chunk of chunks) {
       if (generationInterrupted) break;
-      const chunkText = ctx.text.slice(chunk.startUTF16, chunk.endUTF16);
+      const chunkText = String(chunk.text ?? "");
       setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
 
       const systemPrompt = buildReadingAnchorSystemPrompt({
@@ -1527,7 +1536,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
     lastReadingAnchors = [];
     lastSummarySystemPrompt = "";
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD && ctx.tokenRequestId) {
+    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
       return;
@@ -1723,7 +1732,7 @@ runButton.addEventListener("click", async () => {
 inputEl.addEventListener("input", () => {
   const prompt = inputEl.value.trim();
   if (prompt) {
-    setInputTokenEstimate(estimateTokensFromText(prompt));
+    setInputTokenEstimate(estimateTokensWithTokenizer(prompt));
   } else if (preparedMessagesForTokenEstimate.length) {
     setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
   } else {
@@ -1746,7 +1755,7 @@ summarizeButton.addEventListener("click", async () => {
     lastReadingAnchors = [];
     lastSummarySystemPrompt = "";
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD && ctx.tokenRequestId) {
+    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
       return;

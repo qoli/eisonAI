@@ -23,17 +23,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private let appGroupIdentifier = AppConfig.appGroupIdentifier
     private let systemPromptKey = AppConfig.systemPromptKey
     private let rawLibraryMaxItems = 200
-    private let tokenEstimator = GPTTokenEstimator.shared
-    private let tokenEstimateQueue = DispatchQueue(label: "com.qoli.eisonAI.tokenEstimate")
-    private var tokenEstimateSessions: [String: TokenEstimateSession] = [:]
-
-    private struct TokenEstimateSession {
-        let chunkTotal: Int
-        var chunks: [String?]
-        var text: String?
-        var totalTokens: Int?
-    }
-
     private struct RawHistoryItem: Codable {
         var v: Int = 1
         var id: String
@@ -238,160 +227,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return stored
     }
 
-    private func handleTokenEstimate(_ dict: [String: Any], context: NSExtensionContext) {
-        let payload = dict["payload"] as? [String: Any]
-        let requestId = (payload?["requestId"] as? String) ?? ""
-        let chunkIndex = readInt(payload?["chunkIndex"]) ?? -1
-        let chunkTotal = readInt(payload?["chunkTotal"]) ?? -1
-        let isLast = (payload?["isLast"] as? Bool) ?? false
-        let text = (payload?["text"] as? String) ?? ""
-
-        guard !requestId.isEmpty, chunkIndex >= 0, chunkTotal > 0 else {
-            complete(context, responseMessage: [
-                "v": 1,
-                "type": "error",
-                "name": "token.estimate",
-                "payload": [
-                    "code": "INVALID_ARGUMENT",
-                    "message": "Missing or invalid requestId/chunkIndex/chunkTotal.",
-                ],
-            ])
-            return
-        }
-
-        tokenEstimateQueue.async { [weak self] in
-            guard let self else { return }
-
-            var session = self.tokenEstimateSessions[requestId]
-            if session == nil || session?.chunkTotal != chunkTotal {
-                session = TokenEstimateSession(chunkTotal: chunkTotal, chunks: Array(repeating: nil, count: chunkTotal), text: nil, totalTokens: nil)
-            }
-
-            guard chunkIndex < chunkTotal else {
-                self.complete(context, responseMessage: [
-                    "v": 1,
-                    "type": "error",
-                    "name": "token.estimate",
-                    "payload": [
-                        "code": "OUT_OF_RANGE",
-                        "message": "chunkIndex exceeds chunkTotal.",
-                    ],
-                ])
-                return
-            }
-
-            session?.chunks[chunkIndex] = text
-
-            let isComplete = isLast || !(session?.chunks.contains { $0 == nil } ?? true)
-            if !isComplete {
-                self.tokenEstimateSessions[requestId] = session
-                self.complete(context, responseMessage: [
-                    "v": 1,
-                    "type": "response",
-                    "name": "token.estimate",
-                    "payload": [
-                        "ok": true,
-                        "received": chunkIndex,
-                    ],
-                ])
-                return
-            }
-
-            guard let assembled = session?.chunks.compactMap({ $0 }).joined() else {
-                self.complete(context, responseMessage: [
-                    "v": 1,
-                    "type": "error",
-                    "name": "token.estimate",
-                    "payload": [
-                        "code": "INCOMPLETE",
-                        "message": "Missing chunk data.",
-                    ],
-                ])
-                return
-            }
-
-            let totalTokens = self.tokenEstimator.estimateTokenCount(for: assembled)
-            session?.text = assembled
-            session?.totalTokens = totalTokens
-            self.tokenEstimateSessions[requestId] = session
-
-            self.complete(context, responseMessage: [
-                "v": 1,
-                "type": "response",
-                "name": "token.estimate",
-                "payload": [
-                    "ok": true,
-                    "totalTokens": totalTokens,
-                ],
-            ])
-        }
-    }
-
-    private func handleTokenChunk(_ dict: [String: Any], context: NSExtensionContext) {
-        let payload = dict["payload"] as? [String: Any]
-        let requestId = (payload?["requestId"] as? String) ?? ""
-        let chunkTokenSize = readInt(payload?["chunkTokenSize"]) ?? 0
-
-        guard !requestId.isEmpty, chunkTokenSize > 0 else {
-            complete(context, responseMessage: [
-                "v": 1,
-                "type": "error",
-                "name": "token.chunk",
-                "payload": [
-                    "code": "INVALID_ARGUMENT",
-                    "message": "Missing requestId/chunkTokenSize.",
-                ],
-            ])
-            return
-        }
-
-        tokenEstimateQueue.async { [weak self] in
-            guard let self else { return }
-            guard var session = self.tokenEstimateSessions[requestId] else {
-                self.complete(context, responseMessage: [
-                    "v": 1,
-                    "type": "error",
-                    "name": "token.chunk",
-                    "payload": [
-                        "code": "NOT_FOUND",
-                        "message": "No session for requestId.",
-                    ],
-                ])
-                return
-            }
-
-            let assembled: String
-            if let text = session.text {
-                assembled = text
-            } else {
-                assembled = session.chunks.compactMap({ $0 }).joined()
-                session.text = assembled
-            }
-
-            let chunks = self.tokenEstimator.chunk(text: assembled, chunkTokenSize: chunkTokenSize)
-            let payloadChunks: [[String: Any]] = chunks.map { chunk in
-                [
-                    "index": chunk.index,
-                    "tokenCount": chunk.tokenCount,
-                    "startUTF16": chunk.startUTF16,
-                    "endUTF16": chunk.endUTF16,
-                ]
-            }
-
-            self.tokenEstimateSessions.removeValue(forKey: requestId)
-            self.complete(context, responseMessage: [
-                "v": 1,
-                "type": "response",
-                "name": "token.chunk",
-                "payload": [
-                    "ok": true,
-                    "chunks": payloadChunks,
-                    "totalTokens": session.totalTokens ?? chunks.reduce(0) { $0 + $1.tokenCount },
-                ],
-            ])
-        }
-    }
-
     private func readInt(_ value: Any?) -> Int? {
         if let intValue = value as? Int { return intValue }
         if let doubleValue = value as? Double { return Int(doubleValue) }
@@ -476,14 +311,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
         let command = (dict["command"] as? String) ?? (dict["name"] as? String) ?? ""
         switch command {
-        case "token.estimate":
-            handleTokenEstimate(dict, context: context)
-            return
-
-        case "token.chunk":
-            handleTokenChunk(dict, context: context)
-            return
-
         case "getSystemPrompt":
             complete(context, responseMessage: [
                 "v": 1,

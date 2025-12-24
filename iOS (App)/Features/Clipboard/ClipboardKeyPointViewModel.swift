@@ -4,8 +4,8 @@ import UIKit
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
-    private static let longDocumentRoutingThreshold = 2600
-    private static let chunkTokenSize = 2000
+    private static let longDocumentRoutingThreshold = 3200
+    private static let chunkTokenSize = 2600
     private static let readingAnchorMaxResponseTokens = 1024
 
     private let input: KeyPointInput
@@ -79,7 +79,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let useFoundationModels = self.foundationSettings.isAppEnabled()
                     && FoundationModelsAvailability.currentStatus() == .available
 
-                let tokenEstimate = self.tokenEstimator.estimateTokenCount(for: normalized.text)
+                let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
                 self.pipelineStatus = isLongDocument ? "長文 pipeline：是" : "長文 pipeline：否"
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
@@ -123,7 +123,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     modelId: result.modelId,
                     readingAnchors: result.readingAnchors,
                     tokenEstimate: tokenEstimate,
-                    tokenEstimator: "gpt2-bpe",
+                    tokenEstimator: "o200k_base",
                     chunkTokenSize: isLongDocument ? Self.chunkTokenSize : nil,
                     routingThreshold: Self.longDocumentRoutingThreshold,
                     isLongDocument: isLongDocument
@@ -252,7 +252,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     ) async throws -> PipelineResult {
         log("longdoc:start useFoundationModels=\(useFoundationModels)")
         status = "Chunking…"
-        let chunks = tokenEstimator.chunk(text: input.text, chunkTokenSize: Self.chunkTokenSize)
+        let chunks = await tokenEstimator.chunk(text: input.text, chunkTokenSize: Self.chunkTokenSize)
         log("chunking done count=\(chunks.count) textCount=\(input.text.count)")
         if chunks.isEmpty {
             throw NSError(

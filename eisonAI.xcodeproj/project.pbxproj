@@ -97,7 +97,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Config/AppConfig.swift,
-				TokenEstimation/GPTTokenEstimator.swift,
 			);
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;
 		};
@@ -111,7 +110,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		EA5072942EF9446E003B07D5 /* GPTEncoder */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = GPTEncoder; sourceTree = "<group>"; };
 		EA886F352EF7D254003B59A9 /* shareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EA886F422EF7D254003B59A9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = shareExtension; sourceTree = "<group>"; };
 		EAF756ED2EF3D23700CA34C3 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = App; sourceTree = "<group>"; };
 		EAF756F02EF3D23700CA34C3 /* Base.lproj */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Base.lproj; sourceTree = "<group>"; };
@@ -177,7 +175,6 @@
 			children = (
 				EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */,
 				EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */,
-				EA5072942EF9446E003B07D5 /* GPTEncoder */,
 				AF5F4941B83749F5AEFEFBCD /* MLC XCFrameworks */,
 				EA7726352BC5B6B3005A194D /* iOS (App) */,
 				EA7726552BC5B6B3005A194D /* iOS (Extension) */,
@@ -263,7 +260,6 @@
 				EA886FC02EF7D4D8003B59A9 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				EA5072942EF9446E003B07D5 /* GPTEncoder */,
 				EAF756ED2EF3D23700CA34C3 /* App */,
 				EAF756F02EF3D23700CA34C3 /* Base.lproj */,
 				EAF756F32EF3D23700CA34C3 /* Config */,
@@ -288,7 +284,6 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				EA5072942EF9446E003B07D5 /* GPTEncoder */,
 				EAF7571C2EF3D24F00CA34C3 /* Resources */,
 			);
 			name = "eisonAI Extension (iOS)";
@@ -309,7 +304,6 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				EA5072942EF9446E003B07D5 /* GPTEncoder */,
 				EA886F352EF7D254003B59A9 /* shareExtension */,
 			);
 			name = shareExtension;
