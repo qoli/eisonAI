@@ -25,4 +25,4 @@ GPT 2 BPE tokenizer 計算表現誤差極大，高達 2.7 倍誤差。
 庫源代碼參考：
 /Volumes/Data/Github/TiktokenSwift
 
-SPM 已經完成 on local 的方式集成，Tagger 為 iOS 端
+SPM 已經完成 on local 的方式集成，TARGETS 為 iOS 端
