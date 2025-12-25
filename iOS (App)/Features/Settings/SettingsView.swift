@@ -1,16 +1,10 @@
 import SwiftUI
 
 struct SettingsView: View {
-    private let store = SystemPromptStore()
-    private let titlePromptStore = TitlePromptStore()
     private let foundationModelsStore = FoundationModelsSettingsStore()
     private let sharePollingStore = SharePollingSettingsStore()
     private let rawLibraryStore = RawLibraryStore()
 
-    @State private var draftPrompt = ""
-    @State private var draftTitlePrompt = ""
-    @State private var status = ""
-    @State private var titlePromptStatus = ""
     @State private var debugStatus = ""
     @State private var cloudSyncStatus = ""
     @State private var isCloudSyncing = false
@@ -82,66 +76,12 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("System prompt") {
-                Text("Used by the Safari extension popup summary.")
+            Section("Prompts") {
+                NavigationLink("Prompt Settings") {
+                    PromptSettingsView()
+                }
+                Text("Manage summary, chunk, and title prompts in one place.")
                     .foregroundStyle(.secondary)
-
-                TextEditor(text: $draftPrompt)
-                    .frame(minHeight: 180)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-
-                HStack {
-                    Button("Save") {
-                        store.save(draftPrompt)
-                        draftPrompt = store.load()
-                        status = "Saved."
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button("Reset to default") {
-                        store.save(nil)
-                        draftPrompt = store.load()
-                        status = "Reset to default."
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if !status.isEmpty {
-                    Text(status)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("Title prompt") {
-                Text("Used when rebuilding missing titles in the Library detail view.")
-                    .foregroundStyle(.secondary)
-
-                TextEditor(text: $draftTitlePrompt)
-                    .frame(minHeight: 120)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-
-                HStack {
-                    Button("Save") {
-                        titlePromptStore.save(draftTitlePrompt)
-                        draftTitlePrompt = titlePromptStore.load()
-                        titlePromptStatus = "Saved."
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button("Reset to default") {
-                        titlePromptStore.save(nil)
-                        draftTitlePrompt = titlePromptStore.load()
-                        titlePromptStatus = "Reset to default."
-                    }
-                    .buttonStyle(.bordered)
-                }
-
-                if !titlePromptStatus.isEmpty {
-                    Text(titlePromptStatus)
-                        .foregroundStyle(.secondary)
-                }
             }
 
             Section("Safari Extension") {
@@ -237,9 +177,6 @@ struct SettingsView: View {
         .onAppear {
             if !didLoad {
                 didLoad = true
-                draftPrompt = store.load()
-                draftTitlePrompt = titlePromptStore.load()
-
                 foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
                 foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
                 sharePollingEnabled = sharePollingStore.isEnabled()

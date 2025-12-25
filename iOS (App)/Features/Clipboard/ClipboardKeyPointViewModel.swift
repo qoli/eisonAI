@@ -335,7 +335,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             readingAnchors.append(anchor)
         }
 
-        let summarySystemPrompt = AppConfig.defaultSystemPrompt
+        let summarySystemPrompt = SystemPromptStore().load()
         let summaryUserPrompt = buildSummaryUserPrompt(from: readingAnchors)
         log("longdoc:summary-prompt systemCount=\(summarySystemPrompt.count) userCount=\(summaryUserPrompt.count)")
 
@@ -371,14 +371,14 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
-        let prompt = """
-        你是一個文字整理員。
-
-        你目前的任務是，正在協助用戶完整閱讀超長內容。
-
-        - 當前這是原文中的一個段落（chunks \(chunkIndex) of \(chunkTotal)）
-        - 擷取此文章的關鍵點
-        """
+        let base = ChunkPromptStore().load().trimmingCharacters(in: .whitespacesAndNewlines)
+        let dynamicLine = "- 當前這是原文中的一個段落（chunks \(chunkIndex) of \(chunkTotal)）"
+        let prompt: String
+        if base.isEmpty {
+            prompt = dynamicLine
+        } else {
+            prompt = [base, "", dynamicLine].joined(separator: "\n")
+        }
         log("longdoc:anchor-system-prompt index=\(chunkIndex) total=\(chunkTotal) count=\(prompt.count)")
         return prompt
     }
@@ -436,20 +436,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func loadKeyPointSystemPrompt() -> String {
-        let fallbackBase = """
-        你是一個內容整理助手。
-        """
-
-        let base = BundledTextResource.loadUTF8(name: "default_system_prompt", ext: "txt") ?? fallbackBase
-
-        print(base)
-        
-        return """
-        \(base)
-        """
-        
-        
-        
+        SystemPromptStore().load()
     }
 
     private static func buildUserPrompt(title: String, text: String) -> String {

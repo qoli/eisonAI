@@ -22,6 +22,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
     private let appGroupIdentifier = AppConfig.appGroupIdentifier
     private let systemPromptKey = AppConfig.systemPromptKey
+    private let chunkPromptKey = AppConfig.chunkPromptKey
     private let rawLibraryMaxItems = AppConfig.rawLibraryMaxItems
     private struct RawHistoryItem: Codable {
         var v: Int = 1
@@ -229,6 +230,16 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return stored
     }
 
+    private func loadChunkPrompt() -> String {
+        guard let stored = sharedDefaults()?.string(forKey: chunkPromptKey) else {
+            return AppConfig.defaultChunkPrompt
+        }
+        if stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return AppConfig.defaultChunkPrompt
+        }
+        return stored
+    }
+
     private func readInt(_ value: Any?) -> Int? {
         if let intValue = value as? Int { return intValue }
         if let doubleValue = value as? Double { return Int(doubleValue) }
@@ -320,6 +331,17 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "name": "systemPrompt",
                 "payload": [
                     "prompt": loadSystemPrompt(),
+                ],
+            ])
+            return
+
+        case "getChunkPrompt":
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "chunkPrompt",
+                "payload": [
+                    "prompt": loadChunkPrompt(),
                 ],
             ])
             return

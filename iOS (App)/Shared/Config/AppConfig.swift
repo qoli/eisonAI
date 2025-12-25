@@ -10,6 +10,7 @@ import Foundation
 enum AppConfig {
     static let appGroupIdentifier = "group.com.qoli.eisonAI"
     static let systemPromptKey = "eison.systemPrompt"
+    static let chunkPromptKey = "eison.chunkPrompt"
     static let titlePromptKey = "eison.titlePrompt"
     static let foundationModelsAppEnabledKey = "eison.foundationModels.app.enabled"
     static let foundationModelsExtensionEnabledKey = "eison.foundationModels.extension.enabled"
@@ -39,6 +40,14 @@ enum AppConfig {
         - 使用繁體中文。
         """
     }()
+
+    static let defaultChunkPrompt = """
+    你是一個文字整理員。
+
+    你目前的任務是，正在協助用戶完整閱讀超長內容。
+
+    - 擷取此文章的關鍵點
+    """
 
     static let defaultTitlePrompt = """
     請為內容構建一個合適的標題；

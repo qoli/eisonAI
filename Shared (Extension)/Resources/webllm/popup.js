@@ -736,6 +736,13 @@ const DEFAULT_SYSTEM_PROMPT =
 - 合適的格式結構
 - 使用繁體中文。`;
 
+const DEFAULT_CHUNK_PROMPT =
+  `你是一個文字整理員。
+
+你目前的任務是，正在協助用戶完整閱讀超長內容。
+
+- 擷取此文章的關鍵點`;
+
 const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
 let bundledDefaultSystemPrompt = null;
 
@@ -757,6 +764,7 @@ async function getDefaultSystemPromptFallback() {
 }
 
 let systemPrompt = DEFAULT_SYSTEM_PROMPT;
+let chunkPrompt = DEFAULT_CHUNK_PROMPT;
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -832,6 +840,36 @@ async function refreshSystemPromptFromNative() {
   return systemPrompt;
 }
 
+async function refreshChunkPromptFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    chunkPrompt = DEFAULT_CHUNK_PROMPT;
+    return chunkPrompt;
+  }
+
+  try {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "getChunkPrompt",
+    });
+
+    const prompt =
+      resp?.payload?.prompt ??
+      resp?.prompt ??
+      resp?.echo?.payload?.prompt ??
+      resp?.echo?.prompt;
+
+    if (typeof prompt === "string" && prompt.trim()) {
+      chunkPrompt = prompt;
+    } else {
+      chunkPrompt = DEFAULT_CHUNK_PROMPT;
+    }
+  } catch (err) {
+    chunkPrompt = DEFAULT_CHUNK_PROMPT;
+    console.warn("[WebLLM Demo] Failed to load chunk prompt from native:", err);
+  }
+
+  return chunkPrompt;
+}
 async function checkFoundationModelsAvailabilityFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     return { enabled: false, available: false, reason: "native messaging unavailable" };
@@ -1279,14 +1317,10 @@ async function generateTextWithFoundationModels({ systemPrompt, userPrompt, rend
 }
 
 function buildReadingAnchorSystemPrompt({ index, total }) {
-  return [
-    "你是一個文字整理員。",
-    "",
-    "你目前的任務是，正在協助用戶完整閱讀超長內容。",
-    "",
-    `- 當前這是原文中的一個段落（chunks ${index} of ${total}）`,
-    "- 擷取此文章的關鍵點",
-  ].join("\n");
+  const base = String(chunkPrompt ?? "").trim();
+  const dynamicLine = `- 當前這是原文中的一個段落（chunks ${index} of ${total}）`;
+  if (!base) return dynamicLine;
+  return [base, "", dynamicLine].join("\n");
 }
 
 function buildReadingAnchorUserPrompt(text) {
@@ -1574,6 +1608,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
     loadButton.disabled = true;
     modelSelect.disabled = true;
     await refreshSystemPromptFromNative();
+    await refreshChunkPromptFromNative();
     setStatus("Reading page…", 0);
     setShareVisible(false);
     setThink("");
@@ -1800,6 +1835,7 @@ inputEl.addEventListener("input", () => {
 summarizeButton.addEventListener("click", async () => {
   try {
     await refreshSystemPromptFromNative();
+    await refreshChunkPromptFromNative();
     setStatus("Reading page…", 0);
     const ctx = await prepareSummaryContextWithRetry();
     if (!ctx) {
