@@ -11,6 +11,8 @@ struct LibraryItemDetailView: View {
     @ObservedObject var viewModel: LibraryViewModel
     var entry: RawHistoryEntry
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var item: RawHistoryItem?
     @State private var isArticleExpanded: Bool = false
     @State private var isGeneratingTitle: Bool = false
@@ -47,11 +49,8 @@ struct LibraryItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let item {
-                    Divider().opacity(0.3)
-                    row()
-                    Divider().opacity(0.3)
-                    tagsSection(item: item)
-                    Divider().opacity(0.3)
+                    metadataView(item: item)
+
                     outputs(item: item)
 
                     Color.clear.frame(height: 80)
@@ -103,6 +102,23 @@ struct LibraryItemDetailView: View {
                     Button("重建標題") {
                         generateTitleIfNeeded(force: true)
                     }
+
+                    Divider()
+
+                    Menu {
+                        Button(role: .destructive) {
+                            viewModel.delete(entry)
+                            dismiss()
+                        } label: {
+                            Text("確認刪除")
+                        }
+
+                        Button(role: .cancel) {} label: {
+                            Text("取消")
+                        }
+                    } label: {
+                        Label("刪除紀錄", systemImage: "trash")
+                    }
                 } label: {
                     Label("More", systemImage: "ellipsis.circle")
                 }
@@ -135,31 +151,31 @@ struct LibraryItemDetailView: View {
         .foregroundStyle(.secondary)
     }
 
-    @ViewBuilder
-    private func row() -> some View {
-        HStack {
-            Text("Date")
-                .font(.caption)
-                .fontWeight(.bold)
+    @ViewBuilder func metadataView(item: RawHistoryItem) -> some View {
+        VStack {
+            HStack {
+                Text(entry.metadata.modelId.capitalized)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                Spacer()
+            }
 
-            Spacer()
+            HStack {
+                Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
 
-            Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
-                .font(.caption)
-                .foregroundColor(.secondary)
+                Spacer()
+            }
+
+            Divider()
+                .padding(.vertical, 6)
+                .opacity(0.5)
+
+            tagsSection(item: item)
         }
-
-        HStack {
-            Text("Model")
-                .font(.caption)
-                .fontWeight(.bold)
-
-            Spacer()
-
-            Text(entry.metadata.modelId)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder

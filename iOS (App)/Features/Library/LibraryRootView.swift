@@ -675,16 +675,3 @@ private struct LibraryItemRow: View {
         .padding(.vertical, 6)
     }
 }
-
-extension View {
-    @ViewBuilder
-    func librarySearchBarBackground() -> some View {
-        if #available(iOS 26.0, *) {
-            self.glassEffect(.regular)
-
-        } else {
-            background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-    }
-}
