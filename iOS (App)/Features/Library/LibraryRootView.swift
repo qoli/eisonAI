@@ -204,6 +204,12 @@ struct LibraryRootView: View {
 
         #endif
 
+        #if targetEnvironment(macCatalyst)
+            ToolbarItem(placement: .topBarTrailing) {
+                listFilterMenu
+            }
+        #endif
+
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 syncStatusButton
