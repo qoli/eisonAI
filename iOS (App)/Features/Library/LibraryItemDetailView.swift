@@ -49,9 +49,6 @@ struct LibraryItemDetailView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if let item {
                     outputs(item: item)
-
-                    Color.clear.frame(height: 80)
-
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, alignment: .center)

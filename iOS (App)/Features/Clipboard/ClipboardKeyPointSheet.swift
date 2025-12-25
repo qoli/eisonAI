@@ -22,7 +22,7 @@ struct ClipboardKeyPointSheet: View {
                     }
 
                     if let tokenEstimate = model.tokenEstimate {
-                        Text("Token 長度：\(tokenEstimate)")
+                        Text("Token Estimate：\(tokenEstimate)")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
