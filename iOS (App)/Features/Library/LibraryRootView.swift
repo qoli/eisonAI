@@ -648,7 +648,6 @@ private struct LibraryItemRow: View {
                 .lineLimit(3)
 
             if !entry.metadata.tags.isEmpty {
-//                tagChips(tags: entry.metadata.tags)
                 TagChipsView(tags: entry.metadata.tags)
             }
 

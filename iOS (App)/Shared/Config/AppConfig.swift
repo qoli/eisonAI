@@ -50,7 +50,7 @@ enum AppConfig {
     """
 
     static let defaultTitlePrompt = """
-    請為內容構建一個合適的標題；
-    使用繁體中文，保持純文本輸出。
+    為內容建立一個簡短的標題；
+    與輸入語言保持一致，純文本輸出。
     """
 }

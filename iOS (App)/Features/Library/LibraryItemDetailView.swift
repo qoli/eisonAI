@@ -67,6 +67,16 @@ struct LibraryItemDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                if isGeneratingTitle {
+                    ProgressView()
+                }
+            }
+
+            if #available(iOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     viewModel.toggleFavorite(entry)
                 } label: {
