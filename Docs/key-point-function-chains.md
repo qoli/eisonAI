@@ -42,6 +42,7 @@
 長文切段：
 `popup.js` → `chunkByTokens(text, chunkTokenSize)`
 - 以 `o200k_base` tokenizer 切段
+- tokenizer 未就緒時改用 `chunkByEstimatedTokens()`（heuristic）
 - 不再走 native messaging 的 `token.estimate` / `token.chunk`
 
 ### A4. 長文 Pipeline（Popup）
@@ -123,6 +124,7 @@
 ### B4. Token 估算與分流（App）
 `ClipboardKeyPointViewModel.run()`
 - `tokenEstimator.estimateTokenCount(for:)` → `SwiftikToken (o200k_base)`
+- `SwiftikToken` 由 App main bundle 載入 `o200k_base.tiktoken`
 - `tokenEstimate > longDocumentRoutingThreshold (3200)` → 長文 Pipeline
 - 否則 → 單次摘要
 
@@ -190,6 +192,7 @@
 **Step 1 Chunk 切割**
 - Spec：2600 tokens/chunk
 - Extension：`chunkByTokens()`（popup 內 tokenizer）
+- Extension tokenizer 不可用時改用 `chunkByEstimatedTokens()`
 - App：`tokenEstimator.chunk(text:chunkTokenSize:2600)`
 
 **Step 2 Chunk 級閱讀錨點**
