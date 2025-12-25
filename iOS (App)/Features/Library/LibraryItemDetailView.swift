@@ -174,8 +174,8 @@ struct LibraryItemDetailView: View {
 
             tagsSection(item: item)
         }
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .padding(.all, 12)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder
@@ -207,7 +207,7 @@ struct LibraryItemDetailView: View {
                         isTagEditorPresented = true
                     }
                 } label: {
-                    Label("Tag Menu", systemImage: "ellipsis.circle")
+                    Label("Tag Menu", systemImage: "tag.fill")
                         .labelStyle(.iconOnly)
                 }
             }
