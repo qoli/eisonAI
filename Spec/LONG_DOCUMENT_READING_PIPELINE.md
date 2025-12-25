@@ -27,7 +27,7 @@
 - 精度優先的輸出與展示導向的輸出分層處理
 
 ### 2.4 Token 估算一致性（Token Estimation Consistency）
-- 以 **o200k_base** 作為唯一計數基準，確保 Extension 與 App token 對齊
+- 以 **p50k_base** 作為唯一計數基準，確保 Extension 與 App token 對齊
 - App 使用 `SwiftikToken`，Extension 使用 `gpt-tokenizer`
 
 ### 2.5 輸出資料結構（Raw Library Schema）
@@ -39,12 +39,12 @@
 readingAnchors: [
   {
     index: Int,        // chunk 序號（0-based）
-    tokenCount: Int,   // 該 chunk 的 token 數（o200k_base）
+    tokenCount: Int,   // 該 chunk 的 token 數（p50k_base）
     text: String       // Step 2 輸出的閱讀錨點
   }
 ]
-tokenEstimate: Int        // 原文總 token（o200k_base）
-tokenEstimator: String    // "o200k_base"
+tokenEstimate: Int        // 原文總 token（p50k_base）
+tokenEstimator: String    // "p50k_base"
 chunkTokenSize: Int       // 2600
 routingThreshold: Int     // 3200
 isLongDocument: Bool      // 是否走長文 pipeline
@@ -55,7 +55,7 @@ isLongDocument: Bool      // 是否走長文 pipeline
 ```
 原文
   ↓
-Step 0  Token 估算與分流（o200k_base）
+Step 0  Token 估算與分流（p50k_base）
   ├─ ≤ 3200 tokens：走原本單次摘要流程
   └─ > 3200 tokens：進入長文 Pipeline
   ↓
@@ -76,7 +76,7 @@ Step 3  展示用摘要生成
 在進入長文 pipeline 前，先判斷是否需要分段處理。
 
 **實作方式**
-- 使用 **o200k_base** 估算 Token
+- 使用 **p50k_base** 估算 Token
   - App：`SwiftikToken`
   - Extension：`gpt-tokenizer`
 - 分流門檻：**3200 tokens**
@@ -94,7 +94,7 @@ Step 3  展示用摘要生成
 將超長文本切割為可被模型安全處理的段落。
 
 **實作方式**
-- 使用 **o200k_base** 計算 Token
+- 使用 **p50k_base** 計算 Token
 - 以 **2600 token** 為單位切割
 
 **設計理由**

@@ -15,7 +15,7 @@ actor SwiftikTokenStore {
         case vocabularyFileNotFound
     }
 
-    private let encoding: Encoding = .o200k
+    private let encoding: Encoding = .p50k
     private var tokenizer: Tokenizer?
 
     func loadTokenizer() async throws -> Tokenizer {

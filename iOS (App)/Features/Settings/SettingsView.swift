@@ -32,7 +32,7 @@ struct SettingsView: View {
                 NavigationLink("Clipboard 2600-Token Splitter") {
                     ClipboardTokenChunkingView()
                 }
-                Text("Paste from clipboard and split long text into 2600-token chunks (o200k_base tokenizer).")
+                Text("Paste from clipboard and split long text into 2600-token chunks (p50k_base tokenizer).")
                     .foregroundStyle(.secondary)
             }
 

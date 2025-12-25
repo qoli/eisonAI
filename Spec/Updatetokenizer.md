@@ -9,7 +9,7 @@
 
 ## 2. 目標
 
-- **改用與 OpenAI/TikToken 一致的計數基準**：`o200k_base`
+- **改用與 OpenAI/TikToken 一致的計數基準**：`p50k_base`
 - **Safari Extension 與 App 原生端一致對齊**（同一套 encoding）
 - **長文分流與切段更可預期**
 - 不改變既有 pipeline 行為（只換計數器）
@@ -26,19 +26,19 @@
 
 - **Safari Extension**：`gpt-tokenizer`（JS）
   - repo：https://github.com/niieani/gpt-tokenizer
-  - encoding：`o200k_base`
+  - encoding：`p50k_base`
 - **App 原生端**：`SwiftikToken`（Swift，無 FFI）
   - 路徑：`SwiftikToken/`
-  - encoding：`o200k_base`
+  - encoding：`p50k_base`
 
-> 備註：兩端都統一使用 `o200k_base`，確保 token 數與 chunk 邊界一致。
+> 備註：兩端都統一使用 `p50k_base`，確保 token 數與 chunk 邊界一致。
 
 ### 4.2 Token 門檻調整
 
 - 長文分流門檻（routingThreshold）：`3200`
 - chunk 切段大小（chunkTokenSize）：`2600`
 
-> 說明：原 2600/2000 為 GPT-2 BPE 誤差保守值，新計數器改為 `o200k_base` 後上調。
+> 說明：原 2600/2000 為 GPT-2 BPE 誤差保守值，新計數器改為 `p50k_base` 後上調。
 
 ### 4.3 影響範圍（對應 Key-point chain）
 
@@ -60,8 +60,8 @@
 
 ### 5.1 集成方式
 
-- 下載 `https://unpkg.com/gpt-tokenizer/dist/o200k_base.js`
-- 放置到 `Shared (Extension)/Resources/webllm/o200k_base.js`
+- 下載 `https://unpkg.com/gpt-tokenizer/dist/p50k_base.js`
+- 放置到 `Shared (Extension)/Resources/webllm/p50k_base.js`
 - 以本地檔案載入（避免 runtime CDN）
 
 ### 5.2 設計與 API
@@ -81,7 +81,7 @@
 
 ### 5.3 Raw Library 欄位
 
-- `tokenEstimator`：改為 `"o200k_base"`
+- `tokenEstimator`：改為 `"p50k_base"`
 - 其餘欄位維持：`tokenEstimate` / `chunkTokenSize` / `routingThreshold` / `isLongDocument`
   - `routingThreshold = 3200`、`chunkTokenSize = 2600`
 
@@ -90,7 +90,7 @@
 ### 6.1 取代 GPTEncoder
 
 - `GPTTokenEstimator` 改用 `SwiftikToken`
-- encoding 固定 `o200k_base`
+- encoding 固定 `p50k_base`
 - 僅使用 `encode` 作為 token 計算來源（不要求 decode 回原文）
 - 分流門檻：`3200` tokens；切段大小：`2600` tokens
 - 對外 API 介面不變：
@@ -101,7 +101,7 @@
 ```swift
 // Encode text
 let text = "Hello, world!"
-let tokenizer = Tiktoken(encoding: .o200k)
+let tokenizer = Tiktoken(encoding: .p50k)
 let tokens = try await tokenizer.encode(text: text, allowedSpecial: [])
 print("Tokens: \(tokens)")
 ```
@@ -109,17 +109,17 @@ print("Tokens: \(tokens)")
 ### 6.2 UI / 文案更新
 
 - `ClipboardTokenChunkingView` 說明文案同步更新
-  - 「GPTEncoder (GPT-2 BPE)」→「SwiftikToken (o200k_base)」
+  - 「GPTEncoder (GPT-2 BPE)」→「SwiftikToken (p50k_base)」
 
 ### 6.3 Raw Library 欄位
 
-- `tokenEstimator`：改為 `"o200k_base"`
+- `tokenEstimator`：改為 `"p50k_base"`
 - 舊資料保持 `"gpt2-bpe"` 不回填
 
 ## 7. 相容性與遷移
 
 - **不做歷史資料回填**
-- 新資料以 `tokenEstimator = "o200k_base"` 儲存
+- 新資料以 `tokenEstimator = "p50k_base"` 儲存
 - UI 顯示需容忍舊值（`gpt2-bpe`）
 
 ## 8. 驗收標準

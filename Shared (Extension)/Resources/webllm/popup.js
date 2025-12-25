@@ -317,7 +317,7 @@ let tokenizerInstance = null;
 
 function getTokenizer() {
   if (tokenizerInstance) return tokenizerInstance;
-  const tokenizer = globalThis.GPTTokenizer_o200k_base;
+  const tokenizer = globalThis.GPTTokenizer_p50k_base;
   if (!tokenizer) return null;
   tokenizerInstance = tokenizer;
   return tokenizerInstance;
@@ -961,7 +961,7 @@ async function saveRawHistoryItem({ title, text, url }) {
     modelId: String(activeModelIdOverride || modelSelect?.value || MODEL_ID),
     readingAnchors: Array.isArray(lastReadingAnchors) ? lastReadingAnchors : [],
     tokenEstimate: Number(lastTokenEstimate) || 0,
-    tokenEstimator: "o200k_base",
+    tokenEstimator: "p50k_base",
     chunkTokenSize: lastReadingAnchors?.length ? CHUNK_TOKEN_SIZE : undefined,
     routingThreshold: LONG_DOCUMENT_TOKEN_THRESHOLD,
     isLongDocument: Boolean(lastReadingAnchors?.length),

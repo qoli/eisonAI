@@ -123,7 +123,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     modelId: result.modelId,
                     readingAnchors: result.readingAnchors,
                     tokenEstimate: tokenEstimate,
-                    tokenEstimator: "o200k_base",
+                    tokenEstimator: "p50k_base",
                     chunkTokenSize: isLongDocument ? Self.chunkTokenSize : nil,
                     routingThreshold: Self.longDocumentRoutingThreshold,
                     isLongDocument: isLongDocument
