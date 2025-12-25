@@ -1292,6 +1292,7 @@ function buildSummaryUserPromptFromAnchors(anchors) {
 }
 
 async function runLongDocumentPipeline(ctx) {
+  // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
   const useFoundation = await shouldUseFoundationModels();
   const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
 
@@ -1299,6 +1300,7 @@ async function runLongDocumentPipeline(ctx) {
     await ensureWebLLMEngineLoaded();
   }
 
+  // Reset UI + state before long-document processing starts.
   generationBackend = useFoundation ? "foundation-models" : "webllm";
   activeModelIdOverride = useFoundation ? FOUNDATION_MODEL_ID : "";
   generationInterrupted = false;
@@ -1317,6 +1319,7 @@ async function runLongDocumentPipeline(ctx) {
 
   let summaryText = "";
   try {
+    // Step 1: Split the source text into token-sized chunks for per-part reading.
     const chunkInfo = chunkByTokens(ctx.text, CHUNK_TOKEN_SIZE);
     const chunks = chunkInfo.chunks.map((chunk) => ({
       index: Number(chunk.index) || 0,
@@ -1331,9 +1334,16 @@ async function runLongDocumentPipeline(ctx) {
 
     lastReadingAnchors = [];
 
+    // Step 2: For each chunk, ask the model to produce a short "reading anchor".
     for (const chunk of chunks) {
       if (generationInterrupted) break;
       const chunkText = String(chunk.text ?? "");
+      console.log(
+        `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} token count: ${chunk.tokenCount}`,
+      );
+      console.log(
+        `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} text:\\n${chunkText}`,
+      );
       setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
       showVisibilityPreview(chunkText);
 
@@ -1366,6 +1376,7 @@ async function runLongDocumentPipeline(ctx) {
         return stripTrailingWhitespace(stripLeadingBlankLines(final));
       })();
 
+      // Keep anchors so the final summary can use them instead of the full text.
       lastReadingAnchors.push({
         index: chunk.index,
         tokenCount: chunk.tokenCount,
@@ -1379,6 +1390,7 @@ async function runLongDocumentPipeline(ctx) {
       return "";
     }
 
+    // Step 3: Feed the anchors back into the model to generate the final summary.
     setStatus("Generating summary…", 0);
     resetOutputForVisibility();
     setThink("");
