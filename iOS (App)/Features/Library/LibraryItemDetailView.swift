@@ -494,9 +494,13 @@ private struct PlainTextSection: View {
 private struct MarkdownSection: View {
     var text: String
 
+    var noThinkText: String {
+        text.removingThinkTags()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Markdown(text)
+            Markdown(noThinkText)
                 .markdownTheme(.librarySummary)
                 .padding(.vertical, 12)
                 .textSelection(.enabled)

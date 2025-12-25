@@ -658,7 +658,7 @@ private struct LibraryItemRow: View {
                 Spacer(minLength: 0)
             }
 
-            Text(entry.metadata.summaryText.removingBlankLines())
+            Text(entry.metadata.summaryText.removingThinkTags().removingBlankLines())
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
