@@ -7,6 +7,8 @@ final class ShareViewController: UIViewController {
     private var didScheduleCompletion = false
     private let viewModel = ShareStatusViewModel()
     private var hostingController: UIHostingController<ShareStatusView>?
+    private let minimizeDuration: TimeInterval = 0.35
+    private let bounceDuration: TimeInterval = 0.3
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -117,8 +119,8 @@ final class ShareViewController: UIViewController {
         }
 
         await MainActor.run {
-            setStatus("Saved", detail: "Closing in 2 seconds…")
-            scheduleCompletion()
+            setStatus("Saved", detail: "Closing…")
+            playMinimizeAndComplete()
         }
     }
 
@@ -136,6 +138,24 @@ final class ShareViewController: UIViewController {
         didScheduleCompletion = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             self?.completeRequest()
+        }
+    }
+
+    @MainActor
+    private func playMinimizeAndComplete() {
+        guard !didScheduleCompletion else { return }
+        didScheduleCompletion = true
+
+        withAnimation(.easeInOut(duration: minimizeDuration)) {
+            viewModel.isMinimized = true
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + minimizeDuration) { [weak self] in
+            guard let self else { return }
+            self.viewModel.bounceTrigger.toggle()
+            DispatchQueue.main.asyncAfter(deadline: .now() + self.bounceDuration) { [weak self] in
+                self?.completeRequest()
+            }
         }
     }
 
