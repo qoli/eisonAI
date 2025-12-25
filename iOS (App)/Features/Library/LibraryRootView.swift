@@ -659,6 +659,7 @@ private struct LibraryItemRow: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineLimit(1)
+            .opacity(0.7)
         }
         .padding(.vertical, 6)
     }
