@@ -52,66 +52,73 @@ struct LibraryRootView: View {
 
     var body: some View {
         NavigationStack {
-            searchPlacement(
-                ZStack {
-                    mainContent
-                        .id(mode)
-                        .transition(
-                            .asymmetric(
-                                insertion: .move(edge: segmentedTransitionEdge).combined(with: .opacity),
-                                removal: .opacity
-                            )
-                        )
-                }
-                .animation(.easeInOut(duration: 0.25), value: selection)
-                .onChange(of: selection) { oldValue, newValue in
-                    segmentedTransitionEdge = newValue >= oldValue ? .trailing : .leading
-                }
+            libraryContent
+        }
+    }
+
+    @ViewBuilder
+    private var libraryContent: some View {
+        searchPlacement(transitionContent)
+        .navigationTitle("Library")
+        .toolbar {
+            toolbarContent
+        }
+        .sheet(item: $activeKeyPointInput, onDismiss: {
+            viewModel.reload()
+        }) { input in
+            ClipboardKeyPointSheet(input: input)
+        }
+        .sheet(isPresented: $isSyncErrorSheetPresented) {
+            syncErrorSheet
+        }
+        .refreshable {
+            viewModel.reload()
+            syncCoordinator.syncNow()
+        }
+        .task {
+            viewModel.reload()
+        }
+        .onAppear {
+            viewModel.reload()
+            refreshPolling(for: scenePhase)
+            triggerSyncIfNeeded(for: scenePhase)
+        }
+        .onOpenURL { url in
+            handleShareURL(url)
+            handleNoteURL(url)
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            refreshPolling(for: newValue)
+            triggerSyncIfNeeded(for: newValue)
+        }
+        .onChange(of: sharePollingEnabled) { _, _ in
+            refreshPolling(for: scenePhase)
+        }
+        .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
+            viewModel.reload()
+        }
+        .navigationDestination(item: $deepLinkEntry) { entry in
+            LibraryItemDetailView(
+                viewModel: viewModel,
+                entry: entry
             )
-            .navigationTitle("Library")
-            .toolbar {
-                toolbarContent
-            }
-            .sheet(item: $activeKeyPointInput, onDismiss: {
-                viewModel.reload()
-            }) { input in
-                ClipboardKeyPointSheet(input: input)
-            }
-            .sheet(isPresented: $isSyncErrorSheetPresented) {
-                syncErrorSheet
-            }
-            .refreshable {
-                viewModel.reload()
-                syncCoordinator.syncNow()
-            }
-            .task {
-                viewModel.reload()
-            }
-            .onAppear {
-                viewModel.reload()
-                refreshPolling(for: scenePhase)
-                triggerSyncIfNeeded(for: scenePhase)
-            }
-            .onOpenURL { url in
-                handleShareURL(url)
-                handleNoteURL(url)
-            }
-            .onChange(of: scenePhase) { _, newValue in
-                refreshPolling(for: newValue)
-                triggerSyncIfNeeded(for: newValue)
-            }
-            .onChange(of: sharePollingEnabled) { _, _ in
-                refreshPolling(for: scenePhase)
-            }
-            .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
-                viewModel.reload()
-            }
-            .navigationDestination(item: $deepLinkEntry) { entry in
-                LibraryItemDetailView(
-                    viewModel: viewModel,
-                    entry: entry
+        }
+    }
+
+    private var transitionContent: some View {
+        ZStack {
+            mainContent
+                .id(mode)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: segmentedTransitionEdge).combined(with: .opacity),
+                        removal: .opacity
+                    )
                 )
-            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: selection)
+        .onChange(of: selection) { oldValue, newValue in
+            segmentedTransitionEdge = newValue >= oldValue ? .trailing : .leading
         }
     }
 

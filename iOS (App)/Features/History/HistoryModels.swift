@@ -126,9 +126,17 @@ struct RawHistoryItem: Codable, Identifiable {
     }
 }
 
-struct RawHistoryEntry: Identifiable {
+struct RawHistoryEntry: Identifiable, Hashable {
     var fileURL: URL
     var metadata: RawHistoryItemMetadata
 
     var id: String { fileURL.lastPathComponent }
+
+    static func == (lhs: RawHistoryEntry, rhs: RawHistoryEntry) -> Bool {
+        lhs.fileURL == rhs.fileURL
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(fileURL)
+    }
 }
