@@ -63,6 +63,7 @@ struct LibraryItemDetailView: View {
             .padding(.horizontal)
         }
         .navigationTitle(displayTitle)
+        .navigationSubtitleCompat(Self.dateFormatter.string(from: entry.metadata.createdAt))
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -537,5 +538,26 @@ extension Shape {
                 )
             )
             .stroke(.primary.opacity(0.2), lineWidth: 0.7)
+    }
+}
+extension View {
+    @ViewBuilder
+    fileprivate func ifAvailableiOS26<Content: View>(_ transform: (Self) -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            transform(self)
+        } else {
+            self
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func navigationSubtitleCompat(_ text: String) -> some View {
+        if #available(iOS 26.0, *) {
+            self.navigationSubtitle(text)
+        } else {
+            self
+        }
     }
 }
