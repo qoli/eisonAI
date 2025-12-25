@@ -183,6 +183,27 @@ struct LibraryRootView: View {
             .animation(.easeInOut, value: syncCoordinator.isSyncing)
         }
 
+        #if !targetEnvironment(macCatalyst)
+            // List Filter
+
+            if UIDevice.current.userInterfaceIdiom == .pad {
+                ToolbarItem(placement: .topBarTrailing) {
+                    listFilterMenu
+                }
+
+            } else {
+                ToolbarItem(placement: .bottomBar) {
+                    listFilterMenu
+                }
+
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                }
+            }
+
+        #endif
+
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 syncStatusButton
@@ -199,52 +220,45 @@ struct LibraryRootView: View {
                     .labelStyle(.iconOnly)
             }
         }
+    }
 
-        #if !targetEnvironment(macCatalyst)
-            // List Filter
-            ToolbarItem(placement: .bottomBar) {
-                Menu {
-                    Button {
-                        selectedTag = nil
-                    } label: {
-                        if selectedTag == nil {
-                            Label("All Tags", systemImage: "checkmark")
-                        } else {
-                            Text("All Tags")
-                        }
-                    }
-
-                    Divider()
-
-                    if availableTags.isEmpty {
-                        Button("No tags") {}
-                            .disabled(true)
-                    } else {
-                        ForEach(availableTags, id: \.self) { tag in
-                            Button {
-                                selectedTag = tag
-                            } label: {
-                                if selectedTag == tag {
-                                    Label(tag, systemImage: "checkmark")
-                                } else {
-                                    Text(tag)
-                                }
-                            }
-                        }
-                    }
-                } label: {
-                    Label(
-                        "Filter",
-                        systemImage: selectedTag == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill"
-                    )
+    @ViewBuilder
+    private var listFilterMenu: some View {
+        Menu {
+            Button {
+                selectedTag = nil
+            } label: {
+                if selectedTag == nil {
+                    Label("All Tags", systemImage: "checkmark")
+                } else {
+                    Text("All Tags")
                 }
             }
 
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .bottomBar)
-                DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            Divider()
+
+            if availableTags.isEmpty {
+                Button("No tags") {}
+                    .disabled(true)
+            } else {
+                ForEach(availableTags, id: \.self) { tag in
+                    Button {
+                        selectedTag = tag
+                    } label: {
+                        if selectedTag == tag {
+                            Label(tag, systemImage: "checkmark")
+                        } else {
+                            Text(tag)
+                        }
+                    }
+                }
             }
-        #endif
+        } label: {
+            Label(
+                "Filter",
+                systemImage: selectedTag == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill"
+            )
+        }
     }
 
     private func triggerSyncIfNeeded(for phase: ScenePhase) {
