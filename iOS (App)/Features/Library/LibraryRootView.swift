@@ -59,50 +59,50 @@ struct LibraryRootView: View {
     @ViewBuilder
     private var libraryContent: some View {
         searchPlacement(transitionContent)
-        .navigationTitle("Library")
-        .toolbar {
-            toolbarContent
-        }
-        .sheet(item: $activeKeyPointInput, onDismiss: {
-            viewModel.reload()
-        }) { input in
-            ClipboardKeyPointSheet(input: input)
-        }
-        .sheet(isPresented: $isSyncErrorSheetPresented) {
-            syncErrorSheet
-        }
-        .refreshable {
-            viewModel.reload()
-            syncCoordinator.syncNow()
-        }
-        .task {
-            viewModel.reload()
-        }
-        .onAppear {
-            viewModel.reload()
-            refreshPolling(for: scenePhase)
-            triggerSyncIfNeeded(for: scenePhase)
-        }
-        .onOpenURL { url in
-            handleShareURL(url)
-            handleNoteURL(url)
-        }
-        .onChange(of: scenePhase) { _, newValue in
-            refreshPolling(for: newValue)
-            triggerSyncIfNeeded(for: newValue)
-        }
-        .onChange(of: sharePollingEnabled) { _, _ in
-            refreshPolling(for: scenePhase)
-        }
-        .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
-            viewModel.reload()
-        }
-        .navigationDestination(item: $deepLinkEntry) { entry in
-            LibraryItemDetailView(
-                viewModel: viewModel,
-                entry: entry
-            )
-        }
+            .navigationTitle("Library")
+            .toolbar {
+                toolbarContent
+            }
+            .sheet(item: $activeKeyPointInput, onDismiss: {
+                viewModel.reload()
+            }) { input in
+                ClipboardKeyPointSheet(input: input)
+            }
+            .sheet(isPresented: $isSyncErrorSheetPresented) {
+                syncErrorSheet
+            }
+            .refreshable {
+                viewModel.reload()
+                syncCoordinator.syncNow()
+            }
+            .task {
+                viewModel.reload()
+            }
+            .onAppear {
+                viewModel.reload()
+                refreshPolling(for: scenePhase)
+                triggerSyncIfNeeded(for: scenePhase)
+            }
+            .onOpenURL { url in
+                handleShareURL(url)
+                handleNoteURL(url)
+            }
+            .onChange(of: scenePhase) { _, newValue in
+                refreshPolling(for: newValue)
+                triggerSyncIfNeeded(for: newValue)
+            }
+            .onChange(of: sharePollingEnabled) { _, _ in
+                refreshPolling(for: scenePhase)
+            }
+            .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
+                viewModel.reload()
+            }
+            .navigationDestination(item: $deepLinkEntry) { entry in
+                LibraryItemDetailView(
+                    viewModel: viewModel,
+                    entry: entry
+                )
+            }
     }
 
     private var transitionContent: some View {
@@ -235,13 +235,8 @@ struct LibraryRootView: View {
     @ViewBuilder
     private func searchPlacement<Content: View>(_ content: Content) -> some View {
         #if targetEnvironment(macCatalyst)
-//            content
-//            .searchable(text: $searchText, placement: .toolbarPrincipal, prompt: "Search")
-//            會歪的，https://x.com/llqoli/status/2001990991092531532
-
             content.safeAreaInset(edge: .bottom) {
                 searchBar
-                    .padding(.bottom, 26)
             }
         #else
 
@@ -256,7 +251,6 @@ struct LibraryRootView: View {
             if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
                 content.safeAreaInset(edge: .bottom) {
                     searchBar
-                        .padding(.bottom, 26)
                 }
             } else if isPad {
                 // On iPad, keep consistent bottom padding and a wider layout
@@ -265,10 +259,6 @@ struct LibraryRootView: View {
             } else {
                 // On iPhone, adjust bottom padding with focus to avoid jumping with keyboard
                 content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
-//                content.safeAreaInset(edge: .bottom) {
-//                    searchBar
-//                        .padding(.bottom, isSearchFocused ? 26 : 0)
-//                }
             }
         #endif
     }
@@ -326,37 +316,42 @@ struct LibraryRootView: View {
         }
     }
 
+    // 只有 macCatalyst 使用
     private var searchBar: some View {
         HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
 
-            TextField("Search", text: $searchText)
-                .focused($isSearchFocused)
-                .submitLabel(.done)
+                TextField("Search", text: $searchText)
+                    .focused($isSearchFocused)
+                    .submitLabel(.done)
 
-            if !searchText.isEmpty {
-                Button {
-                    searchText = ""
-                    isSearchFocused = true
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                        isSearchFocused = true
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear Search")
+                    .transition(.opacity)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Clear Search")
-                .transition(.opacity)
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .glassedEffect(in: .capsule, interactive: true)
+            .frame(maxWidth: isSearchFocused ? .infinity : 160)
+            .padding(.horizontal, 16)
+
+            Spacer()
         }
-        .padding(.horizontal)
-        .padding(.vertical, 12)
-//        .librarySearchBarBackground()
-        .glassedEffect(in: .capsule, interactive: true)
-        .frame(maxWidth: isSearchFocused ? .infinity : 260)
-        .padding(.horizontal, isSearchFocused ? 12 : 80)
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
         .animation(.easeInOut(duration: 0.15), value: searchText)
         .offset(y: 10)
+        .padding(.bottom, 26)
     }
 
     private func handleShareURL(_ url: URL) {
