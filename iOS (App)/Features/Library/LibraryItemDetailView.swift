@@ -49,7 +49,7 @@ struct LibraryItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let item {
-                    metadataView(item: item)
+//                    metadataView(item: item)
 
                     outputs(item: item)
 
@@ -84,24 +84,35 @@ struct LibraryItemDetailView: View {
                 }
                 .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                    Link(destination: url) {
-                        Label("Open Link", systemImage: "link")
-                    }
-                    .accessibilityLabel("Open Page URL")
-                }
+
+            if #available(iOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
+
+            // Detail-Menu
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Copy Note Link") {
+                    if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                        Link(destination: url) {
+                            Label("Open Link", systemImage: "link")
+                        }
+                        .accessibilityLabel("Open Page URL")
+
+                        Divider()
+                    }
+
+                    Button {
                         copyNoteLink()
+                    } label: {
+                        Label("Copy Note Link", systemImage: "doc.on.doc")
                     }
 
                     Divider()
 
-                    Button("重建標題") {
+                    Button {
                         generateTitleIfNeeded(force: true)
+                    } label: {
+                        Label("Regenerate Title", systemImage: "arrow.clockwise")
                     }
 
                     Divider()
@@ -111,17 +122,17 @@ struct LibraryItemDetailView: View {
                             viewModel.delete(entry)
                             dismiss()
                         } label: {
-                            Text("確認刪除")
+                            Label("Confirm Delete", systemImage: "trash")
                         }
 
                         Button(role: .cancel) {} label: {
-                            Text("取消")
+                            Label("Cancel", systemImage: "xmark")
                         }
                     } label: {
-                        Label("刪除紀錄", systemImage: "trash")
+                        Label("Delete Record", systemImage: "trash")
                     }
                 } label: {
-                    Label("More", systemImage: "ellipsis.circle")
+                    Label("More", systemImage: "ellipsis")
                 }
             }
         }
@@ -153,30 +164,30 @@ struct LibraryItemDetailView: View {
     }
 
     @ViewBuilder func metadataView(item: RawHistoryItem) -> some View {
-        VStack {
-            HStack {
-                Text(entry.metadata.modelId.capitalized)
-                    .font(.caption)
-                    .fontWeight(.bold)
-                Spacer()
-            }
+//        VStack {
+//            HStack {
+//                Text(entry.metadata.modelId.capitalized)
+//                    .font(.caption)
+//                    .fontWeight(.bold)
+//                Spacer()
+//            }
+//
+//            HStack {
+//                Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
+//                    .font(.caption)
+//                    .foregroundColor(.secondary)
+//
+//                Spacer()
+//            }
+//
+//            Divider()
+//                .padding(.vertical, 6)
+//                .opacity(0.5)
 
-            HStack {
-                Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Spacer()
-            }
-
-            Divider()
-                .padding(.vertical, 6)
-                .opacity(0.5)
-
-            tagsSection(item: item)
-        }
-        .padding(.all, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+//        }
+        tagsSection(item: item)
+            .padding(.all, 12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder
@@ -540,6 +551,7 @@ extension Shape {
             .stroke(.primary.opacity(0.2), lineWidth: 0.7)
     }
 }
+
 extension View {
     @ViewBuilder
     fileprivate func ifAvailableiOS26<Content: View>(_ transform: (Self) -> Content) -> some View {
