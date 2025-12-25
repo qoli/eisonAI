@@ -9,6 +9,7 @@ struct LibraryItemDetailView: View {
     @State private var item: RawHistoryItem?
     @State private var isArticleExpanded: Bool = false
     @State private var isGeneratingTitle: Bool = false
+    @State private var isTagEditorPresented: Bool = false
 
     private let mlc = MLCClient()
     private let foundationModels = FoundationModelsClient()
@@ -42,6 +43,8 @@ struct LibraryItemDetailView: View {
                 if let item {
                     Divider().opacity(0.3)
                     row()
+                    Divider().opacity(0.3)
+                    tagsSection(item: item)
                     Divider().opacity(0.3)
                     outputs(item: item)
 
@@ -83,9 +86,19 @@ struct LibraryItemDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: $isTagEditorPresented, onDismiss: {
+            log("tag editor dismissed; reloading detail")
+            item = viewModel.loadDetail(for: entry)
+            log("tag editor reload done item=\(item != nil ? "ok" : "nil")")
+        }) {
+            TagEditorView(fileURL: entry.fileURL, title: "Tags")
+        }
         .task {
+            print(entry)
+            log("detail task start path=\(entry.fileURL.lastPathComponent)")
             isArticleExpanded = false
             item = viewModel.loadDetail(for: entry)
+            log("detail load result item=\(item != nil ? "ok" : "nil")")
             generateTitleIfNeeded(force: false)
         }
     }
@@ -122,6 +135,32 @@ struct LibraryItemDetailView: View {
             Text(entry.metadata.modelId)
                 .font(.caption)
                 .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func tagsSection(item: RawHistoryItem) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Tags")
+                    .font(.caption)
+                    .fontWeight(.bold)
+
+                Spacer()
+
+                Button("Edit") {
+                    isTagEditorPresented = true
+                }
+                .font(.caption)
+            }
+
+            if item.tags.isEmpty {
+                Text("No tags")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                TagChipsView(tags: item.tags)
+            }
         }
     }
 

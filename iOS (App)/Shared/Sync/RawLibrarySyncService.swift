@@ -9,6 +9,7 @@ actor RawLibrarySyncService {
     private let itemsPrefix = "Items/"
     private let favoriteItemsPrefix = "FavoriteItems/"
     private let favoriteIndexPath = AppConfig.rawLibraryFavoriteIndexFilename
+    private let tagsCachePath = AppConfig.rawLibraryTagsCacheFilename
     private let manifestFilename = AppConfig.rawLibrarySyncManifestFilename
 
     func syncNow(progress: RawLibrarySyncProgressHandler? = nil) async throws {
@@ -143,6 +144,7 @@ actor RawLibrarySyncService {
         _ = try await cloud.deleteAll(prefix: itemsPrefix)
         _ = try await cloud.deleteAll(prefix: favoriteItemsPrefix)
         try? await cloud.deleteFile(path: favoriteIndexPath)
+        try? await cloud.deleteFile(path: tagsCachePath)
 
         manifest.files.removeAll()
 
@@ -197,6 +199,11 @@ actor RawLibrarySyncService {
         let favoriteIndexURL = rootDir.appendingPathComponent(favoriteIndexPath)
         if fileManager.fileExists(atPath: favoriteIndexURL.path) {
             files.append(try buildLocalFile(url: favoriteIndexURL, path: favoriteIndexPath))
+        }
+
+        let tagsCacheURL = rootDir.appendingPathComponent(tagsCachePath)
+        if fileManager.fileExists(atPath: tagsCacheURL.path) {
+            files.append(try buildLocalFile(url: tagsCacheURL, path: tagsCachePath))
         }
 
         return files
@@ -255,6 +262,9 @@ actor RawLibrarySyncService {
         records.append(contentsOf: try await cloud.fetchAllRecords(prefix: favoriteItemsPrefix))
         if let favorite = try await cloud.fetchFile(path: favoriteIndexPath) {
             records.append(favorite)
+        }
+        if let cache = try await cloud.fetchFile(path: tagsCachePath) {
+            records.append(cache)
         }
         return records
     }

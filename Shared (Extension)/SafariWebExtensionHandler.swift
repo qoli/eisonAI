@@ -31,6 +31,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         var title: String
         var articleText: String
         var summaryText: String
+        var tags: [String] = []
         var systemPrompt: String
         var userPrompt: String
         var modelId: String
@@ -185,6 +186,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             title: title,
             articleText: articleText,
             summaryText: summaryText,
+            tags: [],
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             modelId: modelId,

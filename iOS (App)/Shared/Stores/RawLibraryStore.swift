@@ -8,6 +8,11 @@
 import CryptoKit
 import Foundation
 
+struct RawLibraryTagCacheEntry: Codable, Hashable {
+    var tag: String
+    var lastUsedAt: Date
+}
+
 struct RawLibraryStore {
     private let fileManager = FileManager.default
     private let rawLibraryMaxItems = 200
@@ -59,6 +64,10 @@ struct RawLibraryStore {
         try rawLibraryRootURL().appendingPathComponent(AppConfig.rawLibraryFavoriteIndexFilename)
     }
 
+    private func tagsCacheFileURL() throws -> URL {
+        try rawLibraryRootURL().appendingPathComponent(AppConfig.rawLibraryTagsCacheFilename)
+    }
+
     private func syncPath(for fileURL: URL) throws -> String? {
         let itemsDir = try itemsDirectoryURL()
         if fileURL.deletingLastPathComponent().standardizedFileURL == itemsDir.standardizedFileURL {
@@ -73,6 +82,11 @@ struct RawLibraryStore {
         let favoriteIndexURL = try favoriteIndexFileURL()
         if fileURL.standardizedFileURL == favoriteIndexURL.standardizedFileURL {
             return AppConfig.rawLibraryFavoriteIndexFilename
+        }
+
+        let tagsCacheURL = try tagsCacheFileURL()
+        if fileURL.standardizedFileURL == tagsCacheURL.standardizedFileURL {
+            return AppConfig.rawLibraryTagsCacheFilename
         }
 
         return nil
@@ -172,6 +186,12 @@ struct RawLibraryStore {
         var filenames: [String]
     }
 
+    private struct TagCacheFile: Codable {
+        var v: Int
+        var updatedAt: Date
+        var tags: [RawLibraryTagCacheEntry]
+    }
+
     func synchronizeFavoriteIndex() throws -> Set<String> {
         let favoriteDir = try favoriteItemsDirectoryURL()
         let files = (try? fileManager.contentsOfDirectory(at: favoriteDir, includingPropertiesForKeys: nil)) ?? []
@@ -214,9 +234,68 @@ struct RawLibraryStore {
         try synchronizeFavoriteIndex()
     }
 
+    func loadTagCache() throws -> [RawLibraryTagCacheEntry] {
+        let url = try tagsCacheFileURL()
+        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else {
+            return []
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let cacheFile = try? decoder.decode(TagCacheFile.self, from: data) else {
+            return []
+        }
+        return cacheFile.tags.sorted { lhs, rhs in
+            if lhs.lastUsedAt != rhs.lastUsedAt {
+                return lhs.lastUsedAt > rhs.lastUsedAt
+            }
+            return lhs.tag < rhs.tag
+        }
+    }
+
+    @discardableResult
+    func updateTagCache(using tags: [String]) throws -> [RawLibraryTagCacheEntry] {
+        let normalized = normalizeTags(tags)
+        guard !normalized.isEmpty else { return try loadTagCache() }
+
+        let now = Date()
+        var cache = try loadTagCache()
+        var map = Dictionary(uniqueKeysWithValues: cache.map { ($0.tag, $0) })
+
+        for tag in normalized {
+            if var existing = map[tag] {
+                existing.lastUsedAt = now
+                map[tag] = existing
+            } else {
+                map[tag] = RawLibraryTagCacheEntry(tag: tag, lastUsedAt: now)
+            }
+        }
+
+        let updated = map.values.sorted { lhs, rhs in
+            if lhs.lastUsedAt != rhs.lastUsedAt {
+                return lhs.lastUsedAt > rhs.lastUsedAt
+            }
+            return lhs.tag < rhs.tag
+        }
+
+        let file = TagCacheFile(v: 1, updatedAt: now, tags: updated)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(file)
+        try data.write(to: tagsCacheFileURL(), options: [.atomic])
+        return updated
+    }
+
     func loadItem(fileURL: URL) throws -> RawHistoryItem {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
+        #if DEBUG
+        let path = fileSystemPath(for: fileURL)
+        let exists = fileManager.fileExists(atPath: path)
+        let readable = fileManager.isReadableFile(atPath: path)
+        print("[RawLibraryStore] loadItem path=\(path) exists=\(exists) readable=\(readable)")
+        #endif
         let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
         return try decoder.decode(RawHistoryItem.self, from: data)
     }
@@ -227,12 +306,35 @@ struct RawLibraryStore {
         guard !trimmed.isEmpty else { return item }
         item.title = trimmed
 
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(item)
-        try data.write(to: fileURL, options: [.atomic])
+        try writeItem(item, to: fileURL)
         return item
+    }
+
+    @discardableResult
+    func updateTags(fileURL: URL, tags: [String]) throws -> (item: RawHistoryItem, cache: [RawLibraryTagCacheEntry]) {
+        let normalized = normalizeTags(tags)
+        var item = try loadItem(fileURL: fileURL)
+        item.tags = normalized
+        try writeItem(item, to: fileURL)
+
+        let filename = fileURL.lastPathComponent
+        let itemsDir = try itemsDirectoryURL()
+        let favoritesDir = try favoriteItemsDirectoryURL()
+
+        if fileURL.deletingLastPathComponent().standardizedFileURL == itemsDir.standardizedFileURL {
+            let favoriteURL = favoritesDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: fileSystemPath(for: favoriteURL)) {
+                try updateTagsOnly(fileURL: favoriteURL, tags: normalized)
+            }
+        } else if fileURL.deletingLastPathComponent().standardizedFileURL == favoritesDir.standardizedFileURL {
+            let itemURL = itemsDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: fileSystemPath(for: itemURL)) {
+                try updateTagsOnly(fileURL: itemURL, tags: normalized)
+            }
+        }
+
+        let cache = try updateTagCache(using: normalized)
+        return (item, cache)
     }
 
     func deleteItem(fileURL: URL) throws {
@@ -351,6 +453,7 @@ struct RawLibraryStore {
             title: normalizedTitle,
             articleText: normalizedArticle,
             summaryText: normalizedSummary,
+            tags: [],
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             modelId: modelId,
@@ -396,5 +499,32 @@ struct RawLibraryStore {
         let data = Data(value.utf8)
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func writeItem(_ item: RawHistoryItem, to fileURL: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(item)
+        try data.write(to: fileURL, options: [.atomic])
+    }
+
+    private func updateTagsOnly(fileURL: URL, tags: [String]) throws {
+        var item = try loadItem(fileURL: fileURL)
+        item.tags = tags
+        try writeItem(item, to: fileURL)
+    }
+
+    private func normalizeTags(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for tag in tags {
+            let trimmed = tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !trimmed.isEmpty else { continue }
+            if seen.insert(trimmed).inserted {
+                result.append(trimmed)
+            }
+        }
+        return result
     }
 }

@@ -30,6 +30,7 @@ AppGroup/
   RawLibrary/
     Items/        # 一筆一檔（JSON）
     Trash/        #（可選）主 App 刪除時先搬到這裡，方便復原/排查
+    cacheTags.json # Tag 快取（最近使用）
   Cache/          #（可選）未來優化庫/衍生快取再加
 ```
 
@@ -70,6 +71,7 @@ AppGroup/
 - `url` / `title`
 - `articleText`：Readability 後正文（或你決定的原文）
 - `summaryText`：WebLLM 產出的摘要
+- `tags`：人工標籤（`[String]`，小寫去重、預設空陣列）
 
 建議可選欄位（未來用得到就加，不需要一次做完）：
 
@@ -114,7 +116,33 @@ MVP 最簡單做法：
 
 ---
 
-## 7) 與 sqlite-data / TracklyReborn 的關係（先記著）
+## 7) Tag 快取（cacheTags.json）
+
+為了讓「新增 Tag」的輸入框可以提供歷史 Tag：
+
+- 位置：`RawLibrary/cacheTags.json`
+- 格式（示意）：
+
+```
+{
+  "v": 1,
+  "updatedAt": "2025-12-25T12:34:56Z",
+  "tags": [
+    { "tag": "swift", "lastUsedAt": "2025-12-25T12:33:00Z" },
+    { "tag": "ai", "lastUsedAt": "2025-12-24T18:10:11Z" }
+  ]
+}
+```
+
+規則：
+
+- 以「最近使用」排序（`lastUsedAt` 越新越前）
+- Tag 以小寫去重
+- 編輯 RawItem 的 tags 時，同步更新 `cacheTags.json`
+
+---
+
+## 8) 與 sqlite-data / TracklyReborn 的關係（先記著）
 
 未來若你要做「優化庫」，可以考慮導入 `sqlite-data`：
 
@@ -123,7 +151,7 @@ MVP 最簡單做法：
 
 ---
 
-## 8) Debug：如何看 native 的 os_log（macOS / iOS）
+## 9) Debug：如何看 native 的 os_log（macOS / iOS）
 
 ### macOS（My Mac / Designed for iPad）
 

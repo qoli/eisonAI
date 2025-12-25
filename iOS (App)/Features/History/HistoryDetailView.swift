@@ -12,6 +12,7 @@ struct RawItemDetailView: View {
     var loadDetail: (RawHistoryEntry) -> RawHistoryItem?
 
     @State private var item: RawHistoryItem?
+    @State private var isTagEditorPresented = false
 
     var body: some View {
         ScrollView {
@@ -35,6 +36,24 @@ struct RawItemDetailView: View {
                 }
 
                 if let item {
+                    GroupBox("Tags") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            if item.tags.isEmpty {
+                                Text("No tags")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                TagChipsView(tags: item.tags)
+                            }
+
+                            Button("Edit Tags") {
+                                isTagEditorPresented = true
+                            }
+                            .font(.footnote)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     GroupBox("Summary") {
                         Text(item.summaryText)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -53,6 +72,11 @@ struct RawItemDetailView: View {
         }
         .navigationTitle("Detail")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isTagEditorPresented, onDismiss: {
+            item = loadDetail(entry)
+        }) {
+            TagEditorView(fileURL: entry.fileURL, title: "Tags")
+        }
         .task {
             item = loadDetail(entry)
         }

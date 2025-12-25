@@ -61,9 +61,16 @@ final class LibraryViewModel: ObservableObject {
 
     func loadDetail(for entry: RawHistoryEntry) -> RawHistoryItem? {
         do {
-            return try store.loadItem(fileURL: entry.fileURL)
+            let item = try store.loadItem(fileURL: entry.fileURL)
+            #if DEBUG
+            print("[LibraryViewModel] loadDetail ok filename=\(entry.fileURL.lastPathComponent)")
+            #endif
+            return item
         } catch {
             errorMessage = error.localizedDescription
+            #if DEBUG
+            print("[LibraryViewModel] loadDetail error filename=\(entry.fileURL.lastPathComponent) error=\(error.localizedDescription)")
+            #endif
             return nil
         }
     }
