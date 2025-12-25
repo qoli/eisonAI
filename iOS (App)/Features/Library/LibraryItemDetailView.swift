@@ -261,10 +261,10 @@ struct LibraryItemDetailView: View {
     private func prompts(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if !item.systemPrompt.isEmpty {
-                TextSection(title: "System Prompt", text: item.systemPrompt, descirptionText: "")
+                PlainTextSection(title: "System Prompt", text: item.systemPrompt)
             }
             if !item.userPrompt.isEmpty {
-                TextSection(title: "User Prompt", text: item.userPrompt, descirptionText: "")
+                PlainTextSection(title: "User Prompt", text: item.userPrompt)
             }
         }
     }
@@ -272,8 +272,8 @@ struct LibraryItemDetailView: View {
     @ViewBuilder
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            readingAnchorsSection(item.readingAnchors)
             summarySection(item.summaryText)
+            readingAnchorsSection(item.readingAnchors)
             articleSection(item.articleText)
         }
     }
@@ -292,10 +292,9 @@ struct LibraryItemDetailView: View {
                     NavigationLink {
                         LibraryTextDetailView(title: title, text: anchor.text)
                     } label: {
-                        TextSection(
+                        PlainTextSection(
                             title: title,
-                            text: anchor.text,
-                            descirptionText: ""
+                            text: anchor.text
                         )
                     }
                     .buttonStyle(.plain)
@@ -307,7 +306,7 @@ struct LibraryItemDetailView: View {
     @ViewBuilder
     private func summarySection(_ text: String) -> some View {
         if !text.isEmpty {
-            TextSection(title: "", text: text, descirptionText: "", isMarkdown: true)
+            MarkdownSection(text: text)
         }
     }
 
@@ -315,14 +314,17 @@ struct LibraryItemDetailView: View {
     private func articleSection(_ text: String) -> some View {
         if !text.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
+                Text("Full Article")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.secondary)
+
                 NavigationLink {
                     LibraryTextDetailView(title: "Article", text: text)
                 } label: {
-                    TextSection(
+                    PlainTextSection(
                         title: "Article",
-                        text: text,
-                        descirptionText: "",
-                        lineLimit: 5
+                        text: text
                     )
                 }
                 .buttonStyle(.plain)
@@ -458,48 +460,48 @@ struct LibraryItemDetailView: View {
     }
 }
 
-private struct TextSection: View {
+private struct PlainTextSection: View {
     var title: String
     var text: String
-    var descirptionText: String
-    var isMarkdown: Bool = false
     var lineLimit: Int? = 5
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if title != "" {
+            HStack {
                 Text(title)
                     .font(.headline)
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
             }
 
-            if isMarkdown {
-                Markdown(text)
-                    .markdownTheme(.librarySummary)
-                    .padding(.horizontal, isMarkdown ? 0 : 12)
-                    .padding(.vertical, 12)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                Text(text)
-                    .padding()
-                    .font(.body)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(lineLimit)
-            }
+            Text(text)
+                .padding()
+                .font(.body)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(lineLimit)
         }
-        .padding(.horizontal, isMarkdown ? 0 : 12)
-        .padding(.vertical, isMarkdown ? 0 : 12)
-        .background(
-            Group {
-                if isMarkdown {
-                    Color.clear
-                } else {
-                    Color.clear
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                }
-            }
-        )
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct MarkdownSection: View {
+    var text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Markdown(text)
+                .markdownTheme(.librarySummary)
+                .padding(.vertical, 12)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
