@@ -15,6 +15,30 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
     var title: String
     var summaryText: String
     var modelId: String
+    var tags: [String] = []
+
+    enum CodingKeys: String, CodingKey {
+        case v
+        case id
+        case createdAt
+        case url
+        case title
+        case summaryText
+        case modelId
+        case tags
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        v = try container.decode(Int.self, forKey: .v)
+        id = try container.decode(String.self, forKey: .id)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        url = try container.decode(String.self, forKey: .url)
+        title = try container.decode(String.self, forKey: .title)
+        summaryText = try container.decode(String.self, forKey: .summaryText)
+        modelId = try container.decode(String.self, forKey: .modelId)
+        tags = (try container.decodeIfPresent([String].self, forKey: .tags)) ?? []
+    }
 }
 
 struct ReadingAnchorChunk: Codable, Identifiable, Hashable {

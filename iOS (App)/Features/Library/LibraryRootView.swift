@@ -7,6 +7,7 @@ struct LibraryRootView: View {
 
     @State private var searchText: String = ""
     @State private var selection: Int = LibraryMode.all.rawValue
+    @State private var selectedTag: String?
     @FocusState private var isSearchFocused: Bool
     @State private var deepLinkEntry: RawHistoryEntry?
 
@@ -24,13 +25,37 @@ struct LibraryRootView: View {
         LibraryMode(rawValue: selection) ?? .all
     }
 
-    private var visibleEntries: [RawHistoryEntry] {
-        var base: [RawHistoryEntry]
+    private var baseEntries: [RawHistoryEntry] {
         switch mode {
         case .all:
-            base = viewModel.entries
+            return viewModel.entries
         case .favorites:
-            base = viewModel.entries.filter { viewModel.isFavorited($0) }
+            return viewModel.entries.filter { viewModel.isFavorited($0) }
+        }
+    }
+
+    private var availableTags: [String] {
+        var counts: [String: Int] = [:]
+        for entry in baseEntries {
+            for tag in entry.metadata.tags {
+                counts[tag, default: 0] += 1
+            }
+        }
+
+        return counts.keys.sorted { lhs, rhs in
+            let leftCount = counts[lhs, default: 0]
+            let rightCount = counts[rhs, default: 0]
+            if leftCount != rightCount {
+                return leftCount > rightCount
+            }
+            return lhs < rhs
+        }
+    }
+
+    private var visibleEntries: [RawHistoryEntry] {
+        var base = baseEntries
+        if let selectedTag, !selectedTag.isEmpty {
+            base = base.filter { $0.metadata.tags.contains(selectedTag) }
         }
 
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -102,6 +127,11 @@ struct LibraryRootView: View {
                     viewModel: viewModel,
                     entry: entry
                 )
+            }
+            .onChange(of: viewModel.entries) { _, newEntries in
+                if let selectedTag, !newEntries.contains(where: { $0.metadata.tags.contains(selectedTag) }) {
+                    self.selectedTag = nil
+                }
             }
     }
 
@@ -175,12 +205,38 @@ struct LibraryRootView: View {
             ToolbarItem(placement: .bottomBar) {
                 Menu {
                     Button {
+                        selectedTag = nil
                     } label: {
-                        Text("Tag 1")
+                        if selectedTag == nil {
+                            Label("All Tags", systemImage: "checkmark")
+                        } else {
+                            Text("All Tags")
+                        }
                     }
 
+                    Divider()
+
+                    if availableTags.isEmpty {
+                        Button("No tags") {}
+                            .disabled(true)
+                    } else {
+                        ForEach(availableTags, id: \.self) { tag in
+                            Button {
+                                selectedTag = tag
+                            } label: {
+                                if selectedTag == tag {
+                                    Label(tag, systemImage: "checkmark")
+                                } else {
+                                    Text(tag)
+                                }
+                            }
+                        }
+                    }
                 } label: {
-                    Label("Filter", systemImage: "line.3.horizontal.decrease")
+                    Label(
+                        "Filter",
+                        systemImage: selectedTag == nil ? "line.3.horizontal.decrease" : "line.3.horizontal.decrease.circle.fill"
+                    )
                 }
             }
 
