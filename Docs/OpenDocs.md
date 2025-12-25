@@ -2,6 +2,14 @@
 
 本文件聚焦在 EisonAI 的技術難點、設計取捨與關鍵實作細節，協助開發者理解為何專案要這樣做、該注意哪些「坑」，以及改動時的風險點。
 
+## 文件結構（導覽）
+
+- 技術特點：這個專案為何「不尋常」
+- 技術難點與取捨：核心限制與設計選擇
+- 模組與責任：各子系統做什麼
+- 近 2 週熱區：反覆改動代表的真實痛點
+- 風險點與排障：最容易壞與最快定位的方法
+
 ## 技術特點（Why it’s interesting）
 
 - **Safari Extension 內本機推理**：在 popup 內用 WebLLM（WebGPU + WebWorker）跑本地模型，避免雲端 API。
@@ -35,7 +43,30 @@
 - 目前以 **字元截斷** 控制 prompt 大小；品質 vs.穩定性取捨。
 - 若要提升品質，需實作 chunk + reduce（分段摘要 + 合併摘要）。
 
-## 關鍵檔案與責任區
+## 模組與責任區（系統性視角）
+
+### A) Extension 端推理與 UI
+- popup 進入點：`Shared (Extension)/Resources/webllm/popup.html`
+- 推理流程與狀態機：`Shared (Extension)/Resources/webllm/popup.js`
+- WebWorker：`Shared (Extension)/Resources/webllm/worker.js`
+- WebLLM runtime（含 Safari patch）：`Shared (Extension)/Resources/webllm/webllm.js`
+
+### B) Extension 端內容擷取
+- Readability 與頁面正文：`Shared (Extension)/Resources/contentReadability.js` + `Shared (Extension)/Resources/content.js`
+
+### C) 原生橋接與設定同步
+- Native bridge：`Shared (Extension)/SafariWebExtensionHandler.swift`
+- App 端設定：`iOS (App)/Shared/Config/AppConfig.swift`
+
+### D) App 端長文與 token 計算
+- Token 估算與分段：`iOS (App)/Features/Clipboard/ClipboardKeyPointViewModel.swift`
+- 相關規格：`Spec/LONG_DOCUMENT_READING_PIPELINE.md`、`Spec/Updatetokenizer.md`、`Docs/key-point-function-chains.md`
+
+### E) 模型與資產
+- 下載腳本：`Scripts/download_webllm_assets.py`
+- 本地資產位置：`Shared (Extension)/Resources/webllm-assets/`
+
+## 關鍵檔案與責任區（快速索引）
 
 - 內容擷取：`Shared (Extension)/Resources/contentReadability.js` + `Shared (Extension)/Resources/content.js`
 - popup UI：`Shared (Extension)/Resources/webllm/popup.html`
@@ -65,13 +96,38 @@
 - 主要檔案：`Shared (Extension)/SafariWebExtensionHandler.swift`、`iOS (App)/Shared/Config/AppConfig.swift`
 - 技術難點：原生設定的同步與版本相容、App Group 資料一致性、以及 Swift/JS 之間的協定穩定性。
 
-### 5) Xcode 專案結構與依賴變動
-- 主要檔案：`eisonAI.xcodeproj/project.pbxproj`
-- 技術難點：目標/權限/依賴變更頻繁，容易造成 build 不一致或設定漂移；改動必須審慎且可追溯。
-
-### 6) SwiftUI 導航與資料流（Library / Settings）
+### 5) SwiftUI 導航與資料流（Library / Settings）
 - 主要檔案：`iOS (App)/Features/Library/LibraryRootView.swift`、`iOS (App)/Features/Library/LibraryItemDetailView.swift`、`iOS (App)/Features/Settings/SettingsView.swift`
 - 技術難點：深層連結導航、狀態來源分散、與資料更新（例如標籤/快取）同步時序。
+
+### 6) 近期變更軌跡（依 git 提交）
+
+這一段用「提交時間軸」來描述**實際反覆調整的技術點**，便於快速理解「改了什麼、為什麼難」。日期皆為 2025 年。
+
+#### 6.1 Token 計算辦法（3 次變化）
+
+在 12/24～12/25 之間，token 計算方式出現連續三次調整，代表這裡是核心難點之一：
+
+- **12/24 — a0c035a**：更換 tokenizer 計算器，移除舊的 GPTEncoder，改用新的 tokenizer 流程並調整 Extension/App 端的估算邏輯。
+- **12/24 — 20668fb**：App 端改採 SwiftikToken，重構 `GPTTokenEstimator`，並調整分段計算邏輯（例如透過二分搜尋找切點）。
+- **12/25 — 17e0bab**：tokenizer base 從 `o200k_base` 轉為 `p50k_base`，Extension 與 App 同步更新。
+
+補充（同類風險點）：
+- **12/25 — b54ea79**：長文分段策略改為動態分段（最多 5 段），這會直接影響 token 估算與推理穩定性。
+- **12/25 — 393865d**（文件）：補充 tokenizer fallback 說明，反映「tokenizer 不可用時需降級」的實務情況。
+
+#### 6.2 Extension 狀態機與串流（同日多次修正）
+
+12/13 當天有一串連續提交，集中在**狀態同步與競態處理**，這是 Safari Extension 的高風險區：
+
+- **42d572f**：新增摘要串流顯示（背景 → popup 即時推送）。
+- **75bc716**：補強背景狀態管理與快取流程（URL 綁定與重置）。
+- **9ccc4c4**：新增 summaryStatusUpdate 處理，解決快取與錯誤狀態覆寫順序問題。
+- **c3883a6**：加入逾時與狀態重置邏輯，避免殭屍狀態。
+- **5068b64**：修正 summaryComplete 處理與快取流程，避免「完成後狀態錯亂」。
+- **4300a8e / 49a6e51**：調整 popup 狀態顯示與修正完成後顯示錯誤。
+
+這一串改動反映的技術難點是：**popup/background/content 之間的生命週期不一致**，極易觸發競態、狀態回退或錯誤訊息覆蓋。
 
 ## 風險點（改動時容易壞的地方）
 
