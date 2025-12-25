@@ -287,19 +287,16 @@ struct LibraryRootView: View {
             }
         } label: {
             Label {
-                Text(syncCoordinator.isSyncing ? "Syncing" : (syncCoordinator.lastErrorMessage != nil ? "Sync error" : "Sync now"))
+                Text(syncCoordinator.isSyncing ? "Syncing" : (syncCoordinator.lastErrorMessage != nil ? "Sync error" : "Sync"))
             } icon: {
                 if syncCoordinator.isSyncing {
-                    CircleProgressView(state: syncCoordinator.progressState)
-                        .frame(width: 16, height: 16, alignment: .center)
+                    Image(systemName: "arrow.trianglehead.2.clockwise.rotate.90.icloud")
                 } else if syncCoordinator.lastErrorMessage != nil {
-                    Image(systemName: "exclamationmark.triangle")
+                    Image(systemName: "exclamationmark.icloud")
                 } else {
-                    Image(systemName: "checkmark")
+                    Image(systemName: "checkmark.icloud")
                 }
             }
-            .labelStyle(.iconOnly)
-            .frame(width: 24, height: 24)
         }
     }
 
