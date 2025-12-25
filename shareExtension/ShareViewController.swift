@@ -1,39 +1,30 @@
+import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
 final class ShareViewController: UIViewController {
     private var didHandle = false
     private var didScheduleCompletion = false
-    private let statusLabel = UILabel()
-    private let detailLabel = UILabel()
+    private let viewModel = ShareStatusViewModel()
+    private var hostingController: UIHostingController<ShareStatusView>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        let rootView = ShareStatusView(viewModel: viewModel)
+        let hostingController = UIHostingController(rootView: rootView)
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+        hostingController.view.backgroundColor = .clear
+        self.hostingController = hostingController
 
-        statusLabel.font = .preferredFont(forTextStyle: .headline)
-        statusLabel.textColor = .label
-        statusLabel.numberOfLines = 0
-        statusLabel.textAlignment = .center
-
-        detailLabel.font = .preferredFont(forTextStyle: .subheadline)
-        detailLabel.textColor = .secondaryLabel
-        detailLabel.numberOfLines = 0
-        detailLabel.textAlignment = .center
-
-        let stack = UIStackView(arrangedSubviews: [statusLabel, detailLabel])
-        stack.axis = .vertical
-        stack.alignment = .center
-        stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        view.addSubview(stack)
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
         NSLayoutConstraint.activate([
-            stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            stack.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -24),
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+        hostingController.didMove(toParent: self)
 
         setStatus("Processing…", detail: "Please wait")
     }
@@ -136,9 +127,8 @@ final class ShareViewController: UIViewController {
     }
 
     private func setStatus(_ text: String, detail: String?) {
-        statusLabel.text = text
-        detailLabel.text = detail
-        detailLabel.isHidden = (detail == nil) || (detail?.isEmpty == true)
+        viewModel.status = text
+        viewModel.detail = detail
     }
 
     private func scheduleCompletion() {
