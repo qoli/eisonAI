@@ -19,19 +19,21 @@ struct SettingsView: View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
 
         Form {
-            Section("Demos") {
-                NavigationLink("Qwen3 0.6B (MLC Swift)") {
-                    MLCQwenDemoView()
-                }
-                Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
-                    .foregroundStyle(.secondary)
+            #if DEBUG
+                Section("Demos") {
+                    NavigationLink("Qwen3 0.6B (MLC Swift)") {
+                        MLCQwenDemoView()
+                    }
+                    Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
+                        .foregroundStyle(.secondary)
 
-                NavigationLink("Clipboard 2600-Token Splitter") {
-                    ClipboardTokenChunkingView()
+                    NavigationLink("Clipboard 2600-Token Splitter") {
+                        ClipboardTokenChunkingView()
+                    }
+                    Text("Paste from clipboard and split long text into 2600-token chunks (p50k_base tokenizer).")
+                        .foregroundStyle(.secondary)
                 }
-                Text("Paste from clipboard and split long text into 2600-token chunks (p50k_base tokenizer).")
-                    .foregroundStyle(.secondary)
-            }
+            #endif
 
             Section("Foundation Models (Apple Intelligence)") {
                 Toggle(
