@@ -1,6 +1,11 @@
 import Foundation
 import MarkdownUI
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct LibraryItemDetailView: View {
     @ObservedObject var viewModel: LibraryViewModel
@@ -79,6 +84,12 @@ struct LibraryItemDetailView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("Copy Note Link") {
+                        copyNoteLink()
+                    }
+
+                    Divider()
+
                     Button("重建標題") {
                         generateTitleIfNeeded(force: true)
                     }
@@ -203,6 +214,20 @@ struct LibraryItemDetailView: View {
         } catch {
             log("apply recent tag failed: \(error.localizedDescription)")
         }
+    }
+
+    private func noteURLString() -> String {
+        "eisonai://note?id=\(entry.metadata.id)"
+    }
+
+    private func copyNoteLink() {
+        let value = noteURLString()
+        #if canImport(UIKit)
+        UIPasteboard.general.string = value
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+        #endif
     }
 
     @ViewBuilder

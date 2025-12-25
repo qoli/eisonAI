@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
 
 struct RawItemDetailView: View {
     var entry: RawHistoryEntry
@@ -93,6 +98,17 @@ struct RawItemDetailView: View {
         }
         .navigationTitle("Detail")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Copy Note Link") {
+                        copyNoteLink()
+                    }
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle")
+                }
+            }
+        }
         .sheet(isPresented: $isTagEditorPresented, onDismiss: {
             item = loadDetail(entry)
             loadRecentTags()
@@ -123,5 +139,19 @@ struct RawItemDetailView: View {
         } catch {
             // Silent fail in UI
         }
+    }
+
+    private func noteURLString() -> String {
+        "eisonai://note?id=\(entry.metadata.id)"
+    }
+
+    private func copyNoteLink() {
+        let value = noteURLString()
+        #if canImport(UIKit)
+        UIPasteboard.general.string = value
+        #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+        #endif
     }
 }

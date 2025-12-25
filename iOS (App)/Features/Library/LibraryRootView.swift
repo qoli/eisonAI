@@ -8,6 +8,7 @@ struct LibraryRootView: View {
     @State private var searchText: String = ""
     @State private var selection: Int = LibraryMode.all.rawValue
     @FocusState private var isSearchFocused: Bool
+    @State private var deepLinkEntry: RawHistoryEntry?
 
     @State private var segmentedTransitionEdge: Edge = .trailing
     @State private var activeKeyPointInput: KeyPointInput?
@@ -93,6 +94,7 @@ struct LibraryRootView: View {
             }
             .onOpenURL { url in
                 handleShareURL(url)
+                handleNoteURL(url)
             }
             .onChange(of: scenePhase) { _, newValue in
                 refreshPolling(for: newValue)
@@ -103,6 +105,12 @@ struct LibraryRootView: View {
             }
             .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
                 viewModel.reload()
+            }
+            .navigationDestination(item: $deepLinkEntry) { entry in
+                LibraryItemDetailView(
+                    viewModel: viewModel,
+                    entry: entry
+                )
             }
         }
     }
@@ -378,6 +386,26 @@ struct LibraryRootView: View {
                 #if DEBUG
                     print("[SharePayload] Failed to load payload: \(error)")
                 #endif
+            }
+        }
+    }
+
+    private func handleNoteURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "eisonai" else { return }
+        guard url.host?.lowercased() == "note" else { return }
+        guard
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let id = components.queryItems?.first(where: { $0.name == "id" })?.value,
+            !id.isEmpty
+        else { return }
+
+        Task { @MainActor in
+            selection = LibraryMode.all.rawValue
+            searchText = ""
+            viewModel.reload()
+            if let match = viewModel.entries.first(where: { $0.metadata.id == id }) {
+                deepLinkEntry = nil
+                deepLinkEntry = match
             }
         }
     }
