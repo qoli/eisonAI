@@ -648,7 +648,8 @@ private struct LibraryItemRow: View {
                 .lineLimit(3)
 
             if !entry.metadata.tags.isEmpty {
-                tagChips(tags: entry.metadata.tags)
+//                tagChips(tags: entry.metadata.tags)
+                TagChipsView(tags: entry.metadata.tags)
             }
 
             HStack(spacing: 8) {
@@ -662,29 +663,6 @@ private struct LibraryItemRow: View {
             .opacity(0.7)
         }
         .padding(.vertical, 6)
-    }
-
-    @ViewBuilder
-    private func tagChips(tags: [String]) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(tags.prefix(4), id: \.self) { tag in
-                    Text(tag)
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.ultraThinMaterial, in: Capsule())
-                }
-
-                if tags.count > 4 {
-                    Text("+\(tags.count - 4)")
-                        .font(.caption2)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.thinMaterial, in: Capsule())
-                }
-            }
-        }
     }
 }
 
