@@ -8,6 +8,7 @@ const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
 const CHUNK_TOKEN_SIZE = 2600;
+const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
@@ -549,6 +550,29 @@ function clampText(text, limit) {
   const normalized = String(text ?? "").trim();
   if (normalized.length <= limit) return normalized;
   return normalized.slice(0, limit) + "\n\n（內容過長，已截斷）";
+}
+
+function truncateForVisibility(text) {
+  const normalized = String(text ?? "").trim();
+  if (!normalized) return "";
+  if (normalized.length <= VISIBILITY_TEXT_LIMIT) return normalized;
+  return normalized.slice(0, VISIBILITY_TEXT_LIMIT);
+}
+
+function resetOutputForVisibility() {
+  setOutput("");
+  lastModelOutputMarkdown = "";
+}
+
+function showVisibilityText(text) {
+  resetOutputForVisibility();
+  setOutput(text);
+}
+
+function showVisibilityPreview(text) {
+  const preview = truncateForVisibility(text);
+  if (!preview) return;
+  showVisibilityText(preview);
 }
 
 function isThenable(value) {
@@ -1289,7 +1313,6 @@ async function runLongDocumentPipeline(ctx) {
   setShareVisible(false);
   setThinkBoxVisible(!useFoundation);
   setThink("");
-  setOutput("");
   lastModelOutputMarkdown = "";
 
   let summaryText = "";
@@ -1312,6 +1335,7 @@ async function runLongDocumentPipeline(ctx) {
       if (generationInterrupted) break;
       const chunkText = String(chunk.text ?? "");
       setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
+      showVisibilityPreview(chunkText);
 
       const systemPrompt = buildReadingAnchorSystemPrompt({
         index: chunk.index + 1,
@@ -1319,18 +1343,22 @@ async function runLongDocumentPipeline(ctx) {
       });
       const userPrompt = buildReadingAnchorUserPrompt(chunkText);
 
+      setStatus(`Generating chunk ${chunk.index + 1}/${chunks.length}…`, 0);
+      resetOutputForVisibility();
+      setThink("");
+
       const anchorText = useFoundation
         ? await generateTextWithFoundationModels({
             systemPrompt,
             userPrompt,
-            renderOutput: false,
+            renderOutput: true,
           })
         : await generateTextWithWebLLM(
             [
               { role: "system", content: systemPrompt },
               { role: "user", content: userPrompt },
             ],
-            { renderOutput: false },
+            { renderOutput: true },
           );
 
       const cleanedAnchor = (() => {
@@ -1352,6 +1380,8 @@ async function runLongDocumentPipeline(ctx) {
     }
 
     setStatus("Generating summary…", 0);
+    resetOutputForVisibility();
+    setThink("");
     const summaryUserPrompt = buildSummaryUserPromptFromAnchors(lastReadingAnchors);
     const summarySystemPrompt = await getDefaultSystemPromptFallback();
     lastSummarySystemPrompt = summarySystemPrompt;
@@ -1535,6 +1565,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
 
     lastReadingAnchors = [];
     lastSummarySystemPrompt = "";
+    showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
     if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD) {
       await runLongDocumentPipeline(ctx);
@@ -1754,6 +1785,7 @@ summarizeButton.addEventListener("click", async () => {
     }
     lastReadingAnchors = [];
     lastSummarySystemPrompt = "";
+    showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
     if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD) {
       await runLongDocumentPipeline(ctx);
