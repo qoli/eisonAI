@@ -478,7 +478,7 @@ private struct PlainTextSection: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text(text)
+            Text(text.removingBlankLines())
                 .padding()
                 .font(.body)
                 .textSelection(.enabled)
