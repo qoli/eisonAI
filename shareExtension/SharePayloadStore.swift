@@ -5,6 +5,11 @@ struct SharePayloadStore {
     private let appGroupIdentifier = "group.com.qoli.eisonAI"
     private let payloadsPathComponents = ["SharePayloads"]
 
+    enum SaveOutcome {
+        case saved(URL)
+        case duplicate
+    }
+
     private func appGroupContainerURL() throws -> URL {
         guard let containerURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
             throw NSError(
@@ -25,6 +30,16 @@ struct SharePayloadStore {
         return url
     }
 
+    func saveIfNotDuplicate(_ payload: SharePayload) throws -> SaveOutcome {
+        if let url = payload.url?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !url.isEmpty,
+           try containsURL(url)
+        {
+            return .duplicate
+        }
+        return .saved(try save(payload))
+    }
+
     func save(_ payload: SharePayload) throws -> URL {
         let dirURL = try payloadsDirectoryURL()
         let fileURL = dirURL.appendingPathComponent("\(payload.id).json", isDirectory: false)
@@ -35,5 +50,26 @@ struct SharePayloadStore {
         let data = try encoder.encode(payload)
         try data.write(to: fileURL, options: [.atomic])
         return fileURL
+    }
+
+    private func containsURL(_ url: String) throws -> Bool {
+        let dirURL = try payloadsDirectoryURL()
+        let files = try fileManager.contentsOfDirectory(at: dirURL, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        for file in files where file.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: file),
+                  let payload = try? decoder.decode(SharePayload.self, from: data)
+            else {
+                continue
+            }
+            if payload.url == url {
+                return true
+            }
+        }
+
+        return false
     }
 }

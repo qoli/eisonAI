@@ -7,8 +7,8 @@ final class ShareViewController: UIViewController {
     private var didScheduleCompletion = false
     private let viewModel = ShareStatusViewModel()
     private var hostingController: UIHostingController<ShareStatusView>?
-    private let minimizeDuration: TimeInterval = 0.35
-    private let bounceDuration: TimeInterval = 0.3
+    private let minimizeDuration: TimeInterval = 0.6
+    private let bounceDuration: TimeInterval = 0.7
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -107,8 +107,18 @@ final class ShareViewController: UIViewController {
         )
 
         do {
-            let fileURL = try SharePayloadStore().save(payload)
-            log("saved payload: \(fileURL.lastPathComponent)")
+            let outcome = try SharePayloadStore().saveIfNotDuplicate(payload)
+            await MainActor.run {
+                switch outcome {
+                case .saved(let fileURL):
+                    log("saved payload: \(fileURL.lastPathComponent)")
+                    setStatus("Saved", detail: "Closing…")
+                case .duplicate:
+                    log("duplicate url, skipping save")
+                    setStatus("Already saved", detail: "Closing…")
+                }
+                playMinimizeAndComplete()
+            }
         } catch {
             log("failed to save payload: \(error.localizedDescription)")
             await MainActor.run {
@@ -116,11 +126,6 @@ final class ShareViewController: UIViewController {
                 scheduleCompletion()
             }
             return
-        }
-
-        await MainActor.run {
-            setStatus("Saved", detail: "Closing…")
-            playMinimizeAndComplete()
         }
     }
 
