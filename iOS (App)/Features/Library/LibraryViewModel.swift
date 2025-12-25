@@ -30,17 +30,17 @@ final class LibraryViewModel: ObservableObject {
 
         do {
             #if DEBUG
-            print("[LibraryViewModel] setFavorite start filename=\(filename) isFavorite=\(isFavorite)")
+                print("[LibraryViewModel] setFavorite start filename=\(filename) isFavorite=\(isFavorite)")
             #endif
             try store.setFavorite(filename: filename, sourceFileURL: entry.fileURL, isFavorite: isFavorite)
             favoriteFilenames = try store.favoriteFilenameSet()
             #if DEBUG
-            print("[LibraryViewModel] setFavorite done favoriteCount=\(favoriteFilenames.count)")
+                print("[LibraryViewModel] setFavorite done favoriteCount=\(favoriteFilenames.count)")
             #endif
         } catch {
             errorMessage = error.localizedDescription
             #if DEBUG
-            print("[LibraryViewModel] setFavorite error \(error.localizedDescription)")
+                print("[LibraryViewModel] setFavorite error \(error.localizedDescription)")
             #endif
         }
     }
@@ -63,13 +63,13 @@ final class LibraryViewModel: ObservableObject {
         do {
             let item = try store.loadItem(fileURL: entry.fileURL)
             #if DEBUG
-            print("[LibraryViewModel] loadDetail ok filename=\(entry.fileURL.lastPathComponent)")
+                print("[LibraryViewModel] loadDetail ok filename=\(entry.fileURL.lastPathComponent)")
             #endif
             return item
         } catch {
             errorMessage = error.localizedDescription
             #if DEBUG
-            print("[LibraryViewModel] loadDetail error filename=\(entry.fileURL.lastPathComponent) error=\(error.localizedDescription)")
+                print("[LibraryViewModel] loadDetail error filename=\(entry.fileURL.lastPathComponent) error=\(error.localizedDescription)")
             #endif
             return nil
         }

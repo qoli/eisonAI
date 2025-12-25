@@ -2,9 +2,9 @@ import Foundation
 import MarkdownUI
 import SwiftUI
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #elseif canImport(AppKit)
-import AppKit
+    import AppKit
 #endif
 
 struct LibraryItemDetailView: View {
@@ -223,10 +223,10 @@ struct LibraryItemDetailView: View {
     private func copyNoteLink() {
         let value = noteURLString()
         #if canImport(UIKit)
-        UIPasteboard.general.string = value
+            UIPasteboard.general.string = value
         #elseif canImport(AppKit)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(value, forType: .string)
         #endif
     }
 
