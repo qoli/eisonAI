@@ -15,7 +15,7 @@ struct RawLibraryTagCacheEntry: Codable, Hashable {
 
 struct RawLibraryStore {
     private let fileManager = FileManager.default
-    private let rawLibraryMaxItems = 200
+    private let rawLibraryMaxItems = AppConfig.rawLibraryMaxItems
     private let syncService = RawLibrarySyncService.shared
 
     private func appGroupContainerURL() throws -> URL {
@@ -232,6 +232,16 @@ struct RawLibraryStore {
 
     func favoriteFilenameSet() throws -> Set<String> {
         try synchronizeFavoriteIndex()
+    }
+
+    func countItems() throws -> Int {
+        let directoryURL = try itemsDirectoryURL()
+        let items = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        return items.filter { $0.pathExtension.lowercased() == "json" }.count
     }
 
     func loadTagCache() throws -> [RawLibraryTagCacheEntry] {

@@ -22,7 +22,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
     private let appGroupIdentifier = AppConfig.appGroupIdentifier
     private let systemPromptKey = AppConfig.systemPromptKey
-    private let rawLibraryMaxItems = 200
+    private let rawLibraryMaxItems = AppConfig.rawLibraryMaxItems
     private struct RawHistoryItem: Codable {
         var v: Int = 1
         var id: String

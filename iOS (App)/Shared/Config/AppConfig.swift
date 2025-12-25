@@ -14,6 +14,7 @@ enum AppConfig {
     static let foundationModelsAppEnabledKey = "eison.foundationModels.app.enabled"
     static let foundationModelsExtensionEnabledKey = "eison.foundationModels.extension.enabled"
     static let sharePollingEnabledKey = "eison.share.polling.enabled"
+    static let rawLibraryMaxItems = 5000
     static let rawLibraryRootPathComponents = ["RawLibrary"]
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
     static let rawLibraryFavoriteItemsPathComponents = ["RawLibrary", "FavoriteItems"]

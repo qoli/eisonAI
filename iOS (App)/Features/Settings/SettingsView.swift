@@ -5,6 +5,7 @@ struct SettingsView: View {
     private let titlePromptStore = TitlePromptStore()
     private let foundationModelsStore = FoundationModelsSettingsStore()
     private let sharePollingStore = SharePollingSettingsStore()
+    private let rawLibraryStore = RawLibraryStore()
 
     @State private var draftPrompt = ""
     @State private var draftTitlePrompt = ""
@@ -17,6 +18,8 @@ struct SettingsView: View {
     @State private var foundationModelsAppEnabled = false
     @State private var foundationModelsExtensionEnabled = false
     @State private var sharePollingEnabled = false
+    @State private var rawLibraryItemCount: Int = 0
+    @State private var rawLibraryStatus: String = ""
 
     var body: some View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
@@ -163,6 +166,30 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("RawLibrary") {
+                HStack {
+                    Text("歷史紀錄收件箱上限")
+                    Spacer()
+                    Text("\(AppConfig.rawLibraryMaxItems) 筆")
+                        .foregroundStyle(.secondary)
+                }
+
+                HStack {
+                    Text("目前已使用")
+                    Spacer()
+                    Text("\(rawLibraryItemCount) 筆")
+                        .foregroundStyle(.secondary)
+                }
+
+                Text("超過上限時會自動移除最舊的記錄。")
+                    .foregroundStyle(.secondary)
+
+                if !rawLibraryStatus.isEmpty {
+                    Text(rawLibraryStatus)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section("CloudKit Sync") {
                 Button(isCloudSyncing ? "Syncing..." : "Overwrite CloudKit with Local Data") {
                     isCloudSyncing = true
@@ -208,20 +235,29 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .onAppear {
-            guard !didLoad else { return }
-            didLoad = true
-            draftPrompt = store.load()
-            draftTitlePrompt = titlePromptStore.load()
+            if !didLoad {
+                didLoad = true
+                draftPrompt = store.load()
+                draftTitlePrompt = titlePromptStore.load()
 
-            foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
-            foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
-            sharePollingEnabled = sharePollingStore.isEnabled()
+                foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
+                foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
+                sharePollingEnabled = sharePollingStore.isEnabled()
 
-            if FoundationModelsAvailability.currentStatus() != .available {
-                foundationModelsAppEnabled = false
-                foundationModelsExtensionEnabled = false
-                foundationModelsStore.setAppEnabled(false)
-                foundationModelsStore.setExtensionEnabled(false)
+                if FoundationModelsAvailability.currentStatus() != .available {
+                    foundationModelsAppEnabled = false
+                    foundationModelsExtensionEnabled = false
+                    foundationModelsStore.setAppEnabled(false)
+                    foundationModelsStore.setExtensionEnabled(false)
+                }
+            }
+
+            do {
+                rawLibraryStatus = ""
+                rawLibraryItemCount = try rawLibraryStore.countItems()
+            } catch {
+                rawLibraryStatus = "讀取 RawLibrary 失敗：\(error.localizedDescription)"
+                rawLibraryItemCount = 0
             }
         }
     }
