@@ -45,6 +45,34 @@
 - Extension CSP / entry：`Shared (Extension)/Resources/manifest.json`
 - 下載 assets 腳本：`Scripts/download_webllm_assets.py`
 
+## 最近 2 週的熱區（2025-12-11 → 2025-12-25）
+
+以下是近 2 週提交中**反覆修改**的檔案與對應的技術難點。這些區域通常是最容易出問題、也最值得優先理解的部分。
+
+### 1) Extension 推理與狀態機（頻繁變更）
+- 主要檔案：`Shared (Extension)/Resources/webllm/popup.js`、`Shared (Extension)/Resources/background.js`、`Shared (Extension)/Resources/content.js`
+- 技術難點：popup/background/content 三方狀態同步、快取結果優先序、錯誤訊息覆蓋、以及 Safari 的生命週期不穩定導致的競態條件。
+
+### 2) UI 與推理流程耦合（可視化與串流）
+- 主要檔案：`Shared (Extension)/Resources/webllm/popup.html`、`Shared (Extension)/Resources/webllm/popup.css`
+- 技術難點：長文流程的可視化、串流摘要呈現、與狀態訊息一致性；UI 常需跟著流程邏輯同步調整。
+
+### 3) 長文處理與 token 計算一致性（App/Extension 兩端）
+- 主要檔案：`iOS (App)/Features/Clipboard/ClipboardKeyPointViewModel.swift`、`Spec/LONG_DOCUMENT_READING_PIPELINE.md`、`Spec/Updatetokenizer.md`、`Docs/key-point-function-chains.md`
+- 技術難點：tokenizer 換代與 fallback、動態分段策略、App 與 Extension 算法一致性，以及 token 上限與品質的平衡。
+
+### 4) Native ↔︎ Extension 橋接與設定同步
+- 主要檔案：`Shared (Extension)/SafariWebExtensionHandler.swift`、`iOS (App)/Shared/Config/AppConfig.swift`
+- 技術難點：原生設定的同步與版本相容、App Group 資料一致性、以及 Swift/JS 之間的協定穩定性。
+
+### 5) Xcode 專案結構與依賴變動
+- 主要檔案：`eisonAI.xcodeproj/project.pbxproj`
+- 技術難點：目標/權限/依賴變更頻繁，容易造成 build 不一致或設定漂移；改動必須審慎且可追溯。
+
+### 6) SwiftUI 導航與資料流（Library / Settings）
+- 主要檔案：`iOS (App)/Features/Library/LibraryRootView.swift`、`iOS (App)/Features/Library/LibraryItemDetailView.swift`、`iOS (App)/Features/Settings/SettingsView.swift`
+- 技術難點：深層連結導航、狀態來源分散、與資料更新（例如標籤/快取）同步時序。
+
 ## 風險點（改動時容易壞的地方）
 
 - **更新 WebLLM vendor**：忘記帶回 Safari patch 會導致載入錯誤。
