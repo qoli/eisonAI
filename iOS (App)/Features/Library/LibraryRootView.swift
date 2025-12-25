@@ -438,9 +438,8 @@ struct LibraryRootView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .glassedEffect(in: .capsule, interactive: true)
-            .frame(maxWidth: isSearchFocused ? .infinity : 180)
+            .frame(maxWidth: isSearchFocused ? 320 : 180)
             .padding(.horizontal, 16)
-            .padding(.trailing, 120)
 
             Spacer()
         }
