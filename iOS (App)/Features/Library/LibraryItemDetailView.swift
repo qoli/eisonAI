@@ -49,8 +49,6 @@ struct LibraryItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let item {
-//                    metadataView(item: item)
-
                     outputs(item: item)
 
                     Color.clear.frame(height: 80)
@@ -199,33 +197,6 @@ struct LibraryItemDetailView: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
-    }
-
-    @ViewBuilder func metadataView(item: RawHistoryItem) -> some View {
-//        VStack {
-//            HStack {
-//                Text(entry.metadata.modelId.capitalized)
-//                    .font(.caption)
-//                    .fontWeight(.bold)
-//                Spacer()
-//            }
-//
-//            HStack {
-//                Text(Self.dateFormatter.string(from: entry.metadata.createdAt))
-//                    .font(.caption)
-//                    .foregroundColor(.secondary)
-//
-//                Spacer()
-//            }
-//
-//            Divider()
-//                .padding(.vertical, 6)
-//                .opacity(0.5)
-
-//        }
-        tagsSection(item: item)
-            .padding(.all, 12)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder
