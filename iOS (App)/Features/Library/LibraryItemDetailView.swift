@@ -14,7 +14,6 @@ struct LibraryItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var item: RawHistoryItem?
-    @State private var isArticleExpanded: Bool = false
     @State private var isGeneratingTitle: Bool = false
     @State private var isTagEditorPresented: Bool = false
     @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
@@ -183,7 +182,6 @@ struct LibraryItemDetailView: View {
         .task {
             print(entry)
             log("detail task start path=\(entry.fileURL.lastPathComponent)")
-            isArticleExpanded = false
             item = viewModel.loadDetail(for: entry)
             log("detail load result item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
@@ -274,64 +272,60 @@ struct LibraryItemDetailView: View {
     @ViewBuilder
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let anchors = item.readingAnchors, !anchors.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Reading Anchors")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
+            readingAnchorsSection(item.readingAnchors)
+            summarySection(item.summaryText)
+            articleSection(item.articleText)
+        }
+    }
 
-                    ForEach(anchors) { anchor in
+    @ViewBuilder
+    private func readingAnchorsSection(_ anchors: [ReadingAnchorChunk]?) -> some View {
+        if let anchors, !anchors.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Reading Anchors")
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.secondary)
+
+                ForEach(anchors) { anchor in
+                    let title = "Chunk \(anchor.index + 1) (\(anchor.tokenCount) tokens)"
+                    NavigationLink {
+                        LibraryTextDetailView(title: title, text: anchor.text)
+                    } label: {
                         TextSection(
-                            title: "Chunk \(anchor.index + 1) (\(anchor.tokenCount) tokens)",
+                            title: title,
                             text: anchor.text,
                             descirptionText: ""
                         )
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            if !item.summaryText.isEmpty {
-                TextSection(title: "", text: item.summaryText, descirptionText: "", isMarkdown: true)
-            }
-            if !item.articleText.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+        }
+    }
+
+    @ViewBuilder
+    private func summarySection(_ text: String) -> some View {
+        if !text.isEmpty {
+            TextSection(title: "", text: text, descirptionText: "", isMarkdown: true)
+        }
+    }
+
+    @ViewBuilder
+    private func articleSection(_ text: String) -> some View {
+        if !text.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                NavigationLink {
+                    LibraryTextDetailView(title: "Article", text: text)
+                } label: {
                     TextSection(
                         title: "Article",
-                        text: item.articleText,
+                        text: text,
                         descirptionText: "",
-                        lineLimit: isArticleExpanded ? nil : 5
+                        lineLimit: 5
                     )
-                    .overlay {
-                        if !isArticleExpanded {
-                            VStack {
-                                Spacer()
-                                HStack {
-                                    Spacer()
-
-                                    Button {
-                                        withAnimation(.easeInOut) {
-                                            isArticleExpanded.toggle()
-                                        }
-                                    } label: {
-                                        Label(
-                                            isArticleExpanded ? "Collapse" : "Expand",
-                                            systemImage: isArticleExpanded
-                                                ? "chevron.up"
-                                                : "chevron.down"
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .accessibilityLabel(isArticleExpanded ? "Collapse Article" : "Expand Article")
-                                    .padding(.horizontal)
-                                    .padding(.vertical)
-                                    .glassedEffect(in: RoundedRectangle(cornerRadius: 12 + 6, style: .continuous), interactive: true)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 12)
-                                }
-                            }
-                        }
-                    }
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -506,6 +500,25 @@ private struct TextSection: View {
                 }
             }
         )
+    }
+}
+
+private struct LibraryTextDetailView: View {
+    let title: String
+    let text: String
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Markdown(text)
+                    .markdownTheme(.librarySummary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal)
+        }
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.large)
     }
 }
 
