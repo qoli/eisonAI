@@ -169,6 +169,26 @@ struct LibraryRootView: View {
                     .labelStyle(.iconOnly)
             }
         }
+
+        #if !targetEnvironment(macCatalyst)
+            // List Filter
+            ToolbarItem(placement: .bottomBar) {
+                Menu {
+                    Button {
+                    } label: {
+                        Text("Tag 1")
+                    }
+
+                } label: {
+                    Label("Filter", systemImage: "line.3.horizontal.decrease")
+                }
+            }
+
+            if #available(iOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .bottomBar)
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
+            }
+        #endif
     }
 
     private func triggerSyncIfNeeded(for phase: ScenePhase) {
