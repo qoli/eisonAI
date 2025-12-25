@@ -21,8 +21,8 @@ struct ClipboardKeyPointSheet: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if !model.sourceDescription.isEmpty {
-                        Text(model.sourceDescription)
+                    if let tokenEstimate = model.tokenEstimate {
+                        Text("Token 長度：\(tokenEstimate)")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
@@ -39,6 +39,7 @@ struct ClipboardKeyPointSheet: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color(uiColor: .secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .defaultScrollAnchor(.bottom)
             }
             .padding()
             .navigationTitle("Key-point")

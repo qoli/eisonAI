@@ -13,6 +13,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var status: String = "Ready"
     @Published var output: String = ""
     @Published var sourceDescription: String = ""
+    @Published var tokenEstimate: Int? = nil
     @Published var pipelineStatus: String = ""
     @Published var isRunning: Bool = false
     @Published var shouldDismiss: Bool = false
@@ -48,6 +49,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         output = ""
         sourceDescription = ""
         pipelineStatus = ""
+        tokenEstimate = nil
         isRunning = true
         status = "Preparing…"
         shouldDismiss = false
@@ -69,7 +71,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     }
                     self.status = "Reading clipboard…"
                     normalized = try await self.prepareInput(from: clip)
-                case .share(let payload):
+                case let .share(payload):
                     self.status = "Reading shared content…"
                     normalized = try await self.prepareInput(fromSharePayload: payload)
                 }
@@ -80,11 +82,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     && FoundationModelsAvailability.currentStatus() == .available
 
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
+                self.tokenEstimate = tokenEstimate
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
                 let chunkTokenSize = isLongDocument
                     ? Self.chunkTokenSize(for: tokenEstimate)
                     : nil
-                self.pipelineStatus = isLongDocument ? "長文 pipeline：是" : "長文 pipeline：否"
+                self.pipelineStatus = isLongDocument ? "Long-document pipeline: On" : "Long-document pipeline: Off"
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
                 self.log("useFoundationModels=\(useFoundationModels)")
 
@@ -372,7 +375,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
         let base = ChunkPromptStore().load().trimmingCharacters(in: .whitespacesAndNewlines)
-        let dynamicLine = "- 當前這是原文中的一個段落（chunks \(chunkIndex) of \(chunkTotal)）"
+        let dynamicLine = "- This is a paragraph from the source (chunk \(chunkIndex) of \(chunkTotal))"
         let prompt: String
         if base.isEmpty {
             prompt = dynamicLine
@@ -385,7 +388,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private func buildReadingAnchorUserPrompt(text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let prompt = "【正文】\n\(trimmed.isEmpty ? "(empty)" : trimmed)"
+        let prompt = "CONTENT\n\(trimmed.isEmpty ? "(empty)" : trimmed)"
         log("longdoc:anchor-user-prompt textCount=\(text.count) trimmedCount=\(trimmed.count) promptCount=\(prompt.count)")
         return prompt
     }
@@ -430,7 +433,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let end = max(start, min(endUTF16, utf16Count))
         let startIndex = String.Index(utf16Offset: start, in: text)
         let endIndex = String.Index(utf16Offset: end, in: text)
-        let sliced = String(text[startIndex..<endIndex])
+        let sliced = String(text[startIndex ..< endIndex])
         log("longdoc:slice startUTF16=\(start) endUTF16=\(end) slicedCount=\(sliced.count)")
         return sliced
     }
@@ -444,7 +447,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return [
             normalizedTitle.isEmpty ? "(no title)" : normalizedTitle,
-            "【正文】\n\(clippedText.isEmpty ? "(empty)" : clippedText)",
+            "CONTENT\n\(clippedText.isEmpty ? "(empty)" : clippedText)",
         ].joined(separator: "\n\n")
     }
 
@@ -465,14 +468,14 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         switch input {
         case .clipboard:
             return "clipboard"
-        case .share(let payload):
+        case let .share(payload):
             return "share(id=\(payload.id))"
         }
     }
 
     private func log(_ message: String) {
         #if DEBUG
-        print("[KeyPoint] \(message)")
+            print("[KeyPoint] \(message)")
         #endif
     }
 }
