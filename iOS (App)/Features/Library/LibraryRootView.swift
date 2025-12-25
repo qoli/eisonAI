@@ -235,9 +235,9 @@ struct LibraryRootView: View {
                 selectedTag = nil
             } label: {
                 if selectedTag == nil {
-                    Label("All Tags", systemImage: "checkmark")
+                    Label("All Tags", systemImage: "checkmark.circle")
                 } else {
-                    Text("All Tags")
+                    Label("All Tags", systemImage: "circle")
                 }
             }
 
@@ -252,9 +252,9 @@ struct LibraryRootView: View {
                         selectedTag = tag
                     } label: {
                         if selectedTag == tag {
-                            Label(tag, systemImage: "checkmark")
+                            Label("#\(tag)", systemImage: "checkmark.circle")
                         } else {
-                            Text(tag)
+                            Label("#\(tag)", systemImage: "circle")
                         }
                     }
                 }
