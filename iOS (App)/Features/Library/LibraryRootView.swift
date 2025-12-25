@@ -308,11 +308,13 @@ struct LibraryRootView: View {
             }
             .listStyle(.automatic)
             .animation(.easeInOut(duration: 0.15), value: visibleEntries.map(\.id))
-//            .overlay(alignment: .bottom) {
-//                VariableBlurView(maxBlurRadius: 1, direction: .blurredBottomClearTop)
-//                    .ignoresSafeArea()
-//                    .frame(height: 1)
-//            }
+            .overlay(alignment: .bottom) {
+                #if targetEnvironment(macCatalyst)
+                    VariableBlurView(maxBlurRadius: 1, direction: .blurredBottomClearTop)
+                        .ignoresSafeArea()
+                        .frame(height: 1)
+                #endif
+            }
         }
     }
 
@@ -343,15 +345,15 @@ struct LibraryRootView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .glassedEffect(in: .capsule, interactive: true)
-            .frame(maxWidth: isSearchFocused ? .infinity : 160)
+            .frame(maxWidth: isSearchFocused ? .infinity : 180)
             .padding(.horizontal, 16)
+            .padding(.trailing, 120)
 
             Spacer()
         }
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
         .animation(.easeInOut(duration: 0.15), value: searchText)
-        .offset(y: 10)
-        .padding(.bottom, 26)
+        .padding(.bottom, 24)
     }
 
     private func handleShareURL(_ url: URL) {
