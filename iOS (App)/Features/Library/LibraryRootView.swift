@@ -639,6 +639,10 @@ private struct LibraryItemRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if !entry.metadata.tags.isEmpty {
+                TagsText(tags: entry.metadata.tags)
+            }
+
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
                     .font(.headline)
@@ -657,10 +661,6 @@ private struct LibraryItemRow: View {
             Text(entry.metadata.summaryText)
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
-
-            if !entry.metadata.tags.isEmpty {
-                TagChipsView(tags: entry.metadata.tags)
-            }
 
             HStack(spacing: 8) {
                 Text(entry.metadata.modelId.capitalized)

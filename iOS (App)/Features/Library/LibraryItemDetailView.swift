@@ -118,6 +118,40 @@ struct LibraryItemDetailView: View {
                     Divider()
 
                     Menu {
+                        let recentTags = Array(recentTagEntries.prefix(5))
+                        let currentTags = Set(item?.tags ?? [])
+                        if recentTags.isEmpty {
+                            Button("No Recent Tags") {}
+                                .disabled(true)
+                        } else {
+                            ForEach(recentTags, id: \.tag) { entry in
+                                Button {
+                                    applyRecentTag(entry.tag)
+                                } label: {
+                                    Label(
+                                        entry.tag,
+                                        systemImage: currentTags
+                                            .contains(entry.tag) ? "tag.circle.fill" : "circle.dashed"
+                                    )
+                                }
+                            }
+                        }
+
+                        Divider()
+
+                        Button {
+                            isTagEditorPresented = true
+                        } label: {
+                            Label("Edit Tags", systemImage: "tag.fill")
+                        }
+                    } label: {
+                        Label("Tags", systemImage: "tag")
+                        TagsText(tags: item?.tags ?? [])
+                    }
+
+                    Divider()
+
+                    Menu {
                         Button(role: .destructive) {
                             viewModel.delete(entry)
                             dismiss()
@@ -199,29 +233,6 @@ struct LibraryItemDetailView: View {
                     .fontWeight(.bold)
 
                 Spacer()
-
-                Menu {
-                    let recentTags = Array(recentTagEntries.prefix(5))
-                    if recentTags.isEmpty {
-                        Button("No recent tags") {}
-                            .disabled(true)
-                    } else {
-                        ForEach(recentTags, id: \.tag) { entry in
-                            Button(entry.tag) {
-                                applyRecentTag(entry.tag)
-                            }
-                        }
-                    }
-
-                    Divider()
-
-                    Button("Edit Tags") {
-                        isTagEditorPresented = true
-                    }
-                } label: {
-                    Label("Tag Menu", systemImage: "tag.fill")
-                        .labelStyle(.iconOnly)
-                }
             }
 
             if item.tags.isEmpty {
@@ -571,5 +582,17 @@ extension View {
         } else {
             self
         }
+    }
+}
+
+struct TagsText: View {
+    var tags: [String]
+
+    var tagsText: String {
+        tags.map { "#\($0)" }.joined(separator: ", ")
+    }
+
+    var body: some View {
+        Text(tagsText)
     }
 }
