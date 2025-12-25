@@ -14,6 +14,7 @@ struct LibraryRootView: View {
     @State private var segmentedTransitionEdge: Edge = .trailing
     @State private var activeKeyPointInput: KeyPointInput?
     @State private var pollingTask: Task<Void, Never>?
+    @State private var fullReloadToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppConfig.sharePollingEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var sharePollingEnabled = false
@@ -97,8 +98,7 @@ struct LibraryRootView: View {
                 syncErrorSheet
             }
             .refreshable {
-                viewModel.reload()
-                syncCoordinator.syncNow()
+                performFullReload()
             }
             .task {
                 viewModel.reload()
@@ -138,7 +138,7 @@ struct LibraryRootView: View {
     private var transitionContent: some View {
         ZStack {
             mainContent
-                .id(mode)
+                .id(LibraryContentID(mode: mode, reloadToken: fullReloadToken))
                 .transition(
                     .asymmetric(
                         insertion: .move(edge: segmentedTransitionEdge).combined(with: .opacity),
@@ -555,6 +555,17 @@ struct LibraryRootView: View {
         Task { await checkForSharePayloadOnce() }
         startPolling()
     }
+
+    private func performFullReload() {
+        viewModel.reload()
+        syncCoordinator.syncNow()
+        fullReloadToken = UUID()
+    }
+}
+
+private struct LibraryContentID: Hashable {
+    let mode: LibraryMode
+    let reloadToken: UUID
 }
 
 private struct CircleProgressView: View {
