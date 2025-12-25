@@ -449,7 +449,7 @@ struct LibraryRootView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: isSearchFocused)
         .animation(.easeInOut(duration: 0.15), value: searchText)
-        .padding(.bottom, 24)
+        .padding(.bottom, 8)
     }
 
     private func handleShareURL(_ url: URL) {
