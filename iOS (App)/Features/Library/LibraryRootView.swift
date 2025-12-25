@@ -645,18 +645,45 @@ private struct LibraryItemRow: View {
 
             Text(entry.metadata.summaryText)
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
+                .lineLimit(3)
+
+            if !entry.metadata.tags.isEmpty {
+                tagChips(tags: entry.metadata.tags)
+            }
 
             HStack(spacing: 8) {
-                Text(entry.metadata.createdAt.formatted(date: .abbreviated, time: .shortened))
-                Text("·")
-                Text(entry.metadata.modelId)
+                Text(entry.metadata.modelId.capitalized)
+                Text("·").opacity(0.5)
+                Text(entry.metadata.createdAt, style: .relative)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }
         .padding(.vertical, 6)
+    }
+
+    @ViewBuilder
+    private func tagChips(tags: [String]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(tags.prefix(4), id: \.self) { tag in
+                    Text(tag)
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+
+                if tags.count > 4 {
+                    Text("+\(tags.count - 4)")
+                        .font(.caption2)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.thinMaterial, in: Capsule())
+                }
+            }
+        }
     }
 }
 
