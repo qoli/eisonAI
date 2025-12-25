@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var sharePollingEnabled = false
     @State private var rawLibraryItemCount: Int = 0
     @State private var rawLibraryStatus: String = ""
+    @State private var rawLibraryCleanupStatus: String = ""
 
     var body: some View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
@@ -125,6 +126,21 @@ struct SettingsView: View {
 
                 Text("超過上限時會自動移除最舊的記錄。")
                     .foregroundStyle(.secondary)
+
+                Button("清理無效 Tag") {
+                    do {
+                        rawLibraryCleanupStatus = ""
+                        let result = try rawLibraryStore.cleanUnusedTags()
+                        rawLibraryCleanupStatus = "已清理 \(result.removed) 個無效 Tag（剩餘 \(result.kept)）"
+                    } catch {
+                        rawLibraryCleanupStatus = "清理失敗：\(error.localizedDescription)"
+                    }
+                }
+
+                if !rawLibraryCleanupStatus.isEmpty {
+                    Text(rawLibraryCleanupStatus)
+                        .foregroundStyle(.secondary)
+                }
 
                 if !rawLibraryStatus.isEmpty {
                     Text(rawLibraryStatus)

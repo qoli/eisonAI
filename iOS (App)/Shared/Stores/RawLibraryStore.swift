@@ -192,6 +192,10 @@ struct RawLibraryStore {
         var tags: [RawLibraryTagCacheEntry]
     }
 
+    private struct RawHistoryTagProbe: Decodable {
+        var tags: [String]?
+    }
+
     func synchronizeFavoriteIndex() throws -> Set<String> {
         let favoriteDir = try favoriteItemsDirectoryURL()
         let files = (try? fileManager.contentsOfDirectory(at: favoriteDir, includingPropertiesForKeys: nil)) ?? []
@@ -295,6 +299,33 @@ struct RawLibraryStore {
         let data = try encoder.encode(file)
         try data.write(to: tagsCacheFileURL(), options: [.atomic])
         return updated
+    }
+
+    func cleanUnusedTags() throws -> (removed: Int, kept: Int) {
+        let usedTags = try collectUsedTags()
+        let existing = try loadTagCache()
+        let existingMap = Dictionary(uniqueKeysWithValues: existing.map { ($0.tag, $0) })
+        let now = Date()
+
+        var updated: [RawLibraryTagCacheEntry] = []
+        updated.reserveCapacity(usedTags.count)
+        for tag in usedTags {
+            if let entry = existingMap[tag] {
+                updated.append(entry)
+            } else {
+                updated.append(RawLibraryTagCacheEntry(tag: tag, lastUsedAt: now))
+            }
+        }
+
+        let sorted = updated.sorted { lhs, rhs in
+            if lhs.lastUsedAt != rhs.lastUsedAt {
+                return lhs.lastUsedAt > rhs.lastUsedAt
+            }
+            return lhs.tag < rhs.tag
+        }
+        try saveTagCache(sorted, updatedAt: now)
+        let removed = max(0, existing.count - sorted.count)
+        return (removed, sorted.count)
     }
 
     func loadItem(fileURL: URL) throws -> RawHistoryItem {
@@ -523,6 +554,50 @@ struct RawLibraryStore {
         var item = try loadItem(fileURL: fileURL)
         item.tags = tags
         try writeItem(item, to: fileURL)
+    }
+
+    private func collectUsedTags() throws -> Set<String> {
+        var result = Set<String>()
+        let itemsDir = try itemsDirectoryURL()
+        let favoritesDir = try favoriteItemsDirectoryURL()
+        let itemTags = try collectTags(in: itemsDir)
+        let favoriteTags = try collectTags(in: favoritesDir)
+        result.formUnion(itemTags)
+        result.formUnion(favoriteTags)
+        return result
+    }
+
+    private func collectTags(in directoryURL: URL) throws -> Set<String> {
+        let fileURLs = try fileManager.contentsOfDirectory(
+            at: directoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        let jsonFiles = fileURLs.filter { $0.pathExtension.lowercased() == "json" }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var result = Set<String>()
+        for fileURL in jsonFiles {
+            do {
+                let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+                let probe = try decoder.decode(RawHistoryTagProbe.self, from: data)
+                let normalized = normalizeTags(probe.tags ?? [])
+                result.formUnion(normalized)
+            } catch {
+                continue
+            }
+        }
+        return result
+    }
+
+    private func saveTagCache(_ entries: [RawLibraryTagCacheEntry], updatedAt: Date) throws {
+        let file = TagCacheFile(v: 1, updatedAt: updatedAt, tags: entries)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(file)
+        try data.write(to: tagsCacheFileURL(), options: [.atomic])
     }
 
     private func normalizeTags(_ tags: [String]) -> [String] {
