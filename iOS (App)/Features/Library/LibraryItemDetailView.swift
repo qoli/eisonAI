@@ -125,14 +125,18 @@ struct LibraryItemDetailView: View {
                                 .disabled(true)
                         } else {
                             ForEach(recentTags, id: \.tag) { entry in
-                                Button {
-                                    applyRecentTag(entry.tag)
-                                } label: {
-                                    Label(
-                                        entry.tag,
-                                        systemImage: currentTags
-                                            .contains(entry.tag) ? "tag.circle.fill" : "circle.dashed"
-                                    )
+                                if currentTags.contains(entry.tag) {
+                                    Button {
+                                        applyRecentTag(entry.tag)
+                                    } label: {
+                                        Label(entry.tag, systemImage: "tag.circle")
+                                    }
+                                } else {
+                                    Button {
+                                        applyRecentTag(entry.tag)
+                                    } label: {
+                                        Label(entry.tag, systemImage: "circle")
+                                    }
                                 }
                             }
                         }
@@ -255,9 +259,14 @@ struct LibraryItemDetailView: View {
 
     private func applyRecentTag(_ tag: String) {
         guard let currentItem = item else { return }
-        if currentItem.tags.contains(tag) { return }
+        let updatedTags: [String]
+        if currentItem.tags.contains(tag) {
+            updatedTags = currentItem.tags.filter { $0 != tag }
+        } else {
+            updatedTags = currentItem.tags + [tag]
+        }
         do {
-            let result = try rawLibraryStore.updateTags(fileURL: entry.fileURL, tags: currentItem.tags + [tag])
+            let result = try rawLibraryStore.updateTags(fileURL: entry.fileURL, tags: updatedTags)
             item = result.item
             recentTagEntries = result.cache
         } catch {
