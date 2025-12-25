@@ -13,6 +13,9 @@ struct RawItemDetailView: View {
 
     @State private var item: RawHistoryItem?
     @State private var isTagEditorPresented = false
+    @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
+
+    private let rawLibraryStore = RawLibraryStore()
 
     var body: some View {
         ScrollView {
@@ -46,10 +49,28 @@ struct RawItemDetailView: View {
                                 TagChipsView(tags: item.tags)
                             }
 
-                            Button("Edit Tags") {
-                                isTagEditorPresented = true
+                            Menu {
+                                let recentTags = Array(recentTagEntries.prefix(5))
+                                if recentTags.isEmpty {
+                                    Button("No recent tags") {}
+                                        .disabled(true)
+                                } else {
+                                    ForEach(recentTags, id: \.tag) { entry in
+                                        Button(entry.tag) {
+                                            applyRecentTag(entry.tag)
+                                        }
+                                    }
+                                }
+
+                                Divider()
+
+                                Button("Edit Tags") {
+                                    isTagEditorPresented = true
+                                }
+                            } label: {
+                                Label("Tag Menu", systemImage: "ellipsis.circle")
+                                    .labelStyle(.iconOnly)
                             }
-                            .font(.footnote)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -74,11 +95,33 @@ struct RawItemDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isTagEditorPresented, onDismiss: {
             item = loadDetail(entry)
+            loadRecentTags()
         }) {
             TagEditorView(fileURL: entry.fileURL, title: "Tags")
         }
         .task {
             item = loadDetail(entry)
+            loadRecentTags()
+        }
+    }
+
+    private func loadRecentTags() {
+        do {
+            recentTagEntries = try rawLibraryStore.loadTagCache()
+        } catch {
+            // Silent fail in UI
+        }
+    }
+
+    private func applyRecentTag(_ tag: String) {
+        guard let currentItem = item else { return }
+        if currentItem.tags.contains(tag) { return }
+        do {
+            let result = try rawLibraryStore.updateTags(fileURL: entry.fileURL, tags: currentItem.tags + [tag])
+            item = result.item
+            recentTagEntries = result.cache
+        } catch {
+            // Silent fail in UI
         }
     }
 }

@@ -10,6 +10,7 @@ struct LibraryItemDetailView: View {
     @State private var isArticleExpanded: Bool = false
     @State private var isGeneratingTitle: Bool = false
     @State private var isTagEditorPresented: Bool = false
+    @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
 
     private let mlc = MLCClient()
     private let foundationModels = FoundationModelsClient()
@@ -90,6 +91,7 @@ struct LibraryItemDetailView: View {
             log("tag editor dismissed; reloading detail")
             item = viewModel.loadDetail(for: entry)
             log("tag editor reload done item=\(item != nil ? "ok" : "nil")")
+            loadRecentTags()
         }) {
             TagEditorView(fileURL: entry.fileURL, title: "Tags")
         }
@@ -99,6 +101,7 @@ struct LibraryItemDetailView: View {
             isArticleExpanded = false
             item = viewModel.loadDetail(for: entry)
             log("detail load result item=\(item != nil ? "ok" : "nil")")
+            loadRecentTags()
             generateTitleIfNeeded(force: false)
         }
     }
@@ -148,10 +151,28 @@ struct LibraryItemDetailView: View {
 
                 Spacer()
 
-                Button("Edit") {
-                    isTagEditorPresented = true
+                Menu {
+                    let recentTags = Array(recentTagEntries.prefix(5))
+                    if recentTags.isEmpty {
+                        Button("No recent tags") {}
+                            .disabled(true)
+                    } else {
+                        ForEach(recentTags, id: \.tag) { entry in
+                            Button(entry.tag) {
+                                applyRecentTag(entry.tag)
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    Button("Edit Tags") {
+                        isTagEditorPresented = true
+                    }
+                } label: {
+                    Label("Tag Menu", systemImage: "ellipsis.circle")
+                        .labelStyle(.iconOnly)
                 }
-                .font(.caption)
             }
 
             if item.tags.isEmpty {
@@ -161,6 +182,26 @@ struct LibraryItemDetailView: View {
             } else {
                 TagChipsView(tags: item.tags)
             }
+        }
+    }
+
+    private func loadRecentTags() {
+        do {
+            recentTagEntries = try rawLibraryStore.loadTagCache()
+        } catch {
+            log("load recent tags failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func applyRecentTag(_ tag: String) {
+        guard let currentItem = item else { return }
+        if currentItem.tags.contains(tag) { return }
+        do {
+            let result = try rawLibraryStore.updateTags(fileURL: entry.fileURL, tags: currentItem.tags + [tag])
+            item = result.item
+            recentTagEntries = result.cache
+        } catch {
+            log("apply recent tag failed: \(error.localizedDescription)")
         }
     }
 
