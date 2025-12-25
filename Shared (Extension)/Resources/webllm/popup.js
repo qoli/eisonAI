@@ -7,7 +7,7 @@ const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
-const CHUNK_TOKEN_SIZE = 2600;
+const MAX_LONG_DOCUMENT_CHUNKS = 5;
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
@@ -348,6 +348,12 @@ function estimateTokensWithTokenizer(text) {
     console.warn("[WebLLM Demo] Tokenizer failed, falling back:", err);
     return estimateTokensFromText(value);
   }
+}
+
+function getLongDocumentChunkTokenSize(totalTokens) {
+  const value = Number(totalTokens) || 0;
+  if (value <= 0) return 1;
+  return Math.max(1, Math.ceil(value / MAX_LONG_DOCUMENT_CHUNKS));
 }
 
 function chunkByEstimatedTokens(text, chunkTokenSize) {
@@ -699,6 +705,7 @@ let activeModelIdOverride = "";
 let foundationJobId = "";
 let foundationCursor = 0;
 let lastTokenEstimate = 0;
+let lastChunkTokenSize = 0;
 let lastReadingAnchors = [];
 let lastSummarySystemPrompt = "";
 
@@ -962,7 +969,10 @@ async function saveRawHistoryItem({ title, text, url }) {
     readingAnchors: Array.isArray(lastReadingAnchors) ? lastReadingAnchors : [],
     tokenEstimate: Number(lastTokenEstimate) || 0,
     tokenEstimator: "p50k_base",
-    chunkTokenSize: lastReadingAnchors?.length ? CHUNK_TOKEN_SIZE : undefined,
+    chunkTokenSize:
+      lastReadingAnchors?.length && lastChunkTokenSize > 0
+        ? lastChunkTokenSize
+        : undefined,
     routingThreshold: LONG_DOCUMENT_TOKEN_THRESHOLD,
     isLongDocument: Boolean(lastReadingAnchors?.length),
   };
@@ -1320,7 +1330,9 @@ async function runLongDocumentPipeline(ctx) {
   let summaryText = "";
   try {
     // Step 1: Split the source text into token-sized chunks for per-part reading.
-    const chunkInfo = chunkByTokens(ctx.text, CHUNK_TOKEN_SIZE);
+    const chunkTokenSize = getLongDocumentChunkTokenSize(totalTokens);
+    lastChunkTokenSize = chunkTokenSize;
+    const chunkInfo = chunkByTokens(ctx.text, chunkTokenSize);
     const chunks = chunkInfo.chunks.map((chunk) => ({
       index: Number(chunk.index) || 0,
       tokenCount: Number(chunk.tokenCount) || 0,
@@ -1333,6 +1345,7 @@ async function runLongDocumentPipeline(ctx) {
     }
 
     lastReadingAnchors = [];
+    lastChunkTokenSize = 0;
 
     // Step 2: For each chunk, ask the model to produce a short "reading anchor".
     for (const chunk of chunks) {
@@ -1576,6 +1589,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
     }
 
     lastReadingAnchors = [];
+    lastChunkTokenSize = 0;
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
@@ -1796,6 +1810,7 @@ summarizeButton.addEventListener("click", async () => {
       return;
     }
     lastReadingAnchors = [];
+    lastChunkTokenSize = 0;
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;

@@ -5,7 +5,7 @@ import UIKit
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
     private static let longDocumentRoutingThreshold = 3200
-    private static let chunkTokenSize = 2600
+    private static let maxChunkCount = 5
     private static let readingAnchorMaxResponseTokens = 1024
 
     private let input: KeyPointInput
@@ -81,18 +81,23 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
+                let chunkTokenSize = isLongDocument
+                    ? Self.chunkTokenSize(for: tokenEstimate)
+                    : nil
                 self.pipelineStatus = isLongDocument ? "長文 pipeline：是" : "長文 pipeline：否"
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
                 self.log("useFoundationModels=\(useFoundationModels)")
 
                 let result: PipelineResult
                 if isLongDocument {
-                result = try await self.runLongDocumentPipeline(
+                    result = try await self.runLongDocumentPipeline(
                         normalized,
+                        tokenEstimate: tokenEstimate,
+                        chunkTokenSize: chunkTokenSize ?? 1,
                         useFoundationModels: useFoundationModels
                     )
                 } else {
-                result = try await self.runSingleSummary(
+                    result = try await self.runSingleSummary(
                         normalized,
                         useFoundationModels: useFoundationModels
                     )
@@ -124,7 +129,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     readingAnchors: result.readingAnchors,
                     tokenEstimate: tokenEstimate,
                     tokenEstimator: "p50k_base",
-                    chunkTokenSize: isLongDocument ? Self.chunkTokenSize : nil,
+                    chunkTokenSize: chunkTokenSize,
                     routingThreshold: Self.longDocumentRoutingThreshold,
                     isLongDocument: isLongDocument
                 )
@@ -248,12 +253,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private func runLongDocumentPipeline(
         _ input: PreparedInput,
+        tokenEstimate: Int,
+        chunkTokenSize: Int,
         useFoundationModels: Bool
     ) async throws -> PipelineResult {
         log("longdoc:start useFoundationModels=\(useFoundationModels)")
         status = "Chunking…"
-        let chunks = await tokenEstimator.chunk(text: input.text, chunkTokenSize: Self.chunkTokenSize)
-        log("chunking done count=\(chunks.count) textCount=\(input.text.count)")
+        let resolvedChunkSize = max(1, chunkTokenSize)
+        let chunks = await tokenEstimator.chunk(text: input.text, chunkTokenSize: resolvedChunkSize)
+        log("chunking done count=\(chunks.count) textCount=\(input.text.count) chunkTokenSize=\(resolvedChunkSize) tokenEstimate=\(tokenEstimate)")
         if chunks.isEmpty {
             throw NSError(
                 domain: "EisonAI.LongDocument",
@@ -458,6 +466,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         if text.count <= maxChars { return text }
         let idx = text.index(text.startIndex, offsetBy: maxChars)
         return String(text[..<idx])
+    }
+
+    private static func chunkTokenSize(for tokenEstimate: Int) -> Int {
+        guard tokenEstimate > 0 else { return 1 }
+        let chunkSize = Int(ceil(Double(tokenEstimate) / Double(maxChunkCount)))
+        return max(1, chunkSize)
     }
 
     private var inputDescription: String {
