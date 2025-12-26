@@ -37,9 +37,9 @@
 
 - 長文分流門檻（routingThreshold）：`3200`
 - chunk 切段大小（chunkTokenSize）：`2200 / 2600 / 3000 / 3200`（預設 2600）
-- 最多 5 段（總上限 15000 tokens），超過則丟棄
+- 最多段數由設定決定（4/5/6/7，預設 5），超過則丟棄
 
-> 說明：改為固定切段大小，並硬性限制長文最多 5 段，以降低超長內容處理成本。
+> 說明：改為固定切段大小，並硬性限制長文最多段數（可設定），以降低超長內容處理成本。
 
 ### 4.3 影響範圍（對應 Key-point chain）
 
@@ -80,7 +80,7 @@
 **估算與切段行為**
 - 取代舊的 heuristic `estimateTokensFromText()`
 - 長文分流與 Step 1 切段改走 tokenizer
-- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多 5 段，超過則丟棄）
+- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多段數由設定決定，超過則丟棄）
 - 不再走 native messaging 的 `token.estimate` / `token.chunk`
 - 若 tokenizer init 失敗，fallback 回原 heuristic（避免功能中斷）
 
@@ -97,7 +97,7 @@
 - `GPTTokenEstimator` 改用 `SwiftikToken`
 - encoding 由設定決定（預設 `cl100k_base`）
 - 僅使用 `encode` 作為 token 計算來源（不要求 decode 回原文）
-- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多 5 段，超過則丟棄）
+- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多段數由設定決定，超過則丟棄）
 - 對外 API 介面不變：
   - `estimateTokenCount(for:)`
   - `chunk(text:chunkTokenSize:)`
@@ -138,7 +138,7 @@ print("Tokens: \(tokens)")
 
 - **文本測試集**（中英混合 / 只有中文 / 只有英文 / emoji）
 - 比對 Extension 與 App token 數是否一致
-- 驗證 3200 門檻與最多 5 段是否合理（必要時調整）
+- 驗證 3200 門檻與最大段數設定是否合理（必要時調整）
 - 檢查 Raw Library 寫入欄位是否正確
 
 ## 10. 風險與對策

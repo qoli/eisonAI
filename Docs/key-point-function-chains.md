@@ -43,7 +43,7 @@
 長文切段：
 `popup.js` → `chunkByTokens(text, chunkTokenSize)`
 - 以選定 tokenizer 切段（預設 `cl100k_base`）
-- `chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多 5 段，超過則丟棄）
+- `chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多段數由設定決定，超過則丟棄）
 - tokenizer 未就緒時改用 `chunkByEstimatedTokens()`（heuristic）
 - 不再走 native messaging 的 `token.estimate` / `token.chunk`
 
@@ -132,7 +132,7 @@
 
 ### B5. 長文 Pipeline（App）
 `ClipboardKeyPointViewModel.runLongDocumentPipeline()`
-1. **Step 1 切段**：`tokenEstimator.chunk(text:chunkTokenSize:)`（`chunkTokenSize = 設定值`，預設 2600；最多 5 段，超過則丟棄）
+1. **Step 1 切段**：`tokenEstimator.chunk(text:chunkTokenSize:)`（`chunkTokenSize = 設定值`，預設 2600；最多段數由設定決定，超過則丟棄）
 2. **Step 2 閱讀錨點**（逐段）
    - `buildReadingAnchorSystemPrompt()`
    - `buildReadingAnchorUserPrompt()`
@@ -192,7 +192,7 @@
 - App：`tokenEstimator.estimateTokenCount()`（`SwiftikToken`）
 
 **Step 1 Chunk 切割**
-- Spec：固定切段（`chunkTokenSize = 設定值`，預設 2600；最多 5 段，超過則丟棄）
+- Spec：固定切段（`chunkTokenSize = 設定值`，預設 2600；最多段數由設定決定，超過則丟棄）
 - Extension：`chunkByTokens()`（popup 內 tokenizer）
 - Extension tokenizer 不可用時改用 `chunkByEstimatedTokens()`
 - App：`tokenEstimator.chunk(text:chunkTokenSize:)`

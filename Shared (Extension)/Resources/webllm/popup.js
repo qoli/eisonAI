@@ -8,7 +8,7 @@ const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
 const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2600;
-const MAX_LONG_DOCUMENT_CHUNKS = 5;
+const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
 const TOKENIZER_GLOBALS = {
   cl100k_base: "GPTTokenizer_cl100k_base",
@@ -17,6 +17,7 @@ const TOKENIZER_GLOBALS = {
   r50k_base: "GPTTokenizer_r50k_base",
 };
 const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2200, 2600, 3000, 3200]);
+const LONG_DOCUMENT_MAX_CHUNK_OPTIONS = new Set([4, 5, 6, 7]);
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
@@ -324,6 +325,7 @@ const CJK_SINGLE_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\
 
 let tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
 let longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+let longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
 const tokenizerInstances = new Map();
 
 function resolveTokenizer(encoding) {
@@ -387,7 +389,7 @@ function chunkByEstimatedTokens(text, chunkTokenSize) {
   let cjkCount = 0;
   let nonCjkCount = 0;
   let utf16Offset = 0;
-  const maxChunks = Math.max(1, MAX_LONG_DOCUMENT_CHUNKS);
+  const maxChunks = Math.max(1, longDocumentMaxChunks);
 
   const flush = () => {
     if (!buffer) return true;
@@ -448,7 +450,7 @@ function chunkByTokens(text, chunkTokenSize) {
 
   const chunks = [];
   let utf16Offset = 0;
-  const maxTokens = Math.max(1, chunkTokenSize) * Math.max(1, MAX_LONG_DOCUMENT_CHUNKS);
+  const maxTokens = Math.max(1, chunkTokenSize) * Math.max(1, longDocumentMaxChunks);
   const limitedTokens = tokens.length > maxTokens ? tokens.slice(0, maxTokens) : tokens;
 
   for (let i = 0; i < limitedTokens.length; i += chunkTokenSize) {
@@ -964,6 +966,37 @@ async function refreshLongDocumentChunkTokenSizeFromNative() {
 
   return longDocumentChunkTokenSize;
 }
+
+async function refreshLongDocumentMaxChunksFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+    return longDocumentMaxChunks;
+  }
+
+  try {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "getLongDocumentMaxChunks",
+    });
+
+    const maxChunksRaw =
+      resp?.payload?.maxChunks ??
+      resp?.maxChunks ??
+      resp?.echo?.payload?.maxChunks ??
+      resp?.echo?.maxChunks;
+    const maxChunks = Number(maxChunksRaw);
+    if (Number.isFinite(maxChunks) && LONG_DOCUMENT_MAX_CHUNK_OPTIONS.has(maxChunks)) {
+      longDocumentMaxChunks = maxChunks;
+    } else {
+      longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+    }
+  } catch (err) {
+    longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+    console.warn("[WebLLM Demo] Failed to load long document max chunks from native:", err);
+  }
+
+  return longDocumentMaxChunks;
+}
 async function checkFoundationModelsAvailabilityFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     return { enabled: false, available: false, reason: "native messaging unavailable" };
@@ -1435,6 +1468,7 @@ async function runLongDocumentPipeline(ctx) {
   const useFoundation = await shouldUseFoundationModels();
   await refreshTokenEstimatorFromNative();
   await refreshLongDocumentChunkTokenSizeFromNative();
+  await refreshLongDocumentMaxChunksFromNative();
   const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
 
   if (!useFoundation) {

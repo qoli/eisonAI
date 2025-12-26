@@ -8,6 +8,7 @@ struct SettingsView: View {
     private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
     private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
     private let longDocumentChunkSizeOptions: [Int] = [2200, 2600, 3000, 3200]
+    private let longDocumentMaxChunkOptions: [Int] = [4, 5, 6, 7]
 
     @State private var debugStatus = ""
     @State private var cloudSyncStatus = ""
@@ -21,6 +22,7 @@ struct SettingsView: View {
     @State private var rawLibraryCleanupStatus: String = ""
     @State private var tokenEstimatorEncoding: Encoding = .cl100k
     @State private var longDocumentChunkTokenSize: Int = 2600
+    @State private var longDocumentMaxChunkCount: Int = 5
 
     var body: some View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
@@ -127,7 +129,25 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("長文切段大小固定在選項內（最多 5 段，超過則丟棄）。")
+                Text("長文切段大小固定在選項內（超過上限段數則丟棄）。")
+                    .foregroundStyle(.secondary)
+
+                Picker(
+                    "長文段落上限",
+                    selection: Binding(
+                        get: { longDocumentMaxChunkCount },
+                        set: { newValue in
+                            longDocumentMaxChunkCount = newValue
+                            longDocumentSettingsStore.setMaxChunkCount(newValue)
+                        }
+                    )
+                ) {
+                    ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
+                        Text("\(count)").tag(count)
+                    }
+                }
+
+                Text("超過上限的段落會直接丟棄。")
                     .foregroundStyle(.secondary)
             }
 
@@ -244,6 +264,7 @@ struct SettingsView: View {
                 sharePollingEnabled = sharePollingStore.isEnabled()
                 tokenEstimatorEncoding = tokenEstimatorSettingsStore.selectedEncoding()
                 longDocumentChunkTokenSize = longDocumentSettingsStore.chunkTokenSize()
+                longDocumentMaxChunkCount = longDocumentSettingsStore.maxChunkCount()
 
                 if FoundationModelsAvailability.currentStatus() != .available {
                     foundationModelsAppEnabled = false

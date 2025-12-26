@@ -17,6 +17,7 @@ enum AppConfig {
     static let sharePollingEnabledKey = "eison.share.polling.enabled"
     static let tokenEstimatorEncodingKey = "eison.tokenEstimator.encoding"
     static let longDocumentChunkTokenSizeKey = "eison.longDocument.chunkTokenSize"
+    static let longDocumentMaxChunkCountKey = "eison.longDocument.maxChunkCount"
     static let rawLibraryMaxItems = 5000
     static let rawLibraryRootPathComponents = ["RawLibrary"]
     static let rawLibraryItemsPathComponents = ["RawLibrary", "Items"]
