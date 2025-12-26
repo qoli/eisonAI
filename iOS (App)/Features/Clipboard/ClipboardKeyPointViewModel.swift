@@ -25,6 +25,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
     private let tokenEstimator = GPTTokenEstimator.shared
+    private let tokenEstimatorSettings = TokenEstimatorSettingsStore.shared
 
     private var runTask: Task<Void, Never>?
 
@@ -132,7 +133,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     modelId: result.modelId,
                     readingAnchors: result.readingAnchors,
                     tokenEstimate: tokenEstimate,
-                    tokenEstimator: "p50k_base",
+                    tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
                     chunkTokenSize: chunkTokenSize,
                     routingThreshold: Self.longDocumentRoutingThreshold,
                     isLongDocument: isLongDocument

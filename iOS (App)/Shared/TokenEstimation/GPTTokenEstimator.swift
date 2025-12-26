@@ -15,11 +15,10 @@ actor SwiftikTokenStore {
         case vocabularyFileNotFound
     }
 
-    private let encoding: Encoding = .p50k
-    private var tokenizer: Tokenizer?
+    private var tokenizers: [Encoding: Tokenizer] = [:]
 
-    func loadTokenizer() async throws -> Tokenizer {
-        if let tokenizer {
+    func loadTokenizer(for encoding: Encoding) async throws -> Tokenizer {
+        if let tokenizer = tokenizers[encoding] {
             return tokenizer
         }
 
@@ -41,12 +40,12 @@ actor SwiftikTokenStore {
             encoder: tokenEncoder,
             specialTokens: encoding.specialTokens
         )
-        self.tokenizer = tokenizer
+        tokenizers[encoding] = tokenizer
         return tokenizer
     }
 
-    func encode(text: String) async throws -> [Token] {
-        let tokenizer = try await loadTokenizer()
+    func encode(text: String, encoding: Encoding) async throws -> [Token] {
+        let tokenizer = try await loadTokenizer(for: encoding)
         return try tokenizer.encode(
             text: text,
             allowedSpecial: [],
@@ -59,11 +58,17 @@ final class GPTTokenEstimator {
     static let shared = GPTTokenEstimator()
 
     private let store = SwiftikTokenStore.shared
+    private let settingsStore = TokenEstimatorSettingsStore.shared
 
     func estimateTokenCount(for text: String) async -> Int {
+        let encoding = settingsStore.selectedEncoding()
+        return await estimateTokenCount(for: text, encoding: encoding)
+    }
+
+    private func estimateTokenCount(for text: String, encoding: Encoding) async -> Int {
         guard !text.isEmpty else { return 0 }
         do {
-            return try await store.encode(text: text).count
+            return try await store.encode(text: text, encoding: encoding).count
         } catch {
             return 0
         }
@@ -76,6 +81,7 @@ final class GPTTokenEstimator {
         let indices = Array(text.indices)
         guard !indices.isEmpty else { return [] }
 
+        let encoding = settingsStore.selectedEncoding()
         var chunks: [GPTTokenChunk] = []
         let maxChunkCount = maxChunks.map { max(1, $0) }
         let reserveCount = maxChunkCount ?? max(1, indices.count / chunkTokenSize)
@@ -91,12 +97,13 @@ final class GPTTokenEstimator {
                 text: text,
                 indices: indices,
                 startPos: startPos,
-                chunkTokenSize: chunkTokenSize
+                chunkTokenSize: chunkTokenSize,
+                encoding: encoding
             )
             let startIndex = indices[startPos]
             let endIndex = endPos < indices.count ? indices[endPos] : text.endIndex
             let chunkText = String(text[startIndex..<endIndex])
-            let tokenCount = await estimateTokenCount(for: chunkText)
+            let tokenCount = await estimateTokenCount(for: chunkText, encoding: encoding)
             let chunkUTF16Count = chunkText.utf16.count
 
             chunks.append(
@@ -120,7 +127,8 @@ final class GPTTokenEstimator {
         text: String,
         indices: [String.Index],
         startPos: Int,
-        chunkTokenSize: Int
+        chunkTokenSize: Int,
+        encoding: Encoding
     ) async -> Int {
         let totalCount = indices.count
         let startIndex = indices[startPos]
@@ -133,7 +141,7 @@ final class GPTTokenEstimator {
             let mid = (low + high) / 2
             let endIndex = mid < totalCount ? indices[mid] : text.endIndex
             let slice = String(text[startIndex..<endIndex])
-            let tokenCount = await estimateTokenCount(for: slice)
+            let tokenCount = await estimateTokenCount(for: slice, encoding: encoding)
 
             if tokenCount <= chunkTokenSize {
                 best = mid

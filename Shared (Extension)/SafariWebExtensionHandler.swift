@@ -23,6 +23,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private let appGroupIdentifier = AppConfig.appGroupIdentifier
     private let systemPromptKey = AppConfig.systemPromptKey
     private let chunkPromptKey = AppConfig.chunkPromptKey
+    private let tokenEstimatorEncodingKey = AppConfig.tokenEstimatorEncodingKey
     private let rawLibraryMaxItems = AppConfig.rawLibraryMaxItems
     private struct RawHistoryItem: Codable {
         var v: Int = 1
@@ -240,6 +241,14 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return stored
     }
 
+    private func loadTokenEstimatorEncoding() -> String {
+        guard let stored = sharedDefaults()?.string(forKey: tokenEstimatorEncodingKey) else {
+            return "cl100k_base"
+        }
+        let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "cl100k_base" : trimmed
+    }
+
     private func readInt(_ value: Any?) -> Int? {
         if let intValue = value as? Int { return intValue }
         if let doubleValue = value as? Double { return Int(doubleValue) }
@@ -342,6 +351,17 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "name": "chunkPrompt",
                 "payload": [
                     "prompt": loadChunkPrompt(),
+                ],
+            ])
+            return
+
+        case "getTokenEstimatorEncoding":
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "tokenEstimatorEncoding",
+                "payload": [
+                    "encoding": loadTokenEstimatorEncoding(),
                 ],
             ])
             return

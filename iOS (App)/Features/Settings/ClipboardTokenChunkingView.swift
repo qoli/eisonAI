@@ -9,6 +9,11 @@ struct ClipboardTokenChunkingView: View {
     @State private var tokenCount = 0
     @State private var status = ""
     private let tokenEstimator = GPTTokenEstimator.shared
+    private let tokenEstimatorSettings = TokenEstimatorSettingsStore.shared
+
+    private var tokenEncodingLabel: String {
+        tokenEstimatorSettings.selectedEncodingRawValue()
+    }
 
     var body: some View {
         Form {
@@ -48,7 +53,7 @@ struct ClipboardTokenChunkingView: View {
             Section("Input") {
                 Text("Paste or type text, then split into \(tokensPerChunk)-token chunks.")
                     .foregroundStyle(.secondary)
-                Text("Tokenizer: SwiftikToken (p50k_base), same as Key-point pipeline.")
+                Text("Tokenizer: SwiftikToken (\(tokenEncodingLabel)), same as Key-point pipeline.")
                     .foregroundStyle(.secondary)
 
                 HStack(spacing: 12) {

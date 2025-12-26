@@ -9,6 +9,13 @@ const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
 const LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 3000;
 const MAX_LONG_DOCUMENT_CHUNKS = 5;
+const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
+const TOKENIZER_GLOBALS = {
+  cl100k_base: "GPTTokenizer_cl100k_base",
+  o200k_base: "GPTTokenizer_o200k_base",
+  p50k_base: "GPTTokenizer_p50k_base",
+  r50k_base: "GPTTokenizer_r50k_base",
+};
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
@@ -314,14 +321,24 @@ async function recoverEngine(err) {
 const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
 const CJK_SINGLE_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
-let tokenizerInstance = null;
+let tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
+const tokenizerInstances = new Map();
+
+function resolveTokenizer(encoding) {
+  const key =
+    TOKENIZER_GLOBALS[encoding] ??
+    TOKENIZER_GLOBALS[DEFAULT_TOKEN_ESTIMATOR];
+  if (tokenizerInstances.has(key)) {
+    return tokenizerInstances.get(key);
+  }
+  const tokenizer = globalThis[key];
+  if (!tokenizer) return null;
+  tokenizerInstances.set(key, tokenizer);
+  return tokenizer;
+}
 
 function getTokenizer() {
-  if (tokenizerInstance) return tokenizerInstance;
-  const tokenizer = globalThis.GPTTokenizer_p50k_base;
-  if (!tokenizer) return null;
-  tokenizerInstance = tokenizer;
-  return tokenizerInstance;
+  return resolveTokenizer(tokenEstimatorEncoding);
 }
 
 function estimateTokensFromText(text) {
@@ -880,6 +897,37 @@ async function refreshChunkPromptFromNative() {
 
   return chunkPrompt;
 }
+
+async function refreshTokenEstimatorFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
+    return tokenEstimatorEncoding;
+  }
+
+  try {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "getTokenEstimatorEncoding",
+    });
+
+    const encoding =
+      resp?.payload?.encoding ??
+      resp?.encoding ??
+      resp?.echo?.payload?.encoding ??
+      resp?.echo?.encoding;
+
+    if (typeof encoding === "string" && TOKENIZER_GLOBALS[encoding]) {
+      tokenEstimatorEncoding = encoding;
+    } else {
+      tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
+    }
+  } catch (err) {
+    tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
+    console.warn("[WebLLM Demo] Failed to load token estimator from native:", err);
+  }
+
+  return tokenEstimatorEncoding;
+}
 async function checkFoundationModelsAvailabilityFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     return { enabled: false, available: false, reason: "native messaging unavailable" };
@@ -1016,7 +1064,7 @@ async function saveRawHistoryItem({ title, text, url }) {
     modelId: String(activeModelIdOverride || modelSelect?.value || MODEL_ID),
     readingAnchors: Array.isArray(lastReadingAnchors) ? lastReadingAnchors : [],
     tokenEstimate: Number(lastTokenEstimate) || 0,
-    tokenEstimator: "p50k_base",
+    tokenEstimator: tokenEstimatorEncoding,
     chunkTokenSize:
       lastReadingAnchors?.length && lastChunkTokenSize > 0
         ? lastChunkTokenSize
@@ -1055,6 +1103,7 @@ async function prepareSummaryContext() {
       return null;
     }
 
+    await refreshTokenEstimatorFromNative();
     lastTokenEstimate = estimateTokensWithTokenizer(normalized.text);
     setInputTokenEstimate(lastTokenEstimate);
 
@@ -1348,6 +1397,7 @@ function buildSummaryUserPromptFromAnchors(anchors) {
 async function runLongDocumentPipeline(ctx) {
   // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
   const useFoundation = await shouldUseFoundationModels();
+  await refreshTokenEstimatorFromNative();
   const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
 
   if (!useFoundation) {

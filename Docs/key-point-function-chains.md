@@ -36,12 +36,13 @@
 ### A3. Token 估算 / 切段（Tokenizer in Popup）
 `Shared (Extension)/Resources/webllm/popup.js`
 - `estimateTokensWithTokenizer(text)`
-  - 使用 `gpt-tokenizer`（`p50k_base`）估算 token
+  - 使用 `gpt-tokenizer`（由設定決定，預設 `cl100k_base`）估算 token
   - tokenizer 初始化失敗時 fallback 回 heuristic
+  - encoding 由 native messaging 讀取（`getTokenEstimatorEncoding`）
 
 長文切段：
 `popup.js` → `chunkByTokens(text, chunkTokenSize)`
-- 以 `p50k_base` tokenizer 切段
+- 以選定 tokenizer 切段（預設 `cl100k_base`）
 - `chunkTokenSize = 3000`（最多 5 段，超過則丟棄）
 - tokenizer 未就緒時改用 `chunkByEstimatedTokens()`（heuristic）
 - 不再走 native messaging 的 `token.estimate` / `token.chunk`
@@ -124,8 +125,8 @@
 
 ### B4. Token 估算與分流（App）
 `ClipboardKeyPointViewModel.run()`
-- `tokenEstimator.estimateTokenCount(for:)` → `SwiftikToken (p50k_base)`
-- `SwiftikToken` 由 App main bundle 載入 `p50k_base.tiktoken`
+- `tokenEstimator.estimateTokenCount(for:)` → `SwiftikToken`（由設定決定，預設 `cl100k_base`）
+- `SwiftikToken` 由 App main bundle 載入選定 `.tiktoken` 檔
 - `tokenEstimate > longDocumentRoutingThreshold (3200)` → 長文 Pipeline
 - 否則 → 單次摘要
 
@@ -186,7 +187,7 @@
 
 ### D2. 規格步驟（Spec → 實作）
 **Step 0 Token 估算與分流**
-- Spec：`p50k_base` 估算，門檻 3200
+- Spec：`tokenEstimator` encoding 估算（預設 `cl100k_base`），門檻 3200
 - Extension：`estimateTokensWithTokenizer()`（popup 內 `gpt-tokenizer`）
 - App：`tokenEstimator.estimateTokenCount()`（`SwiftikToken`）
 

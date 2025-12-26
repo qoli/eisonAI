@@ -4,6 +4,8 @@ struct SettingsView: View {
     private let foundationModelsStore = FoundationModelsSettingsStore()
     private let sharePollingStore = SharePollingSettingsStore()
     private let rawLibraryStore = RawLibraryStore()
+    private let tokenEstimatorSettingsStore = TokenEstimatorSettingsStore.shared
+    private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
 
     @State private var debugStatus = ""
     @State private var cloudSyncStatus = ""
@@ -15,6 +17,7 @@ struct SettingsView: View {
     @State private var rawLibraryItemCount: Int = 0
     @State private var rawLibraryStatus: String = ""
     @State private var rawLibraryCleanupStatus: String = ""
+    @State private var tokenEstimatorEncoding: Encoding = .cl100k
 
     var body: some View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
@@ -31,7 +34,7 @@ struct SettingsView: View {
                     NavigationLink("Clipboard 2600-Token Splitter") {
                         ClipboardTokenChunkingView()
                     }
-                    Text("Paste from clipboard and split long text into 2600-token chunks (p50k_base tokenizer).")
+                    Text("Paste from clipboard and split long text into 2600-token chunks (using the selected tokenizer).")
                         .foregroundStyle(.secondary)
                 }
             #endif
@@ -84,6 +87,26 @@ struct SettingsView: View {
                     PromptSettingsView()
                 }
                 Text("Manage summary, chunk, and title prompts in one place.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("高階設定") {
+                Picker(
+                    "Token 計算方式",
+                    selection: Binding(
+                        get: { tokenEstimatorEncoding },
+                        set: { newValue in
+                            tokenEstimatorEncoding = newValue
+                            tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
+                        }
+                    )
+                ) {
+                    ForEach(tokenEstimatorOptions, id: \.self) { encoding in
+                        Text(encoding.rawValue).tag(encoding)
+                    }
+                }
+
+                Text("此設定會同步影響 App 與 Safari Extension 的 token 計算。")
                     .foregroundStyle(.secondary)
             }
 
@@ -198,6 +221,7 @@ struct SettingsView: View {
                 foundationModelsAppEnabled = foundationModelsStore.isAppEnabled()
                 foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
                 sharePollingEnabled = sharePollingStore.isEnabled()
+                tokenEstimatorEncoding = tokenEstimatorSettingsStore.selectedEncoding()
 
                 if FoundationModelsAvailability.currentStatus() != .available {
                     foundationModelsAppEnabled = false

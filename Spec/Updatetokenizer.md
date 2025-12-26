@@ -9,7 +9,7 @@
 
 ## 2. 目標
 
-- **改用與 OpenAI/TikToken 一致的計數基準**：`p50k_base`
+- **改用與 OpenAI/TikToken 一致的計數基準**：預設 `cl100k_base`（可切換）
 - **Safari Extension 與 App 原生端一致對齊**（同一套 encoding）
 - **長文分流與切段更可預期**
 - 不改變既有 pipeline 行為（只換計數器）
@@ -26,12 +26,12 @@
 
 - **Safari Extension**：`gpt-tokenizer`（JS）
   - repo：https://github.com/niieani/gpt-tokenizer
-  - encoding：`p50k_base`
+  - encoding：預設 `cl100k_base`（可切換）
 - **App 原生端**：`SwiftikToken`（Swift，無 FFI）
   - 路徑：`SwiftikToken/`
-  - encoding：`p50k_base`
+  - encoding：預設 `cl100k_base`（可切換）
 
-> 備註：兩端都統一使用 `p50k_base`，確保 token 數與 chunk 邊界一致。
+> 備註：兩端都統一使用 **同一個 encoding 設定**（預設 `cl100k_base`），確保 token 數與 chunk 邊界一致。
 
 ### 4.2 Token 門檻調整
 
@@ -47,7 +47,7 @@
   - `estimateTokensFromText()`：由 heuristic 改為 tokenizer
   - 移除 native messaging 的 `token.estimate` / `token.chunk` 路徑
   - 以 JS tokenizer 直接計算 token 與切段（保留 heuristic fallback）
-  - `saveRawHistoryItem()` 的 `tokenEstimator` 欄位需更新
+- `saveRawHistoryItem()` 的 `tokenEstimator` 欄位需更新（改為實際 encoding）
 - **iOS App（Clipboard/Share）**
 - `GPTTokenEstimator` 改為 `SwiftikToken`
   - `ClipboardTokenChunkingView` 文案更新（GPTEncoder → SwiftikToken）
@@ -61,8 +61,12 @@
 
 ### 5.1 集成方式
 
-- 下載 `https://unpkg.com/gpt-tokenizer/dist/p50k_base.js`
-- 放置到 `Shared (Extension)/Resources/webllm/p50k_base.js`
+- 下載：
+  - `https://unpkg.com/gpt-tokenizer/dist/o200k_base.js`
+  - `https://unpkg.com/gpt-tokenizer/dist/cl100k_base.js`
+  - `https://unpkg.com/gpt-tokenizer/dist/p50k_base.js`
+  - `https://unpkg.com/gpt-tokenizer/dist/r50k_base.js`
+- 放置到 `Shared (Extension)/Resources/webllm/`
 - 以本地檔案載入（避免 runtime CDN）
 
 ### 5.2 設計與 API
@@ -82,7 +86,7 @@
 
 ### 5.3 Raw Library 欄位
 
-- `tokenEstimator`：改為 `"p50k_base"`
+- `tokenEstimator`：改為實際 encoding（預設 `"cl100k_base"`）
 - 其餘欄位維持：`tokenEstimate` / `chunkTokenSize` / `routingThreshold` / `isLongDocument`
   - `routingThreshold = 3200`、`chunkTokenSize = 3000`
 
@@ -91,7 +95,7 @@
 ### 6.1 取代 GPTEncoder
 
 - `GPTTokenEstimator` 改用 `SwiftikToken`
-- encoding 固定 `p50k_base`
+- encoding 由設定決定（預設 `cl100k_base`）
 - 僅使用 `encode` 作為 token 計算來源（不要求 decode 回原文）
 - 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 3000`（最多 5 段，超過則丟棄）
 - 對外 API 介面不變：
@@ -102,7 +106,7 @@
 ```swift
 // Encode text
 let text = "Hello, world!"
-let tokenizer = Tiktoken(encoding: .p50k)
+let tokenizer = Tiktoken(encoding: .cl100k)
 let tokens = try await tokenizer.encode(text: text, allowedSpecial: [])
 print("Tokens: \(tokens)")
 ```
@@ -110,17 +114,17 @@ print("Tokens: \(tokens)")
 ### 6.2 UI / 文案更新
 
 - `ClipboardTokenChunkingView` 說明文案同步更新
-  - 「GPTEncoder (GPT-2 BPE)」→「SwiftikToken (p50k_base)」
+  - 「GPTEncoder (GPT-2 BPE)」→「SwiftikToken (cl100k_base, 可切換)」
 
 ### 6.3 Raw Library 欄位
 
-- `tokenEstimator`：改為 `"p50k_base"`
+- `tokenEstimator`：改為實際 encoding（預設 `"cl100k_base"`）
 - 舊資料保持 `"gpt2-bpe"` 不回填
 
 ## 7. 相容性與遷移
 
 - **不做歷史資料回填**
-- 新資料以 `tokenEstimator = "p50k_base"` 儲存
+- 新資料以 `tokenEstimator = <encoding>` 儲存（預設 `"cl100k_base"`）
 - UI 顯示需容忍舊值（`gpt2-bpe`）
 
 ## 8. 驗收標準
