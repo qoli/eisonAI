@@ -127,7 +127,8 @@
 `ClipboardKeyPointViewModel.run()`
 - `tokenEstimator.estimateTokenCount(for:)` → `SwiftikToken`（由設定決定，預設 `cl100k_base`）
 - `SwiftikToken` 由 App main bundle 載入選定 `.tiktoken` 檔
-- `tokenEstimate > longDocumentRoutingThreshold (3200)` → 長文 Pipeline
+- `tokenEstimate > longDocumentRoutingThreshold` → 長文 Pipeline
+  - `longDocumentRoutingThreshold = chunkTokenSize`（設定值）
 - 否則 → 單次摘要
 
 ### B5. 長文 Pipeline（App）
@@ -187,7 +188,7 @@
 
 ### D2. 規格步驟（Spec → 實作）
 **Step 0 Token 估算與分流**
-- Spec：`tokenEstimator` encoding 估算（預設 `cl100k_base`），門檻 3200
+- Spec：`tokenEstimator` encoding 估算（預設 `cl100k_base`），門檻 = chunkTokenSize（設定值）
 - Extension：`estimateTokensWithTokenizer()`（popup 內 `gpt-tokenizer`）
 - App：`tokenEstimator.estimateTokenCount()`（`SwiftikToken`）
 

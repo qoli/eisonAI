@@ -6,7 +6,6 @@ const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
-const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
 const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2600;
 const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
@@ -375,6 +374,10 @@ function estimateTokensWithTokenizer(text) {
 function getLongDocumentChunkTokenSize(totalTokens) {
   const value = Number(totalTokens) || 0;
   if (value <= 0) return 1;
+  return Math.max(1, longDocumentChunkTokenSize);
+}
+
+function getLongDocumentRoutingThreshold() {
   return Math.max(1, longDocumentChunkTokenSize);
 }
 
@@ -1138,7 +1141,7 @@ async function saveRawHistoryItem({ title, text, url }) {
       lastReadingAnchors?.length && lastChunkTokenSize > 0
         ? lastChunkTokenSize
         : undefined,
-    routingThreshold: LONG_DOCUMENT_TOKEN_THRESHOLD,
+    routingThreshold: getLongDocumentRoutingThreshold(),
     isLongDocument: Boolean(lastReadingAnchors?.length),
   };
 
@@ -1173,6 +1176,7 @@ async function prepareSummaryContext() {
     }
 
     await refreshTokenEstimatorFromNative();
+    await refreshLongDocumentChunkTokenSizeFromNative();
     lastTokenEstimate = estimateTokensWithTokenizer(normalized.text);
     setInputTokenEstimate(lastTokenEstimate);
 
@@ -1758,7 +1762,8 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD) {
+    await refreshLongDocumentChunkTokenSizeFromNative();
+    if (tokenEstimate > getLongDocumentRoutingThreshold()) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
       return;
@@ -1980,7 +1985,7 @@ summarizeButton.addEventListener("click", async () => {
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-    if (tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD) {
+    if (tokenEstimate > getLongDocumentRoutingThreshold()) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
       return;

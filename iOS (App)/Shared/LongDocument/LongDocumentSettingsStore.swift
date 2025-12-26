@@ -25,6 +25,10 @@ final class LongDocumentSettingsStore {
         allowedChunkSizes
     }
 
+    func routingThreshold() -> Int {
+        chunkTokenSize()
+    }
+
     func maxChunkCount() -> Int {
         guard let stored = defaults?.object(forKey: AppConfig.longDocumentMaxChunkCountKey) as? Int else {
             return fallbackMaxChunkCount

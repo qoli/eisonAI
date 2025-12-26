@@ -4,7 +4,6 @@ import UIKit
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
-    private static let longDocumentRoutingThreshold = 3200
     private static let readingAnchorMaxResponseTokens = 1024
 
     private let input: KeyPointInput
@@ -82,9 +81,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let useFoundationModels = self.foundationSettings.isAppEnabled()
                     && FoundationModelsAvailability.currentStatus() == .available
 
+                let routingThreshold = longDocumentSettings.routingThreshold()
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 self.tokenEstimate = tokenEstimate
-                let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
+                let isLongDocument = tokenEstimate > routingThreshold
                 let chunkTokenSize = isLongDocument ? longDocumentSettings.chunkTokenSize() : nil
                 self.pipelineStatus = isLongDocument ? "Long-document pipeline: On" : "Long-document pipeline: Off"
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
@@ -132,7 +132,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     tokenEstimate: tokenEstimate,
                     tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
                     chunkTokenSize: chunkTokenSize,
-                    routingThreshold: Self.longDocumentRoutingThreshold,
+                    routingThreshold: routingThreshold,
                     isLongDocument: isLongDocument
                 )
 

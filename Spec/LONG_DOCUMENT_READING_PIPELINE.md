@@ -46,7 +46,7 @@ readingAnchors: [
 tokenEstimate: Int        // 原文總 token（tokenEstimator encoding）
 tokenEstimator: String    // 例如 "cl100k_base"
 chunkTokenSize: Int       // 固定（2200/2600/3000/3200，預設 2600；最多段數由設定決定，預設 5）
-routingThreshold: Int     // 3200
+routingThreshold: Int     // 同 chunkTokenSize（由設定決定）
 isLongDocument: Bool      // 是否走長文 pipeline
 ```
 
@@ -56,8 +56,8 @@ isLongDocument: Bool      // 是否走長文 pipeline
 原文
   ↓
 Step 0  Token 估算與分流（tokenEstimator，預設 cl100k_base）
-  ├─ ≤ 3200 tokens：走原本單次摘要流程
-  └─ > 3200 tokens：進入長文 Pipeline
+  ├─ ≤ routingThreshold：走原本單次摘要流程
+  └─ > routingThreshold：進入長文 Pipeline
   ↓
 Step 1  Token 切割
   ↓
@@ -79,9 +79,9 @@ Step 3  展示用摘要生成
 - 使用 **tokenEstimator encoding** 估算 Token（預設 `cl100k_base`）
   - App：`SwiftikToken`
   - Extension：`gpt-tokenizer`
-- 分流門檻：**3200 tokens**
-  - `≤ 3200`：沿用原本單次摘要流程
-  - `> 3200`：進入長文 pipeline
+- 分流門檻：**routingThreshold**（與 chunkTokenSize 同值）
+  - `≤ routingThreshold`：沿用原本單次摘要流程
+  - `> routingThreshold`：進入長文 pipeline
 
 **Safari Extension 實作要點**
 - popup 內直接使用 JS tokenizer 估算
