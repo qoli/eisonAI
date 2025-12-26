@@ -36,10 +36,10 @@
 ### 4.2 Token 門檻調整
 
 - 長文分流門檻（routingThreshold）：`3200`
-- chunk 切段大小（chunkTokenSize）：**動態**
-  - `chunkTokenSize = ceil(tokenEstimate / 5)`（最多 5 段）
+- chunk 切段大小（chunkTokenSize）：`3000`
+- 最多 5 段（總上限 15000 tokens），超過則丟棄
 
-> 說明：改為動態切段，硬性限制長文最多 5 段，以降低超長內容處理成本。
+> 說明：改為固定切段大小，並硬性限制長文最多 5 段，以降低超長內容處理成本。
 
 ### 4.3 影響範圍（對應 Key-point chain）
 
@@ -76,7 +76,7 @@
 **估算與切段行為**
 - 取代舊的 heuristic `estimateTokensFromText()`
 - 長文分流與 Step 1 切段改走 tokenizer
-- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = ceil(tokenEstimate / 5)`（最多 5 段）
+- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 3000`（最多 5 段，超過則丟棄）
 - 不再走 native messaging 的 `token.estimate` / `token.chunk`
 - 若 tokenizer init 失敗，fallback 回原 heuristic（避免功能中斷）
 
@@ -84,7 +84,7 @@
 
 - `tokenEstimator`：改為 `"p50k_base"`
 - 其餘欄位維持：`tokenEstimate` / `chunkTokenSize` / `routingThreshold` / `isLongDocument`
-  - `routingThreshold = 3200`、`chunkTokenSize = ceil(tokenEstimate / 5)`
+  - `routingThreshold = 3200`、`chunkTokenSize = 3000`
 
 ## 6. App 端詳細規格
 
@@ -93,7 +93,7 @@
 - `GPTTokenEstimator` 改用 `SwiftikToken`
 - encoding 固定 `p50k_base`
 - 僅使用 `encode` 作為 token 計算來源（不要求 decode 回原文）
-- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = ceil(tokenEstimate / 5)`（最多 5 段）
+- 分流門檻：`3200` tokens；切段大小：`chunkTokenSize = 3000`（最多 5 段，超過則丟棄）
 - 對外 API 介面不變：
   - `estimateTokenCount(for:)`
   - `chunk(text:chunkTokenSize:)`

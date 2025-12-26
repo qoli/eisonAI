@@ -69,7 +69,7 @@ final class GPTTokenEstimator {
         }
     }
 
-    func chunk(text: String, chunkTokenSize: Int) async -> [GPTTokenChunk] {
+    func chunk(text: String, chunkTokenSize: Int, maxChunks: Int? = nil) async -> [GPTTokenChunk] {
         guard chunkTokenSize > 0 else { return [] }
         guard !text.isEmpty else { return [] }
 
@@ -77,11 +77,16 @@ final class GPTTokenEstimator {
         guard !indices.isEmpty else { return [] }
 
         var chunks: [GPTTokenChunk] = []
-        chunks.reserveCapacity(max(1, indices.count / chunkTokenSize))
+        let maxChunkCount = maxChunks.map { max(1, $0) }
+        let reserveCount = maxChunkCount ?? max(1, indices.count / chunkTokenSize)
+        chunks.reserveCapacity(reserveCount)
 
         var startPos = 0
         var utf16Offset = 0
         while startPos < indices.count {
+            if let maxChunkCount, chunks.count >= maxChunkCount {
+                break
+            }
             let endPos = await findChunkEnd(
                 text: text,
                 indices: indices,

@@ -45,7 +45,7 @@ readingAnchors: [
 ]
 tokenEstimate: Int        // 原文總 token（p50k_base）
 tokenEstimator: String    // "p50k_base"
-chunkTokenSize: Int       // 動態（chunkTokenSize = ceil(tokenEstimate / 5)）
+chunkTokenSize: Int       // 固定 3000（最多 5 段，超過即丟棄）
 routingThreshold: Int     // 3200
 isLongDocument: Bool      // 是否走長文 pipeline
 ```
@@ -95,8 +95,8 @@ Step 3  展示用摘要生成
 
 **實作方式**
 - 使用 **p50k_base** 計算 Token
-- 依 **tokenEstimate** 動態切割，**最多 5 段**
-  - `chunkTokenSize = ceil(tokenEstimate / 5)`
+- 固定 chunk 大小：`chunkTokenSize = 3000`
+- 最多 5 段（總上限 15000 tokens），超過則丟棄
 
 **設計理由**
 - 限制閱讀錨點處理段數，避免超長內容拖垮處理時間

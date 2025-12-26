@@ -7,6 +7,7 @@ const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
+const LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 3000;
 const MAX_LONG_DOCUMENT_CHUNKS = 5;
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
@@ -353,7 +354,7 @@ function estimateTokensWithTokenizer(text) {
 function getLongDocumentChunkTokenSize(totalTokens) {
   const value = Number(totalTokens) || 0;
   if (value <= 0) return 1;
-  return Math.max(1, Math.ceil(value / MAX_LONG_DOCUMENT_CHUNKS));
+  return Math.max(1, LONG_DOCUMENT_CHUNK_TOKEN_SIZE);
 }
 
 function chunkByEstimatedTokens(text, chunkTokenSize) {
@@ -367,9 +368,11 @@ function chunkByEstimatedTokens(text, chunkTokenSize) {
   let cjkCount = 0;
   let nonCjkCount = 0;
   let utf16Offset = 0;
+  const maxChunks = Math.max(1, MAX_LONG_DOCUMENT_CHUNKS);
 
   const flush = () => {
-    if (!buffer) return;
+    if (!buffer) return true;
+    if (chunks.length >= maxChunks) return false;
     const tokenCount = Math.max(1, Math.ceil(cjkCount + nonCjkCount / 4));
     const chunkLength = buffer.length;
     chunks.push({
@@ -383,9 +386,11 @@ function chunkByEstimatedTokens(text, chunkTokenSize) {
     buffer = "";
     cjkCount = 0;
     nonCjkCount = 0;
+    return chunks.length < maxChunks;
   };
 
   for (const char of value) {
+    if (chunks.length >= maxChunks) break;
     buffer += char;
     if (CJK_SINGLE_REGEX.test(char)) {
       cjkCount += 1;
@@ -394,11 +399,14 @@ function chunkByEstimatedTokens(text, chunkTokenSize) {
     }
     const estimatedTokens = Math.ceil(cjkCount + nonCjkCount / 4);
     if (estimatedTokens >= chunkTokenSize) {
-      flush();
+      const canContinue = flush();
+      if (!canContinue) break;
     }
   }
 
-  flush();
+  if (chunks.length < maxChunks) {
+    flush();
+  }
 
   return { totalTokens: estimateTokensFromText(value), chunks };
 }
@@ -421,9 +429,11 @@ function chunkByTokens(text, chunkTokenSize) {
 
   const chunks = [];
   let utf16Offset = 0;
+  const maxTokens = Math.max(1, chunkTokenSize) * Math.max(1, MAX_LONG_DOCUMENT_CHUNKS);
+  const limitedTokens = tokens.length > maxTokens ? tokens.slice(0, maxTokens) : tokens;
 
-  for (let i = 0; i < tokens.length; i += chunkTokenSize) {
-    const slice = tokens.slice(i, i + chunkTokenSize);
+  for (let i = 0; i < limitedTokens.length; i += chunkTokenSize) {
+    const slice = limitedTokens.slice(i, i + chunkTokenSize);
     let chunkText = "";
     try {
       chunkText = String(tokenizer.decode(slice) ?? "");

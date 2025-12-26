@@ -5,6 +5,7 @@ import UIKit
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
     private static let longDocumentRoutingThreshold = 3200
+    private static let longDocumentChunkTokenSize = 3000
     private static let maxChunkCount = 5
     private static let readingAnchorMaxResponseTokens = 1024
 
@@ -263,7 +264,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         log("longdoc:start useFoundationModels=\(useFoundationModels)")
         status = "Chunking…"
         let resolvedChunkSize = max(1, chunkTokenSize)
-        let chunks = await tokenEstimator.chunk(text: input.text, chunkTokenSize: resolvedChunkSize)
+        let chunks = await tokenEstimator.chunk(
+            text: input.text,
+            chunkTokenSize: resolvedChunkSize,
+            maxChunks: Self.maxChunkCount
+        )
         log("chunking done count=\(chunks.count) textCount=\(input.text.count) chunkTokenSize=\(resolvedChunkSize) tokenEstimate=\(tokenEstimate)")
         if chunks.isEmpty {
             throw NSError(
@@ -460,8 +465,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private static func chunkTokenSize(for tokenEstimate: Int) -> Int {
         guard tokenEstimate > 0 else { return 1 }
-        let chunkSize = Int(ceil(Double(tokenEstimate) / Double(maxChunkCount)))
-        return max(1, chunkSize)
+        return max(1, longDocumentChunkTokenSize)
     }
 
     private var inputDescription: String {
