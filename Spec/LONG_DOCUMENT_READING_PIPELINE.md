@@ -45,7 +45,7 @@ readingAnchors: [
 ]
 tokenEstimate: Int        // 原文總 token（tokenEstimator encoding）
 tokenEstimator: String    // 例如 "cl100k_base"
-chunkTokenSize: Int       // 固定 3000（最多 5 段，超過即丟棄）
+chunkTokenSize: Int       // 固定（2200/2600/3000/3200，預設 2600；最多 5 段，超過即丟棄）
 routingThreshold: Int     // 3200
 isLongDocument: Bool      // 是否走長文 pipeline
 ```
@@ -95,7 +95,7 @@ Step 3  展示用摘要生成
 
 **實作方式**
 - 使用 **tokenEstimator encoding** 計算 Token（預設 `cl100k_base`）
-- 固定 chunk 大小：`chunkTokenSize = 3000`
+- 固定 chunk 大小：`chunkTokenSize` 由設定決定（2200/2600/3000/3200，預設 2600）
 - 最多 5 段（總上限 15000 tokens），超過則丟棄
 
 **設計理由**

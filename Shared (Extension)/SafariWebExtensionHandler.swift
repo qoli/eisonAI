@@ -24,6 +24,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private let systemPromptKey = AppConfig.systemPromptKey
     private let chunkPromptKey = AppConfig.chunkPromptKey
     private let tokenEstimatorEncodingKey = AppConfig.tokenEstimatorEncodingKey
+    private let longDocumentChunkTokenSizeKey = AppConfig.longDocumentChunkTokenSizeKey
     private let rawLibraryMaxItems = AppConfig.rawLibraryMaxItems
     private struct RawHistoryItem: Codable {
         var v: Int = 1
@@ -249,6 +250,15 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return trimmed.isEmpty ? "cl100k_base" : trimmed
     }
 
+    private func loadLongDocumentChunkTokenSize() -> Int {
+        let fallback = 2600
+        let allowed: Set<Int> = [2200, 2600, 3000, 3200]
+        guard let stored = sharedDefaults()?.object(forKey: longDocumentChunkTokenSizeKey) as? Int else {
+            return fallback
+        }
+        return allowed.contains(stored) ? stored : fallback
+    }
+
     private func readInt(_ value: Any?) -> Int? {
         if let intValue = value as? Int { return intValue }
         if let doubleValue = value as? Double { return Int(doubleValue) }
@@ -362,6 +372,17 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "name": "tokenEstimatorEncoding",
                 "payload": [
                     "encoding": loadTokenEstimatorEncoding(),
+                ],
+            ])
+            return
+
+        case "getLongDocumentChunkTokenSize":
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "longDocumentChunkTokenSize",
+                "payload": [
+                    "chunkTokenSize": loadLongDocumentChunkTokenSize(),
                 ],
             ])
             return

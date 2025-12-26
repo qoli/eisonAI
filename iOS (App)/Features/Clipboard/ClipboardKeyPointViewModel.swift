@@ -5,7 +5,6 @@ import UIKit
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
     private static let longDocumentRoutingThreshold = 3200
-    private static let longDocumentChunkTokenSize = 3000
     private static let maxChunkCount = 5
     private static let readingAnchorMaxResponseTokens = 1024
 
@@ -26,6 +25,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private let store = RawLibraryStore()
     private let tokenEstimator = GPTTokenEstimator.shared
     private let tokenEstimatorSettings = TokenEstimatorSettingsStore.shared
+    private let longDocumentSettings = LongDocumentSettingsStore.shared
 
     private var runTask: Task<Void, Never>?
 
@@ -86,9 +86,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 self.tokenEstimate = tokenEstimate
                 let isLongDocument = tokenEstimate > Self.longDocumentRoutingThreshold
-                let chunkTokenSize = isLongDocument
-                    ? Self.chunkTokenSize(for: tokenEstimate)
-                    : nil
+                let chunkTokenSize = isLongDocument ? longDocumentSettings.chunkTokenSize() : nil
                 self.pipelineStatus = isLongDocument ? "Long-document pipeline: On" : "Long-document pipeline: Off"
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
                 self.log("useFoundationModels=\(useFoundationModels)")
@@ -462,11 +460,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         if text.count <= maxChars { return text }
         let idx = text.index(text.startIndex, offsetBy: maxChars)
         return String(text[..<idx])
-    }
-
-    private static func chunkTokenSize(for tokenEstimate: Int) -> Int {
-        guard tokenEstimate > 0 else { return 1 }
-        return max(1, longDocumentChunkTokenSize)
     }
 
     private var inputDescription: String {

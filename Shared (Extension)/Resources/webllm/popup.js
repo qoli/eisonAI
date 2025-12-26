@@ -7,7 +7,7 @@ const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
 const LONG_DOCUMENT_TOKEN_THRESHOLD = 3200;
-const LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 3000;
+const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2600;
 const MAX_LONG_DOCUMENT_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
 const TOKENIZER_GLOBALS = {
@@ -16,6 +16,7 @@ const TOKENIZER_GLOBALS = {
   p50k_base: "GPTTokenizer_p50k_base",
   r50k_base: "GPTTokenizer_r50k_base",
 };
+const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2200, 2600, 3000, 3200]);
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
@@ -322,6 +323,7 @@ const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Scrip
 const CJK_SINGLE_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
 let tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
+let longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
 const tokenizerInstances = new Map();
 
 function resolveTokenizer(encoding) {
@@ -371,7 +373,7 @@ function estimateTokensWithTokenizer(text) {
 function getLongDocumentChunkTokenSize(totalTokens) {
   const value = Number(totalTokens) || 0;
   if (value <= 0) return 1;
-  return Math.max(1, LONG_DOCUMENT_CHUNK_TOKEN_SIZE);
+  return Math.max(1, longDocumentChunkTokenSize);
 }
 
 function chunkByEstimatedTokens(text, chunkTokenSize) {
@@ -928,6 +930,40 @@ async function refreshTokenEstimatorFromNative() {
 
   return tokenEstimatorEncoding;
 }
+
+async function refreshLongDocumentChunkTokenSizeFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+    return longDocumentChunkTokenSize;
+  }
+
+  try {
+    const resp = await browser.runtime.sendNativeMessage({
+      v: 1,
+      command: "getLongDocumentChunkTokenSize",
+    });
+
+    const chunkSizeRaw =
+      resp?.payload?.chunkTokenSize ??
+      resp?.chunkTokenSize ??
+      resp?.echo?.payload?.chunkTokenSize ??
+      resp?.echo?.chunkTokenSize;
+    const chunkSize = Number(chunkSizeRaw);
+    if (Number.isFinite(chunkSize) && LONG_DOCUMENT_CHUNK_SIZE_OPTIONS.has(chunkSize)) {
+      longDocumentChunkTokenSize = chunkSize;
+    } else {
+      longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+    }
+  } catch (err) {
+    longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+    console.warn(
+      "[WebLLM Demo] Failed to load long document chunk size from native:",
+      err,
+    );
+  }
+
+  return longDocumentChunkTokenSize;
+}
 async function checkFoundationModelsAvailabilityFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     return { enabled: false, available: false, reason: "native messaging unavailable" };
@@ -1398,6 +1434,7 @@ async function runLongDocumentPipeline(ctx) {
   // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
   const useFoundation = await shouldUseFoundationModels();
   await refreshTokenEstimatorFromNative();
+  await refreshLongDocumentChunkTokenSizeFromNative();
   const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
 
   if (!useFoundation) {
@@ -1439,7 +1476,6 @@ async function runLongDocumentPipeline(ctx) {
     }
 
     lastReadingAnchors = [];
-    lastChunkTokenSize = 0;
 
     // Step 2: For each chunk, ask the model to produce a short "reading anchor".
     for (const chunk of chunks) {

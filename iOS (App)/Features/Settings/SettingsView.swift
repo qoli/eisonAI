@@ -5,7 +5,9 @@ struct SettingsView: View {
     private let sharePollingStore = SharePollingSettingsStore()
     private let rawLibraryStore = RawLibraryStore()
     private let tokenEstimatorSettingsStore = TokenEstimatorSettingsStore.shared
+    private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
     private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
+    private let longDocumentChunkSizeOptions: [Int] = [2200, 2600, 3000, 3200]
 
     @State private var debugStatus = ""
     @State private var cloudSyncStatus = ""
@@ -18,6 +20,7 @@ struct SettingsView: View {
     @State private var rawLibraryStatus: String = ""
     @State private var rawLibraryCleanupStatus: String = ""
     @State private var tokenEstimatorEncoding: Encoding = .cl100k
+    @State private var longDocumentChunkTokenSize: Int = 2600
 
     var body: some View {
         let fmStatus = FoundationModelsAvailability.currentStatus()
@@ -107,6 +110,24 @@ struct SettingsView: View {
                 }
 
                 Text("此設定會同步影響 App 與 Safari Extension 的 token 計算。")
+                    .foregroundStyle(.secondary)
+
+                Picker(
+                    "長文切段大小",
+                    selection: Binding(
+                        get: { longDocumentChunkTokenSize },
+                        set: { newValue in
+                            longDocumentChunkTokenSize = newValue
+                            longDocumentSettingsStore.setChunkTokenSize(newValue)
+                        }
+                    )
+                ) {
+                    ForEach(longDocumentChunkSizeOptions, id: \.self) { size in
+                        Text("\(size)").tag(size)
+                    }
+                }
+
+                Text("長文切段大小固定在選項內（最多 5 段，超過則丟棄）。")
                     .foregroundStyle(.secondary)
             }
 
@@ -222,6 +243,7 @@ struct SettingsView: View {
                 foundationModelsExtensionEnabled = foundationModelsStore.isExtensionEnabled()
                 sharePollingEnabled = sharePollingStore.isEnabled()
                 tokenEstimatorEncoding = tokenEstimatorSettingsStore.selectedEncoding()
+                longDocumentChunkTokenSize = longDocumentSettingsStore.chunkTokenSize()
 
                 if FoundationModelsAvailability.currentStatus() != .available {
                     foundationModelsAppEnabled = false
