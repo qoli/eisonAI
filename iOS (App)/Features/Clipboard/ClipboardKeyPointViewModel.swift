@@ -91,13 +91,30 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 self.log("useFoundationModels=\(useFoundationModels)")
 
                 let result: PipelineResult
+                var effectiveChunkTokenSize: Int?
+                var routingThresholdForSave = routingThreshold
                 if isLongDocument {
-                    result = try await self.runLongDocumentPipeline(
-                        normalized,
-                        tokenEstimate: tokenEstimate,
-                        chunkTokenSize: chunkTokenSize ?? 1,
-                        useFoundationModels: useFoundationModels
-                    )
+                    let resolvedChunkTokenSize = max(1, chunkTokenSize ?? 1)
+                    if useFoundationModels {
+                        let (longResult, resolvedSize) = try await self.runLongDocumentPipelineWithFallback(
+                            normalized,
+                            tokenEstimate: tokenEstimate,
+                            chunkTokenSize: resolvedChunkTokenSize,
+                            useFoundationModels: useFoundationModels
+                        )
+                        result = longResult
+                        effectiveChunkTokenSize = resolvedSize
+                        routingThresholdForSave = resolvedSize
+                    } else {
+                        result = try await self.runLongDocumentPipeline(
+                            normalized,
+                            tokenEstimate: tokenEstimate,
+                            chunkTokenSize: resolvedChunkTokenSize,
+                            useFoundationModels: useFoundationModels
+                        )
+                        effectiveChunkTokenSize = resolvedChunkTokenSize
+                        routingThresholdForSave = resolvedChunkTokenSize
+                    }
                 } else {
                     result = try await self.runSingleSummary(
                         normalized,
@@ -131,8 +148,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     readingAnchors: result.readingAnchors,
                     tokenEstimate: tokenEstimate,
                     tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
-                    chunkTokenSize: chunkTokenSize,
-                    routingThreshold: routingThreshold,
+                    chunkTokenSize: effectiveChunkTokenSize ?? chunkTokenSize,
+                    routingThreshold: routingThresholdForSave,
                     isLongDocument: isLongDocument
                 )
 
@@ -376,6 +393,46 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         )
     }
 
+    private func runLongDocumentPipelineWithFallback(
+        _ input: PreparedInput,
+        tokenEstimate: Int,
+        chunkTokenSize: Int,
+        useFoundationModels: Bool
+    ) async throws -> (PipelineResult, Int) {
+        var currentChunkSize = max(1, chunkTokenSize)
+        let allowedSizes = longDocumentSettings.allowedChunkTokenSizes().sorted()
+
+        while true {
+            do {
+                let result = try await runLongDocumentPipeline(
+                    input,
+                    tokenEstimate: tokenEstimate,
+                    chunkTokenSize: currentChunkSize,
+                    useFoundationModels: useFoundationModels
+                )
+                return (result, currentChunkSize)
+            } catch {
+                print(error)
+                if !useFoundationModels || !isContextWindowExceeded(error) {
+                    throw error
+                }
+
+                guard let nextChunkSize = nextLowerChunkTokenSize(
+                    current: currentChunkSize,
+                    allowedSizes: allowedSizes
+                ) else {
+                    throw error
+                }
+
+                log("longdoc:fallback context window exceeded chunkTokenSize=\(currentChunkSize) -> \(nextChunkSize)")
+                status = "Context limit hit. Retrying with chunk size \(nextChunkSize)…"
+                output = ""
+                pipelineStatus = "Long-document pipeline: On (fallback chunk \(nextChunkSize))"
+                currentChunkSize = nextChunkSize
+            }
+        }
+    }
+
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
         let base = ChunkPromptStore().load().trimmingCharacters(in: .whitespacesAndNewlines)
         let dynamicLine = "- This is a paragraph from the source (chunk \(chunkIndex) of \(chunkTotal))"
@@ -428,6 +485,80 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             log("longdoc:collect-end label=\(label) count=\(finalText.count)")
         }
         return finalText
+    }
+
+    private func isContextWindowExceeded(_ error: Error) -> Bool {
+        let messages = collectErrorMessages(from: error)
+        for message in messages {
+            let normalized = message.lowercased()
+            if normalized.contains("exceeded model context window size") {
+                return true
+            }
+            if normalized.contains("exceeds the maximum allowed context size") {
+                return true
+            }
+            if normalized.contains("maximum allowed context size") && normalized.contains("tokens") {
+                return true
+            }
+            if normalized.contains("context window") && containsExceededHint(normalized) {
+                return true
+            }
+            if normalized.contains("context size") && containsExceededHint(normalized) {
+                return true
+            }
+            if normalized.contains("context length") && containsExceededHint(normalized) {
+                return true
+            }
+            if normalized.contains("prompt tokens") && normalized.contains("context") {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func collectErrorMessages(from error: Error) -> [String] {
+        var messages: [String] = []
+        var pending: [Error] = [error]
+        var seen: Set<String> = []
+
+        while let current = pending.popLast() {
+            let nsError = current as NSError
+            let description = nsError.localizedDescription
+            if !description.isEmpty, seen.insert(description).inserted {
+                messages.append(description)
+            }
+            if let detail = nsError.userInfo[NSLocalizedDescriptionKey] as? String,
+               !detail.isEmpty,
+               seen.insert(detail).inserted {
+                messages.append(detail)
+            }
+            if let reason = nsError.userInfo[NSLocalizedFailureReasonErrorKey] as? String,
+               !reason.isEmpty,
+               seen.insert(reason).inserted {
+                messages.append(reason)
+            }
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                pending.append(underlying)
+            }
+        }
+
+        return messages
+    }
+
+    private func containsExceededHint(_ normalized: String) -> Bool {
+        normalized.contains("exceed")
+            || normalized.contains("too many")
+            || normalized.contains("too large")
+            || normalized.contains("over limit")
+    }
+
+    private func nextLowerChunkTokenSize(current: Int, allowedSizes: [Int]) -> Int? {
+        let sorted = allowedSizes.sorted()
+        if let index = sorted.firstIndex(of: current) {
+            guard index > 0 else { return nil }
+            return sorted[index - 1]
+        }
+        return sorted.filter { $0 < current }.max()
     }
 
     private func sliceText(_ text: String, startUTF16: Int, endUTF16: Int) -> String {

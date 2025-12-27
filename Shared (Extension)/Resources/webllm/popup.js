@@ -381,6 +381,117 @@ function getLongDocumentRoutingThreshold() {
   return Math.max(1, longDocumentChunkTokenSize);
 }
 
+function getAllowedChunkTokenSizes() {
+  return Array.from(LONG_DOCUMENT_CHUNK_SIZE_OPTIONS).sort((a, b) => a - b);
+}
+
+function nextLowerChunkTokenSize(current, allowedSizes) {
+  const currentValue = Number(current) || 0;
+  if (currentValue <= 0) return null;
+  const sorted = Array.isArray(allowedSizes)
+    ? allowedSizes.filter((size) => Number.isFinite(size)).sort((a, b) => a - b)
+    : [];
+  if (!sorted.length) return null;
+  let candidate = null;
+  for (const size of sorted) {
+    if (size < currentValue) candidate = size;
+  }
+  return candidate;
+}
+
+function collectErrorMessages(err) {
+  const messages = [];
+  const seen = new Set();
+  const stack = [];
+  if (err !== null && err !== undefined) {
+    stack.push(err);
+  }
+
+  while (stack.length) {
+    const current = stack.pop();
+    if (current === null || current === undefined) continue;
+
+    if (typeof current === "string") {
+      const text = current.trim();
+      if (text && !seen.has(text)) {
+        seen.add(text);
+        messages.push(text);
+      }
+      continue;
+    }
+
+    if (current instanceof Error) {
+      if (current.message && !seen.has(current.message)) {
+        seen.add(current.message);
+        messages.push(current.message);
+      }
+      if (current.cause) {
+        stack.push(current.cause);
+      }
+      continue;
+    }
+
+    if (typeof current === "object") {
+      const msg = typeof current.message === "string" ? current.message : "";
+      const errMsg = typeof current.error === "string" ? current.error : "";
+      const reason = typeof current.reason === "string" ? current.reason : "";
+      for (const text of [msg, errMsg, reason]) {
+        const trimmed = text.trim();
+        if (trimmed && !seen.has(trimmed)) {
+          seen.add(trimmed);
+          messages.push(trimmed);
+        }
+      }
+      if (current.cause) {
+        stack.push(current.cause);
+      }
+      if (Array.isArray(current.errors)) {
+        for (const item of current.errors) {
+          stack.push(item);
+        }
+      }
+      continue;
+    }
+
+    const fallback = String(current).trim();
+    if (fallback && !seen.has(fallback)) {
+      seen.add(fallback);
+      messages.push(fallback);
+    }
+  }
+
+  return messages;
+}
+
+function containsExceededHint(normalized) {
+  return (
+    normalized.includes("exceed") ||
+    normalized.includes("too many") ||
+    normalized.includes("too large") ||
+    normalized.includes("over limit")
+  );
+}
+
+function isContextWindowExceededError(err) {
+  const messages = collectErrorMessages(err);
+  for (const message of messages) {
+    const normalized = message.toLowerCase();
+    if (normalized.includes("exceeded model context window size")) return true;
+    if (normalized.includes("exceeds the maximum allowed context size")) return true;
+    if (
+      normalized.includes("maximum allowed context size") &&
+      normalized.includes("tokens")
+    ) {
+      return true;
+    }
+    if (normalized.includes("prompt tokens") && normalized.includes("context")) return true;
+    if (normalized.includes("context window") && containsExceededHint(normalized)) return true;
+    if (normalized.includes("context size") && containsExceededHint(normalized)) return true;
+    if (normalized.includes("context length") && containsExceededHint(normalized)) return true;
+  }
+  return false;
+}
+
 function chunkByEstimatedTokens(text, chunkTokenSize) {
   const value = String(text ?? "");
   if (!value || chunkTokenSize <= 0) {
@@ -740,6 +851,7 @@ let foundationJobId = "";
 let foundationCursor = 0;
 let lastTokenEstimate = 0;
 let lastChunkTokenSize = 0;
+let lastRoutingThreshold = 0;
 let lastReadingAnchors = [];
 let lastSummarySystemPrompt = "";
 
@@ -1141,7 +1253,10 @@ async function saveRawHistoryItem({ title, text, url }) {
       lastReadingAnchors?.length && lastChunkTokenSize > 0
         ? lastChunkTokenSize
         : undefined,
-    routingThreshold: getLongDocumentRoutingThreshold(),
+    routingThreshold:
+      lastReadingAnchors?.length && lastRoutingThreshold > 0
+        ? lastRoutingThreshold
+        : getLongDocumentRoutingThreshold(),
     isLongDocument: Boolean(lastReadingAnchors?.length),
   };
 
@@ -1467,6 +1582,109 @@ function buildSummaryUserPromptFromAnchors(anchors) {
     .join("\\n\\n");
 }
 
+async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, chunkTokenSize }) {
+  const resolvedChunkTokenSize = Math.max(1, Number(chunkTokenSize) || 1);
+  lastChunkTokenSize = resolvedChunkTokenSize;
+  lastRoutingThreshold = resolvedChunkTokenSize;
+
+  // Step 1: Split the source text into token-sized chunks for per-part reading.
+  const chunkInfo = chunkByTokens(ctx.text, resolvedChunkTokenSize);
+  const chunks = chunkInfo.chunks.map((chunk) => ({
+    index: Number(chunk.index) || 0,
+    tokenCount: Number(chunk.tokenCount) || 0,
+    text: String(chunk.text ?? ""),
+    startUTF16: Number(chunk.startUTF16) || 0,
+    endUTF16: Number(chunk.endUTF16) || 0,
+  }));
+  if (!chunks.length) {
+    throw new Error("Chunking returned no chunks.");
+  }
+
+  lastReadingAnchors = [];
+
+  // Step 2: For each chunk, ask the model to produce a short "reading anchor".
+  for (const chunk of chunks) {
+    if (generationInterrupted) break;
+    const chunkText = String(chunk.text ?? "");
+    console.log(
+      `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} token count: ${chunk.tokenCount}`,
+    );
+    console.log(
+      `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} text:\\n${chunkText}`,
+    );
+    setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
+    showVisibilityPreview(chunkText);
+
+    const systemPrompt = buildReadingAnchorSystemPrompt({
+      index: chunk.index + 1,
+      total: chunks.length,
+    });
+    const userPrompt = buildReadingAnchorUserPrompt(chunkText);
+
+    setStatus(`Generating chunk ${chunk.index + 1}/${chunks.length}…`, 0);
+    resetOutputForVisibility();
+    setThink("");
+
+    const anchorText = useFoundation
+      ? await generateTextWithFoundationModels({
+          systemPrompt,
+          userPrompt,
+          renderOutput: true,
+        })
+      : await generateTextWithWebLLM(
+          [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          { renderOutput: true },
+        );
+
+    const cleanedAnchor = (() => {
+      const { final } = splitModelThinking(anchorText);
+      return stripTrailingWhitespace(stripLeadingBlankLines(final));
+    })();
+
+    // Keep anchors so the final summary can use them instead of the full text.
+    lastReadingAnchors.push({
+      index: chunk.index,
+      tokenCount: chunk.tokenCount,
+      text: String(cleanedAnchor ?? "").trim(),
+      startUTF16: chunk.startUTF16,
+      endUTF16: chunk.endUTF16,
+    });
+  }
+
+  if (generationInterrupted) {
+    return "";
+  }
+
+  // Step 3: Feed the anchors back into the model to generate the final summary.
+  setStatus("Generating summary…", 0);
+  resetOutputForVisibility();
+  setThink("");
+  const summaryUserPrompt = buildSummaryUserPromptFromAnchors(lastReadingAnchors);
+  const summarySystemPrompt = await getDefaultSystemPromptFallback();
+  lastSummarySystemPrompt = summarySystemPrompt;
+  cachedUserPrompt = summaryUserPrompt;
+
+  const summaryText = useFoundation
+    ? await generateTextWithFoundationModels({
+        systemPrompt: summarySystemPrompt,
+        userPrompt: summaryUserPrompt,
+        renderOutput: true,
+      })
+    : await generateTextWithWebLLM(
+        [
+          { role: "system", content: summarySystemPrompt },
+          { role: "user", content: summaryUserPrompt },
+        ],
+        { renderOutput: true },
+      );
+
+  lastTokenEstimate = Number(totalTokens) || 0;
+  return summaryText;
+}
+
 async function runLongDocumentPipeline(ctx) {
   // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
   const useFoundation = await shouldUseFoundationModels();
@@ -1498,103 +1716,54 @@ async function runLongDocumentPipeline(ctx) {
 
   let summaryText = "";
   try {
-    // Step 1: Split the source text into token-sized chunks for per-part reading.
-    const chunkTokenSize = getLongDocumentChunkTokenSize(totalTokens);
-    lastChunkTokenSize = chunkTokenSize;
-    const chunkInfo = chunkByTokens(ctx.text, chunkTokenSize);
-    const chunks = chunkInfo.chunks.map((chunk) => ({
-      index: Number(chunk.index) || 0,
-      tokenCount: Number(chunk.tokenCount) || 0,
-      text: String(chunk.text ?? ""),
-      startUTF16: Number(chunk.startUTF16) || 0,
-      endUTF16: Number(chunk.endUTF16) || 0,
-    }));
-    if (!chunks.length) {
-      throw new Error("Chunking returned no chunks.");
-    }
+    let chunkTokenSize = getLongDocumentChunkTokenSize(totalTokens);
+    const allowedChunkSizes = getAllowedChunkTokenSizes();
 
-    lastReadingAnchors = [];
+    while (true) {
+      try {
+        summaryText = await runLongDocumentPipelineOnce(ctx, {
+          useFoundation,
+          totalTokens,
+          chunkTokenSize,
+        });
+        break;
+      } catch (err) {
+        if (!useFoundation || !isContextWindowExceededError(err)) {
+          throw err;
+        }
 
-    // Step 2: For each chunk, ask the model to produce a short "reading anchor".
-    for (const chunk of chunks) {
-      if (generationInterrupted) break;
-      const chunkText = String(chunk.text ?? "");
-      console.log(
-        `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} token count: ${chunk.tokenCount}`,
-      );
-      console.log(
-        `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} text:\\n${chunkText}`,
-      );
-      setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
-      showVisibilityPreview(chunkText);
+        const nextChunkTokenSize = nextLowerChunkTokenSize(
+          chunkTokenSize,
+          allowedChunkSizes,
+        );
+        if (!nextChunkTokenSize) {
+          throw err;
+        }
 
-      const systemPrompt = buildReadingAnchorSystemPrompt({
-        index: chunk.index + 1,
-        total: chunks.length,
-      });
-      const userPrompt = buildReadingAnchorUserPrompt(chunkText);
-
-      setStatus(`Generating chunk ${chunk.index + 1}/${chunks.length}…`, 0);
-      resetOutputForVisibility();
-      setThink("");
-
-      const anchorText = useFoundation
-        ? await generateTextWithFoundationModels({
-            systemPrompt,
-            userPrompt,
-            renderOutput: true,
-          })
-        : await generateTextWithWebLLM(
-            [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-            { renderOutput: true },
-          );
-
-      const cleanedAnchor = (() => {
-        const { final } = splitModelThinking(anchorText);
-        return stripTrailingWhitespace(stripLeadingBlankLines(final));
-      })();
-
-      // Keep anchors so the final summary can use them instead of the full text.
-      lastReadingAnchors.push({
-        index: chunk.index,
-        tokenCount: chunk.tokenCount,
-        text: String(cleanedAnchor ?? "").trim(),
-        startUTF16: chunk.startUTF16,
-        endUTF16: chunk.endUTF16,
-      });
-    }
-
-    if (generationInterrupted) {
-      return "";
-    }
-
-    // Step 3: Feed the anchors back into the model to generate the final summary.
-    setStatus("Generating summary…", 0);
-    resetOutputForVisibility();
-    setThink("");
-    const summaryUserPrompt = buildSummaryUserPromptFromAnchors(lastReadingAnchors);
-    const summarySystemPrompt = await getDefaultSystemPromptFallback();
-    lastSummarySystemPrompt = summarySystemPrompt;
-    cachedUserPrompt = summaryUserPrompt;
-
-    summaryText = useFoundation
-      ? await generateTextWithFoundationModels({
-          systemPrompt: summarySystemPrompt,
-          userPrompt: summaryUserPrompt,
-          renderOutput: true,
-        })
-      : await generateTextWithWebLLM(
-          [
-            { role: "system", content: summarySystemPrompt },
-            { role: "user", content: summaryUserPrompt },
-          ],
-          { renderOutput: true },
+        console.warn(
+          `[WebLLM Demo] Context window exceeded. Retrying with chunk size ${nextChunkTokenSize} (was ${chunkTokenSize}).`,
         );
 
-    lastTokenEstimate = totalTokens;
+        if (foundationJobId) {
+          await cancelFoundationModelsStream(foundationJobId);
+        }
+        foundationJobId = "";
+        foundationCursor = 0;
+        cachedUserPrompt = "";
+        lastModelOutputMarkdown = "";
+        lastReadingAnchors = [];
+        lastChunkTokenSize = 0;
+        lastRoutingThreshold = 0;
+        lastSummarySystemPrompt = "";
+
+        setStatus(`Context limit hit. Retrying with chunk size ${nextChunkTokenSize}…`, 0);
+        resetOutputForVisibility();
+        setThink("");
+        setShareVisible(false);
+
+        chunkTokenSize = nextChunkTokenSize;
+      }
+    }
   } finally {
     if (generationInterrupted && generationBackend === "foundation-models" && foundationJobId) {
       await cancelFoundationModelsStream(foundationJobId);
@@ -1759,6 +1928,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
 
     lastReadingAnchors = [];
     lastChunkTokenSize = 0;
+    lastRoutingThreshold = 0;
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
@@ -1982,6 +2152,7 @@ summarizeButton.addEventListener("click", async () => {
     }
     lastReadingAnchors = [];
     lastChunkTokenSize = 0;
+    lastRoutingThreshold = 0;
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
