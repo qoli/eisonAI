@@ -591,10 +591,6 @@ private struct LibraryTextDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .bottomBar) {
-                Spacer()
-            }
-
-            ToolbarItem(placement: .bottomBar) {
                 Button {
                     guard !copyableText.isEmpty else { return }
                     copyToPasteboard(copyableText)
@@ -603,6 +599,10 @@ private struct LibraryTextDetailView: View {
                 }
                 .accessibilityLabel("Copy Full Text")
                 .disabled(copyableText.isEmpty)
+            }
+
+            ToolbarItem(placement: .bottomBar) {
+                Spacer()
             }
         }
     }
