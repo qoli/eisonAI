@@ -509,14 +509,21 @@ private struct MarkdownSection: View {
 private struct LibraryTextDetailView: View {
     let title: String
     let text: String
+    private let markdownLengthThreshold = 6000
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Markdown(text)
-                    .markdownTheme(.librarySummary)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if text.count > markdownLengthThreshold {
+                    Text(text)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Markdown(text)
+                        .markdownTheme(.librarySummary)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             .padding(.horizontal)
         }
