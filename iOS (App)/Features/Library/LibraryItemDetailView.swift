@@ -44,6 +44,16 @@ struct LibraryItemDetailView: View {
         return entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title
     }
 
+    private var fullTextToCopy: String {
+        let articleText = item?.articleText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !articleText.isEmpty {
+            return articleText
+        }
+        let summaryText = (item?.summaryText ?? entry.metadata.summaryText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return summaryText
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -100,6 +110,14 @@ struct LibraryItemDetailView: View {
                     } label: {
                         Label("Copy Note Link", systemImage: "doc.on.doc")
                     }
+
+                    Button {
+                        copyFullText()
+                    } label: {
+                        Label("Copy Full Text", systemImage: "doc.text")
+                    }
+                    .accessibilityLabel("Copy Full Text")
+                    .disabled(fullTextToCopy.isEmpty)
 
                     Divider()
 
@@ -246,12 +264,12 @@ struct LibraryItemDetailView: View {
 
     private func copyNoteLink() {
         let value = noteURLString()
-        #if canImport(UIKit)
-            UIPasteboard.general.string = value
-        #elseif canImport(AppKit)
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(value, forType: .string)
-        #endif
+        copyToPasteboard(value)
+    }
+
+    private func copyFullText() {
+        guard !fullTextToCopy.isEmpty else { return }
+        copyToPasteboard(fullTextToCopy)
     }
 
     @ViewBuilder
@@ -510,6 +528,9 @@ private struct LibraryTextDetailView: View {
     let title: String
     let text: String
     private let markdownLengthThreshold = 6000
+    private var copyableText: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 
     var body: some View {
         ScrollView {
@@ -529,7 +550,28 @@ private struct LibraryTextDetailView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    guard !copyableText.isEmpty else { return }
+                    copyToPasteboard(copyableText)
+                } label: {
+                    Label("Copy Full Text", systemImage: "doc.text")
+                }
+                .accessibilityLabel("Copy Full Text")
+                .disabled(copyableText.isEmpty)
+            }
+        }
     }
+}
+
+private func copyToPasteboard(_ value: String) {
+    #if canImport(UIKit)
+        UIPasteboard.general.string = value
+    #elseif canImport(AppKit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+    #endif
 }
 
 extension View {
