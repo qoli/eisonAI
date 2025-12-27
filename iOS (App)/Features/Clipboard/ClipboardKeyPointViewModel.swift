@@ -1,6 +1,10 @@
 import Foundation
 import UIKit
 
+#if canImport(FoundationModels)
+    import FoundationModels
+#endif
+
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
     private static let prewarmPrefixMaxChars = 1200
@@ -412,7 +416,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 )
                 return (result, currentChunkSize)
             } catch {
-                print(error)
+                if #available(iOS 26.0, *),
+                   let genError = error as? LanguageModelSession.GenerationError {
+                    print("=== FoundationModels GenerationError ===")
+                    print(String(reflecting: genError))
+                    print("=======================================")
+                } else {
+                    print("Non-FoundationModels error:", error)
+                }
+
                 if !useFoundationModels || !isContextWindowExceeded(error) {
                     throw error
                 }
@@ -488,68 +500,36 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func isContextWindowExceeded(_ error: Error) -> Bool {
-        let messages = collectErrorMessages(from: error)
-        for message in messages {
-            let normalized = message.lowercased()
-            if normalized.contains("exceeded model context window size") {
-                return true
+        isFoundationModelsContextWindowExceeded(error)
+    }
+
+    private func isFoundationModelsContextWindowExceeded(_ error: Error) -> Bool {
+        #if canImport(FoundationModels)
+            var pending: [Error] = [error]
+            var seenDescriptions = Set<String>()
+
+            while let current = pending.popLast() {
+                let description = String(describing: current)
+                if !description.isEmpty, !seenDescriptions.insert(description).inserted {
+                    continue
+                }
+
+                if #available(iOS 26.0, *), let generationError = current as? LanguageModelSession.GenerationError {
+                    if case .exceededContextWindowSize = generationError {
+                        return true
+                    }
+                }
+
+                let nsError = current as NSError
+                if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                    pending.append(underlying)
+                }
+                if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
+                    pending.append(contentsOf: underlyingErrors)
+                }
             }
-            if normalized.contains("exceeds the maximum allowed context size") {
-                return true
-            }
-            if normalized.contains("maximum allowed context size") && normalized.contains("tokens") {
-                return true
-            }
-            if normalized.contains("context window") && containsExceededHint(normalized) {
-                return true
-            }
-            if normalized.contains("context size") && containsExceededHint(normalized) {
-                return true
-            }
-            if normalized.contains("context length") && containsExceededHint(normalized) {
-                return true
-            }
-            if normalized.contains("prompt tokens") && normalized.contains("context") {
-                return true
-            }
-        }
+        #endif
         return false
-    }
-
-    private func collectErrorMessages(from error: Error) -> [String] {
-        var messages: [String] = []
-        var pending: [Error] = [error]
-        var seen: Set<String> = []
-
-        while let current = pending.popLast() {
-            let nsError = current as NSError
-            let description = nsError.localizedDescription
-            if !description.isEmpty, seen.insert(description).inserted {
-                messages.append(description)
-            }
-            if let detail = nsError.userInfo[NSLocalizedDescriptionKey] as? String,
-               !detail.isEmpty,
-               seen.insert(detail).inserted {
-                messages.append(detail)
-            }
-            if let reason = nsError.userInfo[NSLocalizedFailureReasonErrorKey] as? String,
-               !reason.isEmpty,
-               seen.insert(reason).inserted {
-                messages.append(reason)
-            }
-            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
-                pending.append(underlying)
-            }
-        }
-
-        return messages
-    }
-
-    private func containsExceededHint(_ normalized: String) -> Bool {
-        normalized.contains("exceed")
-            || normalized.contains("too many")
-            || normalized.contains("too large")
-            || normalized.contains("over limit")
     }
 
     private func nextLowerChunkTokenSize(current: Int, allowedSizes: [Int]) -> Int? {

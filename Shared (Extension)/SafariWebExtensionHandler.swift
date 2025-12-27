@@ -789,6 +789,7 @@ actor FoundationModelsStreamManager {
         var output: String = ""
         var done: Bool = false
         var error: String?
+        var errorCode: String?
         var task: Task<Void, Never>?
     }
 
@@ -977,7 +978,8 @@ actor FoundationModelsStreamManager {
 
             markDone(jobId: jobId)
         } catch {
-            markError(jobId: jobId, message: error.localizedDescription)
+            let errorCode = resolveFoundationModelsErrorCode(error)
+            markError(jobId: jobId, message: error.localizedDescription, code: errorCode)
         }
     }
 #endif
@@ -1017,10 +1019,11 @@ actor FoundationModelsStreamManager {
         jobs[jobId] = job
     }
 
-    private func markError(jobId: String, message: String) {
+    private func markError(jobId: String, message: String, code: String?) {
         guard var job = jobs[jobId] else { return }
         job.done = true
         job.error = message
+        job.errorCode = code
         job.task = nil
         jobs[jobId] = job
     }
@@ -1037,6 +1040,7 @@ actor FoundationModelsStreamManager {
             "cursor": job.output.utf16.count,
             "done": job.done,
             "error": job.error ?? "",
+            "errorCode": job.errorCode ?? "",
         ])
     }
 
@@ -1045,5 +1049,35 @@ actor FoundationModelsStreamManager {
         job.task?.cancel()
         job.done = true
         jobs[jobId] = job
+    }
+
+    private func resolveFoundationModelsErrorCode(_ error: Error) -> String? {
+#if canImport(FoundationModels)
+        var pending: [Error] = [error]
+        var seenDescriptions = Set<String>()
+
+        while let current = pending.popLast() {
+            let description = String(describing: current)
+            if !description.isEmpty, !seenDescriptions.insert(description).inserted {
+                continue
+            }
+
+            if #available(iOS 26.0, macOS 26.0, *),
+               let generationError = current as? LanguageModelSession.GenerationError {
+                if case .exceededContextWindowSize = generationError {
+                    return "EXCEEDED_CONTEXT_WINDOW"
+                }
+            }
+
+            let nsError = current as NSError
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                pending.append(underlying)
+            }
+            if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
+                pending.append(contentsOf: underlyingErrors)
+            }
+        }
+#endif
+        return nil
     }
 }

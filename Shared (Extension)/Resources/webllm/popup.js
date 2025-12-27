@@ -399,97 +399,10 @@ function nextLowerChunkTokenSize(current, allowedSizes) {
   return candidate;
 }
 
-function collectErrorMessages(err) {
-  const messages = [];
-  const seen = new Set();
-  const stack = [];
-  if (err !== null && err !== undefined) {
-    stack.push(err);
-  }
-
-  while (stack.length) {
-    const current = stack.pop();
-    if (current === null || current === undefined) continue;
-
-    if (typeof current === "string") {
-      const text = current.trim();
-      if (text && !seen.has(text)) {
-        seen.add(text);
-        messages.push(text);
-      }
-      continue;
-    }
-
-    if (current instanceof Error) {
-      if (current.message && !seen.has(current.message)) {
-        seen.add(current.message);
-        messages.push(current.message);
-      }
-      if (current.cause) {
-        stack.push(current.cause);
-      }
-      continue;
-    }
-
-    if (typeof current === "object") {
-      const msg = typeof current.message === "string" ? current.message : "";
-      const errMsg = typeof current.error === "string" ? current.error : "";
-      const reason = typeof current.reason === "string" ? current.reason : "";
-      for (const text of [msg, errMsg, reason]) {
-        const trimmed = text.trim();
-        if (trimmed && !seen.has(trimmed)) {
-          seen.add(trimmed);
-          messages.push(trimmed);
-        }
-      }
-      if (current.cause) {
-        stack.push(current.cause);
-      }
-      if (Array.isArray(current.errors)) {
-        for (const item of current.errors) {
-          stack.push(item);
-        }
-      }
-      continue;
-    }
-
-    const fallback = String(current).trim();
-    if (fallback && !seen.has(fallback)) {
-      seen.add(fallback);
-      messages.push(fallback);
-    }
-  }
-
-  return messages;
-}
-
-function containsExceededHint(normalized) {
-  return (
-    normalized.includes("exceed") ||
-    normalized.includes("too many") ||
-    normalized.includes("too large") ||
-    normalized.includes("over limit")
-  );
-}
-
 function isContextWindowExceededError(err) {
-  const messages = collectErrorMessages(err);
-  for (const message of messages) {
-    const normalized = message.toLowerCase();
-    if (normalized.includes("exceeded model context window size")) return true;
-    if (normalized.includes("exceeds the maximum allowed context size")) return true;
-    if (
-      normalized.includes("maximum allowed context size") &&
-      normalized.includes("tokens")
-    ) {
-      return true;
-    }
-    if (normalized.includes("prompt tokens") && normalized.includes("context")) return true;
-    if (normalized.includes("context window") && containsExceededHint(normalized)) return true;
-    if (normalized.includes("context size") && containsExceededHint(normalized)) return true;
-    if (normalized.includes("context length") && containsExceededHint(normalized)) return true;
-  }
-  return false;
+  const code =
+    (err && typeof err === "object" && (err.code || err.errorCode)) || "";
+  return code === "EXCEEDED_CONTEXT_WINDOW";
 }
 
 function chunkByEstimatedTokens(text, chunkTokenSize) {
@@ -1216,6 +1129,7 @@ async function pollFoundationModelsStream({ jobId, cursor }) {
     cursor: Number.isFinite(payload?.cursor) ? Number(payload.cursor) : 0,
     done: Boolean(payload?.done),
     error: typeof payload?.error === "string" ? payload.error : "",
+    errorCode: typeof payload?.errorCode === "string" ? payload.errorCode : "",
   };
 }
 
@@ -1542,7 +1456,11 @@ async function generateTextWithFoundationModels({ systemPrompt, userPrompt, rend
     });
 
     if (polled.error) {
-      throw new Error(polled.error);
+      const err = new Error(polled.error);
+      if (polled.errorCode) {
+        err.code = polled.errorCode;
+      }
+      throw err;
     }
 
     if (polled.delta) {
@@ -1838,14 +1756,18 @@ async function streamSummaryWithFoundationModels(ctx) {
 
     setStatus("Generating…", 0);
     while (!generationInterrupted) {
-      const polled = await pollFoundationModelsStream({
-        jobId: foundationJobId,
-        cursor: foundationCursor,
-      });
+    const polled = await pollFoundationModelsStream({
+      jobId: foundationJobId,
+      cursor: foundationCursor,
+    });
 
-      if (polled.error) {
-        throw new Error(polled.error);
+    if (polled.error) {
+      const err = new Error(polled.error);
+      if (polled.errorCode) {
+        err.code = polled.errorCode;
       }
+      throw err;
+    }
 
       if (polled.delta) {
         acc += polled.delta;
