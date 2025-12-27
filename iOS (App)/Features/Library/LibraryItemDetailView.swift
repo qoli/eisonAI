@@ -96,28 +96,11 @@ struct LibraryItemDetailView: View {
             // Detail-Menu
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                        Link(destination: url) {
-                            Label("Open Link", systemImage: "link")
-                        }
-                        .accessibilityLabel("Open Page URL")
-
-                        Divider()
-                    }
-
                     Button {
                         copyNoteLink()
                     } label: {
                         Label("Copy Note Link", systemImage: "doc.on.doc")
                     }
-
-                    Button {
-                        copyFullText()
-                    } label: {
-                        Label("Copy Full Text", systemImage: "doc.text")
-                    }
-                    .accessibilityLabel("Copy Full Text")
-                    .disabled(fullTextToCopy.isEmpty)
 
                     Divider()
 
@@ -183,6 +166,35 @@ struct LibraryItemDetailView: View {
                     }
                 } label: {
                     Label("More", systemImage: "ellipsis")
+                }
+            }
+
+            // bottomBar
+
+            ToolbarItem(placement: .bottomBar) {
+                Spacer()
+            }
+
+            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                ToolbarItem(placement: .bottomBar) {
+                    Link(destination: url) {
+                        Label("Open Link", systemImage: "link")
+                    }
+                    .accessibilityLabel("Open Page URL")
+                }
+
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                }
+            }
+            if let summaryText = item?.summaryText {
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        copyToPasteboard(summaryText)
+                    } label: {
+                        Label("Copy Full Text", systemImage: "document.on.document")
+                    }
+                    .accessibilityLabel("Copy Full Text")
                 }
             }
         }
@@ -551,7 +563,11 @@ private struct LibraryTextDetailView: View {
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItem(placement: .bottomBar) {
+                Spacer()
+            }
+
+            ToolbarItem(placement: .bottomBar) {
                 Button {
                     guard !copyableText.isEmpty else { return }
                     copyToPasteboard(copyableText)
