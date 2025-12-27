@@ -1,3 +1,4 @@
+import Drops
 import Foundation
 import MarkdownUI
 import SwiftUI
@@ -80,13 +81,15 @@ struct LibraryItemDetailView: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
 
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    viewModel.toggleFavorite(entry)
-                } label: {
-                    Label(isFavorite ? "Unfavorite" : "Favorite", systemImage: isFavorite ? "star.fill" : "star")
+            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(
+                        item: url,
+                        subject: Text(displayTitle)
+                    ) {
+                        Label("Share website", systemImage: "square.and.arrow.up")
+                    }
                 }
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }
 
             if #available(iOS 26.0, *) {
@@ -171,8 +174,15 @@ struct LibraryItemDetailView: View {
 
             // bottomBar
 
-            ToolbarItem(placement: .bottomBar) {
-                Spacer()
+            if let summaryText = copyableSummaryText {
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        copyToPasteboard(summaryText)
+                    } label: {
+                        Label("Copy Full Text", systemImage: "document.on.document")
+                    }
+                    .accessibilityLabel("Copy Full Text")
+                }
             }
 
             if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
@@ -182,20 +192,23 @@ struct LibraryItemDetailView: View {
                     }
                     .accessibilityLabel("Open Page URL")
                 }
-
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
             }
-            if let summaryText = item?.summaryText {
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        copyToPasteboard(summaryText)
-                    } label: {
-                        Label("Copy Full Text", systemImage: "document.on.document")
-                    }
-                    .accessibilityLabel("Copy Full Text")
+
+            if #available(iOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .bottomBar)
+            }
+
+            ToolbarItem(placement: .bottomBar) {
+                Button {
+                    viewModel.toggleFavorite(entry)
+                } label: {
+                    Label(isFavorite ? "Unfavorite" : "Favorite", systemImage: isFavorite ? "star.fill" : "star")
                 }
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+            }
+
+            ToolbarItem(placement: .bottomBar) {
+                Spacer()
             }
         }
         .sheet(isPresented: $isTagEditorPresented, onDismiss: {
@@ -213,6 +226,20 @@ struct LibraryItemDetailView: View {
             log("detail load result item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
             generateTitleIfNeeded(force: false)
+        }
+    }
+
+    var copyableSummaryText: String? {
+        if let summaryText = item?.summaryText {
+            var copyText = summaryText
+
+            if let url = URL(string: entry.metadata.url) {
+                copyText.append("\n\n\(url.absoluteString)")
+            }
+
+            return copyText
+        } else {
+            return nil
         }
     }
 
@@ -572,7 +599,7 @@ private struct LibraryTextDetailView: View {
                     guard !copyableText.isEmpty else { return }
                     copyToPasteboard(copyableText)
                 } label: {
-                    Label("Copy Full Text", systemImage: "doc.text")
+                    Label("Copy Full Text", systemImage: "document.on.document")
                 }
                 .accessibilityLabel("Copy Full Text")
                 .disabled(copyableText.isEmpty)
@@ -588,6 +615,16 @@ private func copyToPasteboard(_ value: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
     #endif
+
+    let oneLine = value
+        .components(separatedBy: .newlines)
+        .joined()
+
+    let drop = Drop(
+        title: "Copy To Pasteboard",
+        subtitle: "\(String(oneLine.prefix(18)))...",
+    )
+    Drops.show(drop)
 }
 
 extension View {

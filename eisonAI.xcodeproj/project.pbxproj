@@ -22,6 +22,7 @@
 		EA77266E2BC5B6B3005A194D /* SafariWebExtensionHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */; };
 		EA886FBE2EF7D4D8003B59A9 /* shareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA886F342EF7D254003B59A9 /* shareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
+		EABCD6822F00650B0013F6F9 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -124,6 +125,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EABCD6822F00650B0013F6F9 /* Drops in Frameworks */,
 				EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */,
 				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
 				EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */,
@@ -347,6 +349,7 @@
 			packageReferences = (
 				EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */,
 				EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+				EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */,
 			);
 			productRefGroup = EA7726342BC5B6B3005A194D /* Products */;
 			projectDirPath = "";
@@ -920,6 +923,14 @@
 				minimumVersion = 2.4.1;
 			};
 		};
+		EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/omaralbeik/Drops.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.7.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -936,6 +947,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
+		};
+		EABCD6812F00650B0013F6F9 /* Drops */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */;
+			productName = Drops;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
