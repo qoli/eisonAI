@@ -81,6 +81,19 @@ struct LibraryItemDetailView: View {
                 ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
 
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    viewModel.toggleFavorite(entry)
+                } label: {
+                    Label(isFavorite ? "Unfavorite" : "Favorite", systemImage: isFavorite ? "star.fill" : "star")
+                }
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+            }
+
+            if #available(iOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            }
+
             if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
                 ToolbarItem(placement: .topBarTrailing) {
                     ShareLink(
@@ -174,7 +187,15 @@ struct LibraryItemDetailView: View {
 
             // bottomBar
 
+            ToolbarItem(placement: .bottomBar) {
+                Spacer()
+            }
+
             if let summaryText = copyableSummaryText {
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                }
+
                 ToolbarItem(placement: .bottomBar) {
                     Button {
                         copyToPasteboard(summaryText)
@@ -186,29 +207,16 @@ struct LibraryItemDetailView: View {
             }
 
             if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                }
+
                 ToolbarItem(placement: .bottomBar) {
                     Link(destination: url) {
                         Label("Open Link", systemImage: "link")
                     }
                     .accessibilityLabel("Open Page URL")
                 }
-            }
-
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .bottomBar)
-            }
-
-            ToolbarItem(placement: .bottomBar) {
-                Button {
-                    viewModel.toggleFavorite(entry)
-                } label: {
-                    Label(isFavorite ? "Unfavorite" : "Favorite", systemImage: isFavorite ? "star.fill" : "star")
-                }
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-            }
-
-            ToolbarItem(placement: .bottomBar) {
-                Spacer()
             }
         }
         .sheet(isPresented: $isTagEditorPresented, onDismiss: {
