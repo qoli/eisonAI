@@ -11,13 +11,18 @@ extension Theme {
         .link {
             ForegroundColor(.accentColor)
         }
+        .strong {
+            FontWeight(.bold)
+            ForegroundColor(.primary)
+        }
         .heading1 { configuration in
             configuration.label
                 .relativeLineSpacing(.em(0.15))
                 .markdownMargin(top: .em(0.9), bottom: .em(0.45))
                 .markdownTextStyle {
-                    FontWeight(.semibold)
+                    FontWeight(.bold)
                     FontSize(.em(1.35))
+                    ForegroundColor(.primary)
                 }
         }
         .heading2 { configuration in
@@ -25,8 +30,9 @@ extension Theme {
                 .relativeLineSpacing(.em(0.15))
                 .markdownMargin(top: .em(0.8), bottom: .em(0.35))
                 .markdownTextStyle {
-                    FontWeight(.semibold)
+                    FontWeight(.bold)
                     FontSize(.em(1.2))
+                    ForegroundColor(.primary)
                 }
         }
         .heading3 { configuration in
@@ -34,8 +40,9 @@ extension Theme {
                 .relativeLineSpacing(.em(0.15))
                 .markdownMargin(top: .em(0.7), bottom: .em(0.3))
                 .markdownTextStyle {
-                    FontWeight(.semibold)
+                    FontWeight(.bold)
                     FontSize(.em(1.05))
+                    ForegroundColor(.primary)
                 }
         }
         .paragraph { configuration in
@@ -43,6 +50,9 @@ extension Theme {
                 .fixedSize(horizontal: false, vertical: true)
                 .relativeLineSpacing(.em(0.18))
                 .markdownMargin(top: .zero, bottom: .em(0.7))
+                .markdownTextStyle {
+                    ForegroundColor(.primary.opacity(0.75))
+                }
         }
         .blockquote { configuration in
             configuration.label
