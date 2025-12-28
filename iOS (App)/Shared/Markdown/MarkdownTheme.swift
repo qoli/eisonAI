@@ -20,7 +20,7 @@ extension Theme {
                 .relativeLineSpacing(.em(0.15))
                 .markdownMargin(top: .em(0.9), bottom: .em(0.45))
                 .markdownTextStyle {
-                    FontWeight(.bold)
+                    FontWeight(.black)
                     FontSize(.em(1.35))
                     ForegroundColor(.primary)
                 }
@@ -30,7 +30,7 @@ extension Theme {
                 .relativeLineSpacing(.em(0.15))
                 .markdownMargin(top: .em(0.8), bottom: .em(0.35))
                 .markdownTextStyle {
-                    FontWeight(.bold)
+                    FontWeight(.black)
                     FontSize(.em(1.2))
                     ForegroundColor(.primary)
                 }
@@ -40,7 +40,7 @@ extension Theme {
                 .relativeLineSpacing(.em(0.15))
                 .markdownMargin(top: .em(0.7), bottom: .em(0.3))
                 .markdownTextStyle {
-                    FontWeight(.bold)
+                    FontWeight(.black)
                     FontSize(.em(1.05))
                     ForegroundColor(.primary)
                 }
@@ -48,7 +48,7 @@ extension Theme {
         .paragraph { configuration in
             configuration.label
                 .fixedSize(horizontal: false, vertical: true)
-                .relativeLineSpacing(.em(0.18))
+                .relativeLineSpacing(.em(0.2))
                 .markdownMargin(top: .zero, bottom: .em(0.7))
                 .markdownTextStyle {
                     ForegroundColor(.primary.opacity(0.75))
