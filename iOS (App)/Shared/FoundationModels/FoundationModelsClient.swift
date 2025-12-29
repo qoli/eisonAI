@@ -1,7 +1,7 @@
 import Foundation
 
 #if canImport(FoundationModels)
-import FoundationModels
+    import FoundationModels
 #endif
 
 @MainActor
@@ -18,7 +18,7 @@ final class FoundationModelsClient {
             switch self {
             case .notSupported:
                 return "Foundation Models requires iOS 26+ with Apple Intelligence."
-            case .unavailable(let reason):
+            case let .unavailable(reason):
                 return reason
             }
         }
@@ -30,7 +30,7 @@ final class FoundationModelsClient {
             return
         case .notSupported:
             throw ClientError.notSupported
-        case .unavailable(let reason):
+        case let .unavailable(reason):
             throw ClientError.unavailable(reason)
         }
     }
@@ -38,24 +38,24 @@ final class FoundationModelsClient {
     func prewarm(systemPrompt: String, promptPrefix: String? = nil) {
         guard FoundationModelsAvailability.currentStatus() == .available else { return }
 
-#if canImport(FoundationModels)
-        guard #available(iOS 26.0, *) else { return }
+        #if canImport(FoundationModels)
+            guard #available(iOS 26.0, *) else { return }
 
-        let trimmedPrefix = promptPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let prewarmedSession,
-           prewarmSystemPrompt == systemPrompt,
-           prewarmPromptPrefix == trimmedPrefix {
-            return
-        }
+            let trimmedPrefix = promptPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let prewarmedSession,
+               prewarmSystemPrompt == systemPrompt,
+               prewarmPromptPrefix == trimmedPrefix {
+                return
+            }
 
-        let model = SystemLanguageModel(useCase: .general, guardrails: .default)
-        let session = LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
-        session.prewarm(promptPrefix: Prompt(trimmedPrefix ?? ""))
+            let model = SystemLanguageModel(useCase: .general, guardrails: .default)
+            let session = LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
+            session.prewarm(promptPrefix: Prompt(trimmedPrefix ?? ""))
 
-        prewarmedSession = session
-        prewarmSystemPrompt = systemPrompt
-        prewarmPromptPrefix = trimmedPrefix
-#endif
+            prewarmedSession = session
+            prewarmSystemPrompt = systemPrompt
+            prewarmPromptPrefix = trimmedPrefix
+        #endif
     }
 
     func streamChat(
@@ -66,71 +66,71 @@ final class FoundationModelsClient {
     ) async throws -> AsyncThrowingStream<String, Error> {
         try Self.ensureAvailable()
 
-#if canImport(FoundationModels)
-        guard #available(iOS 26.0, *) else {
-            throw ClientError.notSupported
-        }
+        #if canImport(FoundationModels)
+            guard #available(iOS 26.0, *) else {
+                throw ClientError.notSupported
+            }
 
-        let options = GenerationOptions(
-            sampling: nil,
-            temperature: temperature,
-            maximumResponseTokens: maximumResponseTokens
-        )
-
-        let session = takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
-            ?? LanguageModelSession(
-                model: SystemLanguageModel(useCase: .general, guardrails: .default),
-                instructions: Instructions(systemPrompt)
+            let options = GenerationOptions(
+                sampling: nil,
+                temperature: temperature,
+                maximumResponseTokens: maximumResponseTokens
             )
-        let stream = session.streamResponse(to: Prompt(userPrompt), options: options)
 
-        return AsyncThrowingStream { continuation in
-            Task { @MainActor in
-                var previous = ""
-                do {
-                    for try await partial in stream {
-                        if Task.isCancelled { break }
-                        let current = partial.content
-                        let delta: String
-                        if current.hasPrefix(previous) {
-                            delta = String(current.dropFirst(previous.count))
-                        } else {
-                            delta = current
+            let session = takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
+                ?? LanguageModelSession(
+                    model: SystemLanguageModel(useCase: .general, guardrails: .default),
+                    instructions: Instructions(systemPrompt)
+                )
+            let stream = session.streamResponse(to: Prompt(userPrompt), options: options)
+
+            return AsyncThrowingStream { continuation in
+                Task { @MainActor in
+                    var previous = ""
+                    do {
+                        for try await partial in stream {
+                            if Task.isCancelled { break }
+                            let current = partial.content
+                            let delta: String
+                            if current.hasPrefix(previous) {
+                                delta = String(current.dropFirst(previous.count))
+                            } else {
+                                delta = current
+                            }
+                            previous = current
+                            if !delta.isEmpty {
+                                continuation.yield(delta)
+                            }
                         }
-                        previous = current
-                        if !delta.isEmpty {
-                            continuation.yield(delta)
-                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
                     }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
                 }
             }
-        }
-#else
-        throw ClientError.notSupported
-#endif
+        #else
+            throw ClientError.notSupported
+        #endif
     }
 
-#if canImport(FoundationModels)
-    @available(iOS 26.0, *)
-    private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
-        guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
-              prewarmSystemPrompt == systemPrompt else {
-            return nil
-        }
+    #if canImport(FoundationModels)
+        @available(iOS 26.0, *)
+        private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
+            guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
+                  prewarmSystemPrompt == systemPrompt else {
+                return nil
+            }
 
-        if let prefix = prewarmPromptPrefix,
-           !prefix.isEmpty,
-           !userPrompt.hasPrefix(prefix) {
-            return nil
-        }
+            if let prefix = prewarmPromptPrefix,
+               !prefix.isEmpty,
+               !userPrompt.hasPrefix(prefix) {
+                return nil
+            }
 
-        self.prewarmedSession = nil
-        prewarmSystemPrompt = nil
-        prewarmPromptPrefix = nil
-        return prewarmedSession
-    }
-#endif
+            self.prewarmedSession = nil
+            prewarmSystemPrompt = nil
+            prewarmPromptPrefix = nil
+            return prewarmedSession
+        }
+    #endif
 }

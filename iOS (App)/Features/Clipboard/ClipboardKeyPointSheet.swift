@@ -23,9 +23,13 @@ struct ClipboardKeyPointSheet: View {
                     Spacer()
 
                     VStack(alignment: .trailing, spacing: 4) {
-                        Text(model.status.isEmpty ? "—" : model.status)
-                            .fontWeight(.bold)
-                            .lineLimit(1)
+                        HStack(spacing: 2) {
+                            Text(model.status.isEmpty ? "—" : model.status)
+                                .fontWeight(.bold)
+                                .lineLimit(1)
+
+                            Spacer()
+                        }
 
                         Divider()
 

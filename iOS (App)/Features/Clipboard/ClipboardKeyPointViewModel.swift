@@ -60,7 +60,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         chunkStatus = ""
         tokenEstimate = nil
         isRunning = true
-        status = "Preparing…"
+        status = "Preparing"
         shouldDismiss = false
         log("run started, input=\(inputDescription)")
 
@@ -73,15 +73,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 case .clipboard:
                     let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                     guard !clip.isEmpty else {
-                        self.status = "Clipboard is empty."
+                        self.status = "Empty"
                         self.log("clipboard empty")
                         self.isRunning = false
                         return
                     }
-                    self.status = "Reading…"
+                    self.status = "Read…"
                     normalized = try await self.prepareInput(from: clip)
                 case let .share(payload):
-                    self.status = "Reading shared content…"
+                    self.status = "Read…"
                     normalized = try await self.prepareInput(fromSharePayload: payload)
                 }
                 if Task.isCancelled { throw CancellationError() }
@@ -140,13 +140,13 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 let trimmed = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
-                    self.status = "Done (empty output)"
+                    self.status = "Empty"
                     self.log("empty output")
                     self.isRunning = false
                     return
                 }
 
-                self.status = "Saving…"
+                self.status = "Save…"
                 try self.store.saveRawItem(
                     url: normalized.url,
                     title: normalized.title,
@@ -163,7 +163,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     isLongDocument: isLongDocument
                 )
 
-                self.status = "Done (saved)"
+                self.status = "Done"
                 self.shouldDismiss = true
                 self.log("saved output, dismissing")
             } catch is CancellationError {
@@ -196,16 +196,16 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let lower = clipboardText.lowercased()
         if lower.hasPrefix("http://") || lower.hasPrefix("https://"), let url = URL(string: clipboardText) {
             sourceDescription = clipboardText
-            status = "Loading URL…"
+            status = "URL…"
             let article = try await extractor.extract(from: url)
             let title = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let body = article.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            status = "Extracted article text"
+            status = "Extracted"
             return PreparedInput(url: article.url, title: title, text: body)
         }
 
         sourceDescription = "Plain text (\(clipboardText.count) chars)"
-        status = "Using clipboard text"
+        status = "Clipboard"
         return PreparedInput(url: "", title: "", text: clipboardText)
     }
 
@@ -220,17 +220,17 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             } else {
                 sourceDescription = "Shared text (\(text.count) chars)"
             }
-            status = "Using shared text"
+            status = "Shared"
             return PreparedInput(url: trimmedURL ?? "", title: trimmedTitle ?? "", text: text)
         }
 
         if let urlString = trimmedURL, !urlString.isEmpty, let url = URL(string: urlString) {
             sourceDescription = urlString
-            status = "Loading URL…"
+            status = "URL…"
             let article = try await extractor.extract(from: url)
             let title = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
             let body = article.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            status = "Extracted article text"
+            status = "Extracted"
             return PreparedInput(url: article.url, title: title, text: body)
         }
 
@@ -253,7 +253,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         if useFoundationModels {
             let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
             foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prewarmPrefix)
-            status = "Generating…"
+            status = "Generating"
             let stream = try await foundationModels.streamChat(
                 systemPrompt: systemPrompt,
                 userPrompt: userPrompt,
@@ -263,9 +263,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             summary = try await collectStream(stream, updateOutput: true)
             modelId = "foundation-models"
         } else {
-            status = "Loading model…"
+            status = "Model…"
             try await mlc.loadIfNeeded()
-            status = "Generating…"
+            status = "Generating"
             let stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
             summary = try await collectStream(stream, updateOutput: true)
             modelId = mlc.loadedModelID ?? ""
@@ -287,7 +287,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         useFoundationModels: Bool
     ) async throws -> PipelineResult {
         log("longdoc:start useFoundationModels=\(useFoundationModels)")
-        status = "Chunking…"
+        status = "Chunk…"
         let resolvedChunkSize = max(1, chunkTokenSize)
         let chunks = await tokenEstimator.chunk(
             text: input.text,
@@ -304,7 +304,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         }
 
         if !useFoundationModels {
-            status = "Loading model…"
+            status = "Model…"
             try await mlc.loadIfNeeded()
         }
 
@@ -314,7 +314,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         for chunk in chunks {
             if Task.isCancelled { throw CancellationError() }
             chunkStatus = "\(chunk.index + 1)/\(chunks.count)"
-            status = "Chunks"
+            status = "Chunk"
 //            output = ""
             log("longdoc:chunk-start index=\(chunk.index) total=\(chunks.count)")
 
@@ -446,7 +446,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 }
 
                 log("longdoc:fallback context window exceeded chunkTokenSize=\(currentChunkSize) -> \(nextChunkSize)")
-                status = "Context limit hit. Retrying with chunk size \(nextChunkSize)…"
+                status = "Retry \(nextChunkSize)…"
                 output = ""
                 pipelineStatus = "Long-document pipeline: On (fallback chunk \(nextChunkSize))"
                 currentChunkSize = nextChunkSize
