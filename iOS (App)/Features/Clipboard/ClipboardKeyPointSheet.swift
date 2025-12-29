@@ -13,8 +13,6 @@ struct ClipboardKeyPointSheet: View {
         NavigationStack {
             ScrollView {
                 Text(model.output.isEmpty ? "—" : model.output)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
                     .padding()
             }
             .overlay(alignment: .bottom, content: {
@@ -39,15 +37,15 @@ struct ClipboardKeyPointSheet: View {
                         }
                         .foregroundStyle(.secondary)
 
-                        if model.pipelineStatus == "ON" {
+                        if model.chunkStatus != "" {
                             HStack(spacing: 2) {
                                 Text("Chunk")
                                     .opacity(0.5)
 
                                 Spacer()
 
-//                                Text(model.chunkTokenSize)
-//                                    .fontWeight(.bold)
+                                Text(model.chunkStatus)
+                                    .fontWeight(.bold)
                             }
                             .foregroundStyle(.secondary)
                         }
@@ -55,7 +53,7 @@ struct ClipboardKeyPointSheet: View {
                     .fontDesign(.rounded)
                     .font(.caption2)
                     .multilineTextAlignment(.trailing)
-                    .frame(width: 140)
+                    .frame(width: 86)
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                     .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
@@ -111,7 +109,7 @@ struct ClipboardKeyPointSheet: View {
                             showsTokenOverlay.toggle()
                         }
                     } label: {
-                        Label(tokenEstimateLabel, systemImage: "quote.opening")
+                        Label(tokenEstimateLabel, systemImage: tokenEstimateLabelImage)
                     }
                     .accessibilityLabel("Toggle token estimate")
                 }
@@ -124,6 +122,14 @@ struct ClipboardKeyPointSheet: View {
                     dismiss()
                 }
             }
+        }
+    }
+
+    private var tokenEstimateLabelImage: String {
+        if model.chunkStatus == "" {
+            return "quote.opening"
+        } else {
+            return "text.quote"
         }
     }
 
