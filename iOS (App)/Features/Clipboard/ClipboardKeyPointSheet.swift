@@ -1,3 +1,4 @@
+import MarkdownUI
 import SwiftUI
 
 struct ClipboardKeyPointSheet: View {
@@ -12,7 +13,9 @@ struct ClipboardKeyPointSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(model.output.isEmpty ? "—" : model.output)
+                Markdown(model.output.isEmpty ? "—" : model.output)
+                    .markdownTheme(.librarySummary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             }
             .overlay(alignment: .bottom, content: {
