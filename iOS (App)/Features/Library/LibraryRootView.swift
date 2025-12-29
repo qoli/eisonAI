@@ -1,4 +1,5 @@
 import Foundation
+import MarkdownUI
 import SwiftUI
 
 struct LibraryRootView: View {
@@ -632,6 +633,33 @@ private struct CircleProgressForeverView: View, Equatable {
 private struct LibraryItemRow: View {
     var entry: RawHistoryEntry
     var isFavorite: Bool
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let dateTimeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    private static let relativeDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        formatter.doesRelativeDateFormatting = true
+        return formatter
+    }()
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter
+    }()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -642,6 +670,7 @@ private struct LibraryItemRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(entry.metadata.title.isEmpty ? "(no title)" : entry.metadata.title)
                     .font(.headline)
+                    .fontWeight(.bold)
                     .lineLimit(1)
 
                 if isFavorite {
@@ -658,16 +687,38 @@ private struct LibraryItemRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(3)
 
-            HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(entry.metadata.modelId.capitalized)
-                Text("·").opacity(0.5)
-                Text(entry.metadata.createdAt, style: .relative)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .opacity(0.8)
+
+                Text(createdAtText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .opacity(0.6)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .opacity(0.7)
         }
-        .padding(.vertical, 6)
+    }
+
+    private var createdAtText: String {
+        let date = entry.metadata.createdAt
+        let now = Date()
+        let calendar = Calendar.current
+
+        if calendar.isDateInYesterday(date) {
+            let dayText = Self.relativeDayFormatter.string(from: date)
+            let timeText = Self.timeFormatter.string(from: date)
+            return "\(dayText) \(timeText)"
+        }
+
+        let dayInterval: TimeInterval = 24 * 60 * 60
+        if abs(date.timeIntervalSince(now)) < dayInterval {
+            return Self.relativeFormatter.localizedString(for: date, relativeTo: now)
+        }
+
+        return Self.dateTimeFormatter.string(from: date)
     }
 }
