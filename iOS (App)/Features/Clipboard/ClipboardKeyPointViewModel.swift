@@ -78,7 +78,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         self.isRunning = false
                         return
                     }
-                    self.status = "Reading clipboard…"
+                    self.status = "Reading…"
                     normalized = try await self.prepareInput(from: clip)
                 case let .share(payload):
                     self.status = "Reading shared content…"
@@ -314,7 +314,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         for chunk in chunks {
             if Task.isCancelled { throw CancellationError() }
             chunkStatus = "\(chunk.index + 1)/\(chunks.count)"
-            status = "Reading chunk \(chunk.index + 1)/\(chunks.count)…"
+            status = "Chunks"
+//            output = ""
             log("longdoc:chunk-start index=\(chunk.index) total=\(chunks.count)")
 
             let resolvedChunkText: String
@@ -348,10 +349,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     temperature: 0.4,
                     maximumResponseTokens: Self.readingAnchorMaxResponseTokens
                 )
-                anchorText = try await collectStream(stream, updateOutput: false, label: "longdoc-anchor-\(chunk.index)")
+                anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
             } else {
                 let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
-                anchorText = try await collectStream(stream, updateOutput: false, label: "longdoc-anchor-\(chunk.index)")
+                anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
             }
 
             let trimmedAnchor = anchorText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -373,7 +374,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let summaryUserPrompt = buildSummaryUserPrompt(from: readingAnchors)
         log("longdoc:summary-prompt systemCount=\(summarySystemPrompt.count) userCount=\(summaryUserPrompt.count)")
 
-        status = "Generating summary…"
+        status = "Summary"
+        // output = ""
         log("longdoc:summary-generate backend=\(useFoundationModels ? "foundation" : "mlc")")
         let summary: String
         let modelId: String
