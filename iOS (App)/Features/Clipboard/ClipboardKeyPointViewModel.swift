@@ -19,6 +19,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var pipelineStatus: String = ""
     @Published var isRunning: Bool = false
     @Published var shouldDismiss: Bool = false
+    @Published var chunkStatus: String = ""
+    /// 格式為：如果是長文 pipeline，就顯示為 1/3，如果不是長文 pipeline，就保持 ""；
+    /// 如果正在處理 Chunk 2，就顯示文 2/3
 
     private let mlc = MLCClient()
     private let foundationModels = FoundationModelsClient()
@@ -40,6 +43,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         runTask = nil
         isRunning = false
         status = "Canceled"
+        chunkStatus = ""
         shouldDismiss = false
         Task { [mlc] in
             await mlc.reset()
@@ -53,6 +57,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         output = ""
         sourceDescription = ""
         pipelineStatus = ""
+        chunkStatus = ""
         tokenEstimate = nil
         isRunning = true
         status = "Preparing…"
@@ -90,7 +95,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 self.tokenEstimate = tokenEstimate
                 let isLongDocument = tokenEstimate > routingThreshold
                 let chunkTokenSize = isLongDocument ? longDocumentSettings.chunkTokenSize() : nil
-                self.pipelineStatus = isLongDocument ? "Long-document pipeline: On" : "Long-document pipeline: Off"
+                self.pipelineStatus = isLongDocument ? "ON" : "Off"
+                self.chunkStatus = isLongDocument ? self.chunkStatus : ""
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
                 self.log("useFoundationModels=\(useFoundationModels)")
 
@@ -307,6 +313,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
         for chunk in chunks {
             if Task.isCancelled { throw CancellationError() }
+            chunkStatus = "\(chunk.index + 1)/\(chunks.count)"
             status = "Reading chunk \(chunk.index + 1)/\(chunks.count)…"
             log("longdoc:chunk-start index=\(chunk.index) total=\(chunks.count)")
 

@@ -3,6 +3,7 @@ import SwiftUI
 struct ClipboardKeyPointSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ClipboardKeyPointViewModel
+    @State private var showsTokenOverlay: Bool = true
 
     init(input: KeyPointInput) {
         _model = StateObject(wrappedValue: ClipboardKeyPointViewModel(input: input))
@@ -10,56 +11,109 @@ struct ClipboardKeyPointSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(model.status)
+            ScrollView {
+                Text(model.output.isEmpty ? "—" : model.output)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding()
+            }
+            .overlay(alignment: .bottom, content: {
+                HStack {
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 4) {
+                        Text(model.status.isEmpty ? "—" : model.status)
+                            .fontWeight(.bold)
+                            .lineLimit(1)
+
+                        Divider()
+
+                        HStack(spacing: 2) {
+                            Text("Token")
+                                .opacity(0.5)
+
+                            Spacer()
+
+                            Text(tokenEstimateLabel)
+                                .fontWeight(.bold)
+                        }
                         .foregroundStyle(.secondary)
 
-                    if !model.pipelineStatus.isEmpty {
-                        Text(model.pipelineStatus)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                        if model.pipelineStatus == "ON" {
+                            HStack(spacing: 2) {
+                                Text("Chunk")
+                                    .opacity(0.5)
 
-                    if let tokenEstimate = model.tokenEstimate {
-                        Text("Token Estimate：\(tokenEstimate)")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                                Spacer()
 
-                ScrollView {
-                    Text(model.output.isEmpty ? "—" : model.output)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+//                                Text(model.chunkTokenSize)
+//                                    .fontWeight(.bold)
+                            }
+                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .fontDesign(.rounded)
+                    .font(.caption2)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 140)
+                    .padding(.horizontal)
+                    .padding(.vertical, 8)
+                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                    .opacity(showsTokenOverlay ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.2), value: showsTokenOverlay)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color(uiColor: .secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .defaultScrollAnchor(.bottom)
-            }
-            .padding()
+                .padding(.horizontal)
+                .padding(.bottom, 8)
+            })
+            .scrollIndicators(.hidden)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .defaultScrollAnchor(.bottom)
             .navigationTitle("Key-point")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
                         model.cancel()
                         dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Close")
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(model.isRunning ? "Stop" : "Run") {
-                        if model.isRunning {
-                            model.cancel()
-                        } else {
-                            model.run()
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                }
+
+                ToolbarItem(placement: .bottomBar) {
+                    Spacer()
+                }
+
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                }
+
+                ToolbarItem(placement: .bottomBar) {
+                    IridescentOrbView()
+                }
+
+                ToolbarItem(placement: .bottomBar) {
+                    Spacer()
+                }
+
+                if #available(iOS 26.0, *) {
+                    ToolbarSpacer(.fixed, placement: .bottomBar)
+                }
+
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showsTokenOverlay.toggle()
                         }
+                    } label: {
+                        Label(tokenEstimateLabel, systemImage: "quote.opening")
                     }
+                    .accessibilityLabel("Toggle token estimate")
                 }
             }
             .task {
@@ -71,5 +125,12 @@ struct ClipboardKeyPointSheet: View {
                 }
             }
         }
+    }
+
+    private var tokenEstimateLabel: String {
+        guard let tokenEstimate = model.tokenEstimate else {
+            return "—"
+        }
+        return "~\(tokenEstimate)"
     }
 }
