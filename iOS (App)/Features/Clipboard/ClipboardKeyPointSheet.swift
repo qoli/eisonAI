@@ -5,9 +5,15 @@ struct ClipboardKeyPointSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ClipboardKeyPointViewModel
     @State private var showsTokenOverlay: Bool = true
+    private let showsErrorAlert: Bool
 
-    init(input: KeyPointInput) {
-        _model = StateObject(wrappedValue: ClipboardKeyPointViewModel(input: input))
+    init(
+        input: KeyPointInput,
+        saveMode: ClipboardKeyPointViewModel.SaveMode = .createNew,
+        showsErrorAlert: Bool = false
+    ) {
+        _model = StateObject(wrappedValue: ClipboardKeyPointViewModel(input: input, saveMode: saveMode))
+        self.showsErrorAlert = showsErrorAlert
     }
 
     var body: some View {
@@ -124,6 +130,13 @@ struct ClipboardKeyPointSheet: View {
             .task {
                 model.run()
             }
+            .alert("Generation Failed", isPresented: errorAlertBinding) {
+                Button("OK") {
+                    model.errorMessage = nil
+                }
+            } message: {
+                Text(model.errorMessage ?? "Unknown error.")
+            }
             .onChange(of: model.shouldDismiss) { _, newValue in
                 if newValue {
                     dismiss()
@@ -145,5 +158,16 @@ struct ClipboardKeyPointSheet: View {
             return "—"
         }
         return "~\(tokenEstimate)"
+    }
+
+    private var errorAlertBinding: Binding<Bool> {
+        Binding(
+            get: { showsErrorAlert && model.errorMessage != nil },
+            set: { newValue in
+                if !newValue {
+                    model.errorMessage = nil
+                }
+            }
+        )
     }
 }

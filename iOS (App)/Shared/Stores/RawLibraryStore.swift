@@ -351,6 +351,91 @@ struct RawLibraryStore {
         return item
     }
 
+    func updateContent(
+        fileURL: URL,
+        title: String?,
+        articleText: String?,
+        summaryText: String,
+        systemPrompt: String,
+        userPrompt: String,
+        modelId: String,
+        readingAnchors: [ReadingAnchorChunk]?,
+        tokenEstimate: Int?,
+        tokenEstimator: String?,
+        chunkTokenSize: Int?,
+        routingThreshold: Int?,
+        isLongDocument: Bool?
+    ) throws -> RawHistoryItem {
+        let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedArticle = articleText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSummary = summaryText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var item = try loadItem(fileURL: fileURL)
+        if let trimmedTitle {
+            item.title = trimmedTitle
+        }
+        if let trimmedArticle {
+            item.articleText = trimmedArticle
+        }
+        item.summaryText = trimmedSummary
+        item.systemPrompt = systemPrompt
+        item.userPrompt = userPrompt
+        item.modelId = modelId
+        item.readingAnchors = readingAnchors
+        item.tokenEstimate = tokenEstimate
+        item.tokenEstimator = tokenEstimator
+        item.chunkTokenSize = chunkTokenSize
+        item.routingThreshold = routingThreshold
+        item.isLongDocument = isLongDocument
+        try writeItem(item, to: fileURL)
+
+        let filename = fileURL.lastPathComponent
+        let itemsDir = try itemsDirectoryURL()
+        let favoritesDir = try favoriteItemsDirectoryURL()
+
+        if fileURL.deletingLastPathComponent().standardizedFileURL == itemsDir.standardizedFileURL {
+            let favoriteURL = favoritesDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: fileSystemPath(for: favoriteURL)) {
+                try updateContentOnly(
+                    fileURL: favoriteURL,
+                    title: trimmedTitle,
+                    articleText: trimmedArticle,
+                    summaryText: trimmedSummary,
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    modelId: modelId,
+                    readingAnchors: readingAnchors,
+                    tokenEstimate: tokenEstimate,
+                    tokenEstimator: tokenEstimator,
+                    chunkTokenSize: chunkTokenSize,
+                    routingThreshold: routingThreshold,
+                    isLongDocument: isLongDocument
+                )
+            }
+        } else if fileURL.deletingLastPathComponent().standardizedFileURL == favoritesDir.standardizedFileURL {
+            let itemURL = itemsDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: fileSystemPath(for: itemURL)) {
+                try updateContentOnly(
+                    fileURL: itemURL,
+                    title: trimmedTitle,
+                    articleText: trimmedArticle,
+                    summaryText: trimmedSummary,
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    modelId: modelId,
+                    readingAnchors: readingAnchors,
+                    tokenEstimate: tokenEstimate,
+                    tokenEstimator: tokenEstimator,
+                    chunkTokenSize: chunkTokenSize,
+                    routingThreshold: routingThreshold,
+                    isLongDocument: isLongDocument
+                )
+            }
+        }
+
+        return item
+    }
+
     @discardableResult
     func updateTags(fileURL: URL, tags: [String]) throws -> (item: RawHistoryItem, cache: [RawLibraryTagCacheEntry]) {
         let normalized = normalizeTags(tags)
@@ -553,6 +638,41 @@ struct RawLibraryStore {
     private func updateTagsOnly(fileURL: URL, tags: [String]) throws {
         var item = try loadItem(fileURL: fileURL)
         item.tags = tags
+        try writeItem(item, to: fileURL)
+    }
+
+    private func updateContentOnly(
+        fileURL: URL,
+        title: String?,
+        articleText: String?,
+        summaryText: String,
+        systemPrompt: String,
+        userPrompt: String,
+        modelId: String,
+        readingAnchors: [ReadingAnchorChunk]?,
+        tokenEstimate: Int?,
+        tokenEstimator: String?,
+        chunkTokenSize: Int?,
+        routingThreshold: Int?,
+        isLongDocument: Bool?
+    ) throws {
+        var item = try loadItem(fileURL: fileURL)
+        if let title {
+            item.title = title
+        }
+        if let articleText {
+            item.articleText = articleText
+        }
+        item.summaryText = summaryText
+        item.systemPrompt = systemPrompt
+        item.userPrompt = userPrompt
+        item.modelId = modelId
+        item.readingAnchors = readingAnchors
+        item.tokenEstimate = tokenEstimate
+        item.tokenEstimator = tokenEstimator
+        item.chunkTokenSize = chunkTokenSize
+        item.routingThreshold = routingThreshold
+        item.isLongDocument = isLongDocument
         try writeItem(item, to: fileURL)
     }
 

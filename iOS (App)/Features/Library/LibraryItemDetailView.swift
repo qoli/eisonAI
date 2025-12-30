@@ -18,6 +18,7 @@ struct LibraryItemDetailView: View {
     @State private var isGeneratingTitle: Bool = false
     @State private var isTagEditorPresented: Bool = false
     @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
+    @State private var regenerateRequest: RegenerateRequest?
 
     private let mlc = MLCClient()
     private let foundationModels = FoundationModelsClient()
@@ -35,6 +36,22 @@ struct LibraryItemDetailView: View {
 
     private var isFavorite: Bool {
         viewModel.isFavorited(entry)
+    }
+
+    private var canRegenerateArticle: Bool {
+        canRegenerateWithURL || canRegenerateWithArticle
+    }
+
+    private var canRegenerateWithURL: Bool {
+        let urlString = entry.metadata.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !urlString.isEmpty, let url = URL(string: urlString) else { return false }
+        let scheme = url.scheme?.lowercased() ?? ""
+        return scheme == "http" || scheme == "https"
+    }
+
+    private var canRegenerateWithArticle: Bool {
+        let articleText = item?.articleText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !articleText.isEmpty
     }
 
     private var displayTitle: String {
@@ -125,6 +142,16 @@ struct LibraryItemDetailView: View {
                     } label: {
                         Label("Regenerate Title", systemImage: "arrow.clockwise")
                     }
+
+                    Divider()
+
+                    Button {
+                        guard let request = makeRegenerateRequest() else { return }
+                        regenerateRequest = request
+                    } label: {
+                        Label("Regenerate Summary", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(!canRegenerateArticle)
 
                     Divider()
 
@@ -227,6 +254,18 @@ struct LibraryItemDetailView: View {
         }) {
             TagEditorView(fileURL: entry.fileURL, title: "Tags")
         }
+        .sheet(item: $regenerateRequest, onDismiss: {
+            log("regenerate article dismissed; reloading detail")
+            item = viewModel.loadDetail(for: entry)
+            log("regenerate article reload done item=\(item != nil ? "ok" : "nil")")
+            viewModel.reload()
+        }) { request in
+            ClipboardKeyPointSheet(
+                input: request.input,
+                saveMode: request.saveMode,
+                showsErrorAlert: true
+            )
+        }
         .task {
             print(entry)
             log("detail task start path=\(entry.fileURL.lastPathComponent)")
@@ -317,6 +356,49 @@ struct LibraryItemDetailView: View {
     private func copyFullText() {
         guard !fullTextToCopy.isEmpty else { return }
         copyToPasteboard(fullTextToCopy)
+    }
+
+    private func makeRegenerateRequest() -> RegenerateRequest? {
+        let urlString = entry.metadata.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !urlString.isEmpty,
+           let url = URL(string: urlString),
+           let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https"
+        {
+            let payload = SharePayload(
+                id: UUID().uuidString,
+                createdAt: Date(),
+                url: urlString,
+                text: nil,
+                title: entry.metadata.title
+            )
+            return RegenerateRequest(
+                input: .share(payload),
+                saveMode: .updateExisting(
+                    fileURL: entry.fileURL,
+                    updateArticle: true,
+                    updateTitle: true
+                )
+            )
+        }
+
+        let articleText = item?.articleText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !articleText.isEmpty else { return nil }
+        let payload = SharePayload(
+            id: UUID().uuidString,
+            createdAt: Date(),
+            url: nil,
+            text: articleText,
+            title: item?.title ?? entry.metadata.title
+        )
+        return RegenerateRequest(
+            input: .share(payload),
+            saveMode: .updateExisting(
+                fileURL: entry.fileURL,
+                updateArticle: false,
+                updateTitle: false
+            )
+        )
     }
 
     @ViewBuilder
@@ -565,7 +647,6 @@ private struct MarkdownSection: View {
             Markdown(noThinkText)
                 .markdownTheme(.librarySummary)
                 .padding(.vertical, 12)
-                .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -701,4 +782,10 @@ struct TagsText: View {
     var body: some View {
         Text(tagsText)
     }
+}
+
+private struct RegenerateRequest: Identifiable {
+    let id = UUID().uuidString
+    let input: KeyPointInput
+    let saveMode: ClipboardKeyPointViewModel.SaveMode
 }

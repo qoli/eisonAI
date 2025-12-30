@@ -7,10 +7,16 @@ import UIKit
 
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
+    enum SaveMode {
+        case createNew
+        case updateExisting(fileURL: URL, updateArticle: Bool, updateTitle: Bool)
+    }
+
     private static let prewarmPrefixMaxChars = 1200
     private static let readingAnchorMaxResponseTokens = 1024
 
     private let input: KeyPointInput
+    private let saveMode: SaveMode
 
     @Published var status: String = "Ready"
     @Published var output: String = ""
@@ -20,6 +26,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var isRunning: Bool = false
     @Published var shouldDismiss: Bool = false
     @Published var chunkStatus: String = ""
+    @Published var errorMessage: String? = nil
     /// 格式為：如果是長文 pipeline，就顯示為 1/3，如果不是長文 pipeline，就保持 ""；
     /// 如果正在處理 Chunk 2，就顯示文 2/3
 
@@ -34,8 +41,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private var runTask: Task<Void, Never>?
 
-    init(input: KeyPointInput = .clipboard) {
+    init(input: KeyPointInput = .clipboard, saveMode: SaveMode = .createNew) {
         self.input = input
+        self.saveMode = saveMode
     }
 
     func cancel() {
@@ -45,6 +53,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         status = "Canceled"
         chunkStatus = ""
         shouldDismiss = false
+        errorMessage = nil
         Task { [mlc] in
             await mlc.reset()
         }
@@ -59,6 +68,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         pipelineStatus = ""
         chunkStatus = ""
         tokenEstimate = nil
+        errorMessage = nil
         isRunning = true
         status = "Preparing"
         shouldDismiss = false
@@ -141,27 +151,55 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let trimmed = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
                     self.status = "Empty"
+                    self.errorMessage = "Generated summary is empty."
                     self.log("empty output")
                     self.isRunning = false
                     return
                 }
 
                 self.status = "Save…"
-                try self.store.saveRawItem(
-                    url: normalized.url,
-                    title: normalized.title,
-                    articleText: normalized.text,
-                    summaryText: trimmed,
-                    systemPrompt: result.systemPrompt,
-                    userPrompt: result.userPrompt,
-                    modelId: result.modelId,
-                    readingAnchors: result.readingAnchors,
-                    tokenEstimate: tokenEstimate,
-                    tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
-                    chunkTokenSize: effectiveChunkTokenSize ?? chunkTokenSize,
-                    routingThreshold: routingThresholdForSave,
-                    isLongDocument: isLongDocument
-                )
+                switch self.saveMode {
+                case .createNew:
+                    try self.store.saveRawItem(
+                        url: normalized.url,
+                        title: normalized.title,
+                        articleText: normalized.text,
+                        summaryText: trimmed,
+                        systemPrompt: result.systemPrompt,
+                        userPrompt: result.userPrompt,
+                        modelId: result.modelId,
+                        readingAnchors: result.readingAnchors,
+                        tokenEstimate: tokenEstimate,
+                        tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
+                        chunkTokenSize: effectiveChunkTokenSize ?? chunkTokenSize,
+                        routingThreshold: routingThresholdForSave,
+                        isLongDocument: isLongDocument
+                    )
+                case let .updateExisting(fileURL, updateArticle, updateTitle):
+                    let trimmedArticle = normalized.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if updateArticle, trimmedArticle.isEmpty {
+                        throw NSError(
+                            domain: "EisonAI.KeyPoint",
+                            code: 10,
+                            userInfo: [NSLocalizedDescriptionKey: "Extracted article text is empty."]
+                        )
+                    }
+                    _ = try self.store.updateContent(
+                        fileURL: fileURL,
+                        title: updateTitle ? normalized.title : nil,
+                        articleText: updateArticle ? trimmedArticle : nil,
+                        summaryText: trimmed,
+                        systemPrompt: result.systemPrompt,
+                        userPrompt: result.userPrompt,
+                        modelId: result.modelId,
+                        readingAnchors: result.readingAnchors,
+                        tokenEstimate: tokenEstimate,
+                        tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
+                        chunkTokenSize: effectiveChunkTokenSize ?? chunkTokenSize,
+                        routingThreshold: routingThresholdForSave,
+                        isLongDocument: isLongDocument
+                    )
+                }
 
                 self.status = "Done"
                 self.shouldDismiss = true
@@ -171,6 +209,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 self.log("canceled")
             } catch {
                 self.status = "Error: \(error.localizedDescription)"
+                self.errorMessage = error.localizedDescription
                 self.log("error: \(error.localizedDescription)")
             }
 
