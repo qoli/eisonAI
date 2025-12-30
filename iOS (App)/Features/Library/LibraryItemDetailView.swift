@@ -38,7 +38,7 @@ struct LibraryItemDetailView: View {
         viewModel.isFavorited(entry)
     }
 
-    private var canRegenerateArticle: Bool {
+    private var canRegenerateSummary: Bool {
         canRegenerateWithURL || canRegenerateWithArticle
     }
 
@@ -151,7 +151,7 @@ struct LibraryItemDetailView: View {
                     } label: {
                         Label("Regenerate Summary", systemImage: "arrow.triangle.2.circlepath")
                     }
-                    .disabled(!canRegenerateArticle)
+                    .disabled(!canRegenerateSummary)
 
                     Divider()
 
@@ -255,9 +255,9 @@ struct LibraryItemDetailView: View {
             TagEditorView(fileURL: entry.fileURL, title: "Tags")
         }
         .sheet(item: $regenerateRequest, onDismiss: {
-            log("regenerate article dismissed; reloading detail")
+            log("regenerate summary dismissed; reloading detail")
             item = viewModel.loadDetail(for: entry)
-            log("regenerate article reload done item=\(item != nil ? "ok" : "nil")")
+            log("regenerate summary reload done item=\(item != nil ? "ok" : "nil")")
             viewModel.reload()
         }) { request in
             ClipboardKeyPointSheet(
@@ -600,7 +600,7 @@ struct LibraryItemDetailView: View {
     }
 
     private func log(_ message: String) {
-        print("[TitleRebuild] \(message)")
+        print("[SummaryRegen] \(message)")
     }
 }
 

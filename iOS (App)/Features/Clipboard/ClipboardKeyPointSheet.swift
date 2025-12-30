@@ -79,7 +79,7 @@ struct ClipboardKeyPointSheet: View {
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .defaultScrollAnchor(.bottom)
-            .navigationTitle("Key-point")
+            .navigationTitle("Cognitive Index")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .bottomBar) {
