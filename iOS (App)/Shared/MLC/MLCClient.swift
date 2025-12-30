@@ -8,24 +8,37 @@ import MLCSwift
 final class MLCClient {
     enum ClientError: LocalizedError {
         case notAvailable
+        case disabledOnSimulator
 
         var errorDescription: String? {
             switch self {
             case .notAvailable:
                 return "MLCSwift not integrated."
+            case .disabledOnSimulator:
+                return "MLC is disabled on Simulator. Set EISONAI_ENABLE_MLC_SIMULATOR=1 to enable."
             }
         }
     }
 
     private(set) var loadedModelID: String?
     private var isLoaded = false
+    private let enableSimulatorMLC: Bool
 
 #if canImport(MLCSwift)
     private let engine = MLCEngine()
 #endif
 
+    init(enableSimulatorMLC: Bool? = nil) {
+        if let override = enableSimulatorMLC {
+            self.enableSimulatorMLC = override
+        } else {
+            self.enableSimulatorMLC = MLCClient.resolveSimulatorMLCOverride()
+        }
+    }
+
     func loadIfNeeded() async throws {
         guard !isLoaded else { return }
+        guard enableSimulatorMLC else { throw ClientError.disabledOnSimulator }
 
 #if canImport(MLCSwift)
         let selection = try MLCModelLocator().resolveSelection()
@@ -38,6 +51,7 @@ final class MLCClient {
     }
 
     func reset() async {
+        guard enableSimulatorMLC else { return }
 #if canImport(MLCSwift)
         await engine.reset()
 #endif
@@ -96,5 +110,13 @@ final class MLCClient {
 #else
         throw ClientError.notAvailable
 #endif
+    }
+
+    private static func resolveSimulatorMLCOverride() -> Bool {
+        #if targetEnvironment(simulator)
+        return ProcessInfo.processInfo.environment["EISONAI_ENABLE_MLC_SIMULATOR"] == "1"
+        #else
+        return true
+        #endif
     }
 }
