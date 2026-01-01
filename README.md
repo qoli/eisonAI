@@ -61,3 +61,7 @@ open eisonAI.xcodeproj
 
 - 需要 WebGPU；若裝置/系統不支援，popup 會提示無法載入模型。
 - Safari extension 使用 `safari-web-extension://` scheme；專案已在 vendor 的 `webllm/webllm.js` 針對非 http(s) URL 做相容處理。
+
+## License
+
+This project is licensed under the PolyForm Noncommercial License 1.0.0. See `LICENSE`.
