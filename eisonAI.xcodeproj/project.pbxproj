@@ -9,15 +9,14 @@
 /* Begin PBXBuildFile section */
 		0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */; };
 		2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 294E0FEFBA424690A81535DA /* libtokenizers_c.xcframework */; };
+		2BDA4184F6F345EA88F54044 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E163CC02CEA447148E85410D /* libsentencepiece.xcframework */; };
-		46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 		461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 69E3C302CAE70743D02A6776 /* MLCSwift */; };
+		46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 		49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */; };
 		5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */; };
-		2BDA4184F6F345EA88F54044 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */; };
-		F859CD0359BA4345930FE1C0 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
 		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
 		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
@@ -27,6 +26,9 @@
 		EA886FBE2EF7D4D8003B59A9 /* shareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA886F342EF7D254003B59A9 /* shareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 		EABCD6822F00650B0013F6F9 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
+		EAC6EC112F073B5900E06D40 /* Eison AI.storekit in Resources */ = {isa = PBXBuildFile; fileRef = EAC6EC102F073B5900E06D40 /* Eison AI.storekit */; };
+		EAC6EC122F073B5900E06D40 /* Eison AI.storekit in Resources */ = {isa = PBXBuildFile; fileRef = EAC6EC102F073B5900E06D40 /* Eison AI.storekit */; };
+		F859CD0359BA4345930FE1C0 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +69,7 @@
 		3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtokenizers_cpp.xcframework; sourceTree = "<group>"; };
 		508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libmodel_iphone.xcframework; sourceTree = "<group>"; };
 		6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtvm_runtime.xcframework; sourceTree = "<group>"; };
+		74B02F09B47C4524B75D5AFD /* eisonAI Sim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "eisonAI Sim.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtvm_ffi_static.xcframework; sourceTree = "<group>"; };
 		E163CC02CEA447148E85410D /* libsentencepiece.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libsentencepiece.xcframework; sourceTree = "<group>"; };
 		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
@@ -74,14 +77,21 @@
 		EA7726232BC5B6B3005A194D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafariWebExtensionHandler.swift; sourceTree = "<group>"; };
 		EA7726332BC5B6B3005A194D /* eisonAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eisonAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		74B02F09B47C4524B75D5AFD /* eisonAI Sim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "eisonAI Sim.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA77263B2BC5B6B3005A194D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "eisonAI Extension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7726562BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA886F342EF7D254003B59A9 /* shareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		EAC6EC102F073B5900E06D40 /* Eison AI.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Eison AI.storekit"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9DDBBB27833B4BD296E4C98C /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 4598EF046A554ADA827D159C /* eisonAI (Sim) */;
+		};
 		EA886F422EF7D254003B59A9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -112,13 +122,6 @@
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
-		9DDBBB27833B4BD296E4C98C /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 4598EF046A554ADA827D159C /* eisonAI (Sim) */;
-		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -133,6 +136,15 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2E1A69B1E6E443E682A8CECE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F859CD0359BA4345930FE1C0 /* Drops in Frameworks */,
+				46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EA7726302BC5B6B3005A194D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -148,15 +160,6 @@
 				2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */,
 				420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */,
 				CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		2E1A69B1E6E443E682A8CECE /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F859CD0359BA4345930FE1C0 /* Drops in Frameworks */,
-				46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -195,6 +198,7 @@
 		EA7726162BC5B6B2005A194D = {
 			isa = PBXGroup;
 			children = (
+				EAC6EC102F073B5900E06D40 /* Eison AI.storekit */,
 				EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */,
 				EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */,
 				EA6F9B5C2EFC0742008DD834 /* SwiftikToken */,
@@ -268,6 +272,31 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		4598EF046A554ADA827D159C /* eisonAI (Sim) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 482A279FE3BB435898B59B4B /* Build configuration list for PBXNativeTarget "eisonAI (Sim)" */;
+			buildPhases = (
+				663034B0E5184EA79A8D086C /* Sources */,
+				2E1A69B1E6E443E682A8CECE /* Frameworks */,
+				8B5AA2F9AF3B4EB186E36547 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				EA6F9B5C2EFC0742008DD834 /* SwiftikToken */,
+				EAF756ED2EF3D23700CA34C3 /* App */,
+				EAF756F02EF3D23700CA34C3 /* Base.lproj */,
+				EAF756F32EF3D23700CA34C3 /* Config */,
+				EAF756FE2EF3D23700CA34C3 /* Features */,
+				EAF757042EF3D23700CA34C3 /* Shared */,
+			);
+			name = "eisonAI (Sim)";
+			productName = "eisonAI Sim";
+			productReference = 74B02F09B47C4524B75D5AFD /* eisonAI Sim.app */;
+			productType = "com.apple.product-type.application";
+		};
 		EA7726322BC5B6B3005A194D /* iOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EA7726862BC5B6B3005A194D /* Build configuration list for PBXNativeTarget "iOS" */;
@@ -294,31 +323,6 @@
 			name = iOS;
 			productName = "eisonAI (iOS)";
 			productReference = EA7726332BC5B6B3005A194D /* eisonAI.app */;
-			productType = "com.apple.product-type.application";
-		};
-		4598EF046A554ADA827D159C /* eisonAI (Sim) */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 482A279FE3BB435898B59B4B /* Build configuration list for PBXNativeTarget "eisonAI (Sim)" */;
-			buildPhases = (
-				663034B0E5184EA79A8D086C /* Sources */,
-				2E1A69B1E6E443E682A8CECE /* Frameworks */,
-				8B5AA2F9AF3B4EB186E36547 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				EA6F9B5C2EFC0742008DD834 /* SwiftikToken */,
-				EAF756ED2EF3D23700CA34C3 /* App */,
-				EAF756F02EF3D23700CA34C3 /* Base.lproj */,
-				EAF756F32EF3D23700CA34C3 /* Config */,
-				EAF756FE2EF3D23700CA34C3 /* Features */,
-				EAF757042EF3D23700CA34C3 /* Shared */,
-			);
-			name = "eisonAI (Sim)";
-			productName = "eisonAI Sim";
-			productReference = 74B02F09B47C4524B75D5AFD /* eisonAI Sim.app */;
 			productType = "com.apple.product-type.application";
 		};
 		EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */ = {
@@ -411,21 +415,23 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		EA7726312BC5B6B3005A194D /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EA77263C2BC5B6B3005A194D /* Base in Resources */,
-				EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		8B5AA2F9AF3B4EB186E36547 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				2BDA4184F6F345EA88F54044 /* Base in Resources */,
+				EAC6EC112F073B5900E06D40 /* Eison AI.storekit in Resources */,
 				CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EA7726312BC5B6B3005A194D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EAC6EC122F073B5900E06D40 /* Eison AI.storekit in Resources */,
+				EA77263C2BC5B6B3005A194D /* Base in Resources */,
+				EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -446,14 +452,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		EA77262F2BC5B6B3005A194D /* Sources */ = {
+		663034B0E5184EA79A8D086C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		663034B0E5184EA79A8D086C /* Sources */ = {
+		EA77262F2BC5B6B3005A194D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -503,6 +509,121 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		310AC949D9F04861BE8C0F46 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "iOS (App)/Config/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI (Sim)";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 2.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+					"-weak_framework",
+					FoundationModels,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
+				PRODUCT_NAME = "eisonAI Sim";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		6725D151784A47ABAE3CC3E2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 19;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
+				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
+				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
+				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
+				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
+				ENABLE_RESOURCE_ACCESS_USB = NO;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "iOS (App)/Config/Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI (Sim)";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				MARKETING_VERSION = 2.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					SafariServices,
+					"-framework",
+					WebKit,
+					"-weak_framework",
+					FoundationModels,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
+				PRODUCT_NAME = "eisonAI Sim";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		EA7726802BC5B6B3005A194D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -857,121 +978,6 @@
 			};
 			name = Release;
 		};
-		6725D151784A47ABAE3CC3E2 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
-				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
-				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
-				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
-				ENABLE_RESOURCE_ACCESS_USB = NO;
-				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = "iOS (App)/Config/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI (Sim)";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 2.0;
-				OTHER_LDFLAGS = (
-					"-framework",
-					SafariServices,
-					"-framework",
-					WebKit,
-					"-weak_framework",
-					FoundationModels,
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
-				PRODUCT_NAME = "eisonAI Sim";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = iphonesimulator;
-				SUPPORTED_PLATFORMS = iphonesimulator;
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		310AC949D9F04861BE8C0F46 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
-				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
-				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
-				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
-				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
-				ENABLE_RESOURCE_ACCESS_USB = NO;
-				ENABLE_USER_SELECTED_FILES = readwrite;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = "iOS (App)/Config/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "eisonAI (Sim)";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				LIBRARY_SEARCH_PATHS = "$(inherited)";
-				MARKETING_VERSION = 2.0;
-				OTHER_LDFLAGS = (
-					"-framework",
-					SafariServices,
-					"-framework",
-					WebKit,
-					"-weak_framework",
-					FoundationModels,
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
-				PRODUCT_NAME = "eisonAI Sim";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = iphonesimulator;
-				SUPPORTED_PLATFORMS = iphonesimulator;
-				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 		EA886F3F2EF7D254003B59A9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1044,6 +1050,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		482A279FE3BB435898B59B4B /* Build configuration list for PBXNativeTarget "eisonAI (Sim)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6725D151784A47ABAE3CC3E2 /* Debug */,
+				310AC949D9F04861BE8C0F46 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		EA77261A2BC5B6B2005A194D /* Build configuration list for PBXProject "eisonAI" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1067,15 +1082,6 @@
 			buildConfigurations = (
 				EA7726872BC5B6B3005A194D /* Debug */,
 				EA7726882BC5B6B3005A194D /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		482A279FE3BB435898B59B4B /* Build configuration list for PBXNativeTarget "eisonAI (Sim)" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				6725D151784A47ABAE3CC3E2 /* Debug */,
-				310AC949D9F04861BE8C0F46 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
