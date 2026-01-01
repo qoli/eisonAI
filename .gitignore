@@ -60,3 +60,4 @@ dist-maccatalyst/*
 !dist-maccatalyst/lib/.gitkeep
 
 eisonAIUIPreview/eisonAIView/MockupData
+Eison AI.storekit
