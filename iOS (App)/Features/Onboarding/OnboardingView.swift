@@ -6,6 +6,7 @@
 //
 
 import Combine
+import Drops
 import Foundation
 import MarkdownUI
 import StoreKit
@@ -695,6 +696,12 @@ struct OnboardingView: View {
         productScrollViewportHeight = max(UIScreen.main.bounds.height, 1)
     }
 
+    @MainActor
+    private func showDrop(title: String, subtitle: String? = nil) {
+        let drop = Drop(title: title, subtitle: subtitle ?? "")
+        Drops.show(drop)
+    }
+
     private var lifetimePriceLabel: String {
         if isPurchased { return "Purchased" }
         if let product = lifetimeProduct { return product.displayPrice }
@@ -724,7 +731,7 @@ struct OnboardingView: View {
     private func refreshPurchasedState() async {
         var hasAccess = false
         for await result in Transaction.currentEntitlements {
-            guard case .verified(let transaction) = result else { continue }
+            guard case let .verified(transaction) = result else { continue }
             if transaction.productID == AppConfig.lifetimeAccessProductId {
                 hasAccess = true
                 break
@@ -735,7 +742,7 @@ struct OnboardingView: View {
 
     private func listenForTransactions() async {
         for await result in Transaction.updates {
-            guard case .verified(let transaction) = result else { continue }
+            guard case let .verified(transaction) = result else { continue }
             if transaction.productID == AppConfig.lifetimeAccessProductId {
                 await MainActor.run {
                     isPurchased = true
@@ -748,7 +755,15 @@ struct OnboardingView: View {
 
     @MainActor
     private func purchaseLifetimeAccess() async {
-        guard let product = lifetimeProduct else { return }
+        if isPurchased {
+            showDrop(title: "Already Unlocked", subtitle: "Lifetime access is active.")
+            onGetLifetimeAccess()
+            return
+        }
+        guard let product = lifetimeProduct else {
+            showDrop(title: "Product Unavailable", subtitle: "Try again in a moment.")
+            return
+        }
         guard !isPurchasing else { return }
         isPurchasing = true
         purchaseErrorMessage = nil
@@ -757,18 +772,21 @@ struct OnboardingView: View {
         do {
             let result = try await product.purchase()
             switch result {
-            case .success(let verification):
+            case let .success(verification):
                 switch verification {
-                case .verified(let transaction):
+                case let .verified(transaction):
                     await transaction.finish()
                     await refreshPurchasedState()
+                    showDrop(title: "Purchase Successful", subtitle: "Lifetime access unlocked.")
                     onGetLifetimeAccess()
                 case .unverified:
                     purchaseErrorMessage = "Purchase could not be verified."
                 }
             case .pending:
+                showDrop(title: "Purchase Pending", subtitle: "Awaiting approval.")
                 break
             case .userCancelled:
+                showDrop(title: "Purchase Cancelled", subtitle: "You can try again anytime.")
                 break
             @unknown default:
                 break
