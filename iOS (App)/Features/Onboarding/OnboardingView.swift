@@ -56,27 +56,59 @@ struct UnevenRoundedRectangle: Shape {
 }
 
 struct OnboardingView: View {
+    private struct BionicLine: Equatable {
+        let text: String
+        let boldParts: [String]
+    }
+
     private struct OnboardingCopy: Equatable {
-        let line1: String
-        let line2: String
-        let line3: String
+        let line1: BionicLine
+        let line2: BionicLine
+        let line3: BionicLine
     }
 
     private let onboardingCopies: [OnboardingCopy] = [
         OnboardingCopy(
-            line1: "Language is not just output",
-            line2: "It defines how ideas are formed",
-            line3: "Before they become words"
+            line1: BionicLine(
+                text: "Language is not just output",
+                boldParts: ["Lan", "not", "out"]
+            ),
+            line2: BionicLine(
+                text: "It defines how ideas are formed",
+                boldParts: ["def", "ideas", "formed"]
+            ),
+            line3: BionicLine(
+                text: "Before they become words",
+                boldParts: []
+            )
         ),
         OnboardingCopy(
-            line1: "Read less linearly",
-            line2: "Think more deliberately",
-            line3: "Make structure visible"
+            line1: BionicLine(
+                text: "Read less linearly",
+                boldParts: ["Read", "lin"]
+            ),
+            line2: BionicLine(
+                text: "Think more deliberately",
+                boldParts: ["Think", "delib"]
+            ),
+            line3: BionicLine(
+                text: "Make structure visible",
+                boldParts: []
+            )
         ),
         OnboardingCopy(
-            line1: "Begin with structure",
-            line2: "Let AI surface what matters",
-            line3: "Then choose where to focus"
+            line1: BionicLine(
+                text: "Begin with structure",
+                boldParts: ["Begin", "struc"]
+            ),
+            line2: BionicLine(
+                text: "Let AI surface what matters",
+                boldParts: ["Let", "surf", "mat"]
+            ),
+            line3: BionicLine(
+                text: "Then choose where to focus",
+                boldParts: []
+            )
         ),
     ]
 
@@ -212,9 +244,7 @@ struct OnboardingView: View {
             }
 
             OnboardingText(
-                currentCopy.line1,
-                currentCopy.line2,
-                currentCopy.line3,
+                currentCopy,
                 animationToken: textAnimationToken
             )
 
@@ -222,29 +252,37 @@ struct OnboardingView: View {
         }
     }
 
-    @ViewBuilder func OnboardingText(
-        _ line1: String,
-        _ line2: String,
-        _ line3: String,
+    @ViewBuilder private func OnboardingText(
+        _ copy: OnboardingCopy,
         animationToken: Int
     ) -> some View {
         VStack(alignment: .center, spacing: 12) {
             VStack(spacing: 6) {
-                ScrambleText(text: line1, trigger: animationToken, delay: 0)
-                    .lineLimit(1)
+                ScrambleText(
+                    text: copy.line1.text,
+                    boldParts: copy.line1.boldParts,
+                    trigger: animationToken,
+                    delay: 0,
+                    fontSize: 22
+                )
+                .lineLimit(1)
 
-                ScrambleText(text: line2, trigger: animationToken, delay: 0.12)
-                    .lineLimit(1)
+                ScrambleText(
+                    text: copy.line2.text,
+                    boldParts: copy.line2.boldParts,
+                    trigger: animationToken,
+                    delay: 0.12,
+                    fontSize: 22
+                )
+                .lineLimit(1)
             }
             .foregroundStyle(.primary)
-            .font(.title3)
-            .fontWeight(.semibold)
             .multilineTextAlignment(.center)
 
             Divider().frame(width: 32)
 
             VStack(spacing: 6) {
-                ScrambleText(text: line3, trigger: animationToken, delay: 0.24)
+                ScrambleText(text: copy.line3.text, boldParts: copy.line3.boldParts, trigger: animationToken, delay: 0.24, useBionic: false)
                     .foregroundStyle(.secondary)
                     .font(.footnote)
                     .lineLimit(1)
@@ -563,28 +601,40 @@ struct OnboardingView: View {
 
 private struct ScrambleText: View {
     let text: String
+    var boldParts: [String] = []
     let trigger: Int
     var duration: Double = 0.7
     var fps: Double = 30
     var delay: Double = 0
     var charset: [Character] = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*")
+    var baseWeight: Font.Weight = .light
+    var boldWeight: Font.Weight = .bold
+    var useBionic: Bool = true
+    var fontSize: CGFloat? = nil
 
     @State private var displayText = ""
     @State private var task: Task<Void, Never>?
 
-    var body: some View {
-        Text(displayText)
-            .onAppear {
-                displayText = text
+    @ViewBuilder var body: some View {
+        Group {
+            if useBionic {
+                Text(bionicAttributed(displayText))
+                    .fontDesign(.rounded)
+            } else {
+                Text(displayText)
             }
-            .onChange(of: trigger) { _ in
-                startScramble()
+        }
+        .onAppear {
+            displayText = text
+        }
+        .onChange(of: trigger) { _ in
+            startScramble()
+        }
+        .onChange(of: text) { newValue in
+            if displayText.isEmpty {
+                displayText = newValue
             }
-            .onChange(of: text) { newValue in
-                if displayText.isEmpty {
-                    displayText = newValue
-                }
-            }
+        }
     }
 
     private func startScramble() {
@@ -625,6 +675,28 @@ private struct ScrambleText: View {
             }
         }
         return String(result)
+    }
+
+    private func bionicAttributed(_ text: String) -> AttributedString {
+        var attributed = AttributedString(text)
+        if let size = fontSize {
+            attributed.font = .system(size: size, weight: baseWeight, design: .rounded)
+        } else {
+            attributed.font = nil
+        }
+        attributed.foregroundColor = .primary.opacity(0.8)
+
+        for part in boldParts {
+            if let range = attributed.range(of: part) {
+                if let size = fontSize {
+                    attributed[range].font = .system(size: size, weight: boldWeight, design: .rounded)
+                } else {
+                    attributed[range].font = nil
+                }
+                attributed[range].foregroundColor = .primary
+            }
+        }
+        return attributed
     }
 }
 
