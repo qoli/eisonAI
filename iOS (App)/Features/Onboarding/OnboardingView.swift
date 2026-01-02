@@ -71,11 +71,11 @@ struct OnboardingView: View {
         OnboardingCopy(
             line1: BionicLine(
                 text: "Language is not just output",
-                boldParts: ["Lan", "not", "out"]
+                boldParts: ["Lang", "is", "not", "just", "out"]
             ),
             line2: BionicLine(
                 text: "It defines how ideas are formed",
-                boldParts: ["def", "ideas", "formed"]
+                boldParts: ["I", "defi", "h", "ide", "a", "for"]
             ),
             line3: BionicLine(
                 text: "Before they become words",
@@ -85,11 +85,11 @@ struct OnboardingView: View {
         OnboardingCopy(
             line1: BionicLine(
                 text: "Read less linearly",
-                boldParts: ["Read", "lin"]
+                boldParts: ["Re", "le", "line"]
             ),
             line2: BionicLine(
                 text: "Think more deliberately",
-                boldParts: ["Think", "delib"]
+                boldParts: ["Thi", "mo", "delib"]
             ),
             line3: BionicLine(
                 text: "Make structure visible",
@@ -99,11 +99,11 @@ struct OnboardingView: View {
         OnboardingCopy(
             line1: BionicLine(
                 text: "Begin with structure",
-                boldParts: ["Begin", "struc"]
+                boldParts: ["Beg", "wi", "struc"]
             ),
             line2: BionicLine(
                 text: "Let AI surface what matters",
-                boldParts: ["Let", "surf", "mat"]
+                boldParts: ["L", "A", "surf", "wh", "matt"]
             ),
             line3: BionicLine(
                 text: "Then choose where to focus",
@@ -417,7 +417,6 @@ struct OnboardingView: View {
                 }
             }
             .padding()
-//            .menuStyle(.borderlessButton)
             .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
 
             Text("You can change this later at any time.")
@@ -426,8 +425,6 @@ struct OnboardingView: View {
 
             Spacer(minLength: 0)
         }
-
-//        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
         .frame(width: 320, height: 240)
     }
 
@@ -684,19 +681,47 @@ private struct ScrambleText: View {
         } else {
             attributed.font = nil
         }
-        attributed.foregroundColor = .primary.opacity(0.8)
+        attributed.foregroundColor = .primary.opacity(0.75)
 
-        for part in boldParts {
-            if let range = attributed.range(of: part) {
-                if let size = fontSize {
-                    attributed[range].font = .system(size: size, weight: boldWeight, design: .rounded)
-                } else {
-                    attributed[range].font = nil
-                }
-                attributed[range].foregroundColor = .primary
+        let words = extractWordRanges(from: text)
+        for (index, wordRange) in words.enumerated() where index < boldParts.count {
+            let part = boldParts[index]
+            if part.isEmpty { continue }
+            let prefixEnd = text.index(wordRange.lowerBound, offsetBy: min(part.count, text.distance(from: wordRange.lowerBound, to: wordRange.upperBound)))
+            let prefixRange = wordRange.lowerBound ..< prefixEnd
+            guard
+                let lower = AttributedString.Index(prefixRange.lowerBound, within: attributed),
+                let upper = AttributedString.Index(prefixRange.upperBound, within: attributed)
+            else { continue }
+            let attrRange = lower ..< upper
+            if let size = fontSize {
+                attributed[attrRange].font = .system(size: size, weight: boldWeight, design: .rounded)
+            } else {
+                attributed[attrRange].font = nil
             }
+            attributed[attrRange].foregroundColor = .primary
         }
         return attributed
+    }
+
+    private func extractWordRanges(from text: String) -> [Range<String.Index>] {
+        var ranges: [Range<String.Index>] = []
+        var currentStart: String.Index?
+        for index in text.indices {
+            let character = text[index]
+            if character.isWhitespace {
+                if let start = currentStart {
+                    ranges.append(start ..< index)
+                    currentStart = nil
+                }
+            } else if currentStart == nil {
+                currentStart = index
+            }
+        }
+        if let start = currentStart {
+            ranges.append(start ..< text.endIndex)
+        }
+        return ranges
     }
 }
 
