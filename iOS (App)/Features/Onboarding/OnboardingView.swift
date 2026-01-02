@@ -355,7 +355,7 @@ struct OnboardingView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 28)
-                .padding(.bottom, 80)
+                .padding(.bottom, 70)
             }
             Spacer()
         }
@@ -557,42 +557,42 @@ struct OnboardingView: View {
                 ProductChecklistItem(
                     title: "Cognitive Index™",
                     text: "Make structure visible",
-                    description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
+                    description: "Scan ideas at a glance without breaking flow.",
                     symbolName: "viewfinder.circle",
                     color: .red
                 ),
                 ProductChecklistItem(
                     title: "Long-Document",
                     text: "Up to 15,000 tokens",
-                    description: "Segmented long-text processing keeps local models effective on lengthy articles.",
+                    description: "Segmented processing keeps long reads fast.",
                     symbolName: "doc.text.magnifyingglass",
                     color: .orange
                 ),
                 ProductChecklistItem(
                     title: "Safari Extension",
-                    text: "Web-LLM / Foundation Models",
-                    description: "See structure directly on the page without leaving your browser.",
+                    text: "Works right in Safari",
+                    description: "See structure on-page without leaving Safari.",
                     symbolName: "puzzlepiece.extension",
                     color: .yellow
                 ),
                 ProductChecklistItem(
                     title: "Local-First",
-                    text: "",
-                    description: "Privacy-first reading, even for sensitive content.",
+                    text: "On-device privacy",
+                    description: "Read privately, even on sensitive content.",
                     symbolName: "lock.square",
                     color: .green
                 ),
                 ProductChecklistItem(
                     title: "Source Trust",
-                    text: "",
-                    description: "Trust isn’t a slogan; it’s something you can verify.",
+                    text: "Verify what you read",
+                    description: "Verify sources, not slogans.",
                     symbolName: "checkmark.seal.fill",
                     color: .blue
                 ),
                 ProductChecklistItem(
                     title: "Library & Tags",
-                    text: "",
-                    description: "Tags power focused review and retrieval.",
+                    text: "Organize what matters",
+                    description: "Tags make review and retrieval effortless.",
                     symbolName: "books.vertical",
                     color: .purple
                 ),
@@ -613,7 +613,8 @@ struct OnboardingView: View {
             // 協議
 
             Divider()
-                .padding(.top)
+                .padding(.vertical)
+                .padding(.horizontal, 32)
 
             HStack {
                 Button("Terms of Service") {
@@ -635,7 +636,7 @@ struct OnboardingView: View {
             .padding(.horizontal, 28)
             .padding(.top, 8)
 
-            Color.clear.frame(height: 180)
+            Color.clear.frame(height: 210)
         }
         .scrollIndicators(.hidden)
         .coordinateSpace(name: "ProductScroll")
@@ -749,8 +750,8 @@ struct OnboardingView: View {
         }
 
         private func dynamicChecklistHorizontalOffset(progress: CGFloat, isLeading: Bool) -> CGFloat {
-            let baseOffset: CGFloat = 10
-            let maxExtraOffset: CGFloat = 20
+            let baseOffset: CGFloat = 20
+            let maxExtraOffset: CGFloat = 30
             let direction: CGFloat = isLeading ? 1 : -1
             let easedProgress = progress * progress * (3 - 2 * progress)
             return direction * (baseOffset + maxExtraOffset * easedProgress)
