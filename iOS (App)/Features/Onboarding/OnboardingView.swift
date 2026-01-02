@@ -6,6 +6,7 @@
 //
 
 import Combine
+import Foundation
 import MarkdownUI
 import SwiftUI
 
@@ -110,6 +111,11 @@ struct OnboardingView: View {
                 boldParts: []
             )
         ),
+        OnboardingCopy(
+            line1: BionicLine(text: "", boldParts: []),
+            line2: BionicLine(text: "", boldParts: []),
+            line3: BionicLine(text: "", boldParts: [])
+        ),
     ]
 
     private let longTextSentences = [
@@ -148,14 +154,21 @@ struct OnboardingView: View {
         onboardingCopy(for: selectedPage)
     }
 
+    init(defaultPage: Int = 0) {
+        let clamped = max(0, min(defaultPage, onboardingCopies.count - 1))
+        _selectedPage = State(initialValue: clamped)
+    }
+
     var body: some View {
         ZStack {
             mainView()
 
-            logoView()
+            if selectedPage != 3 {
+                logoView()
+            }
 
             actionButton()
-            
+
 //            welcomePage()
         }
         .onAppear {
@@ -187,7 +200,8 @@ struct OnboardingView: View {
                 goToPage(selectedPage + 1)
             } label: {
                 HStack {
-                    Text(selectedPage == 0 ? "Get started" : "Continue")
+                    Text(selectedPage == 0 ? "Get started" :
+                        selectedPage == 3 ? "Get Lifetime Access" : "Continue")
                 }
                 .padding(.vertical, 6)
                 .frame(width: 180)
@@ -226,9 +240,17 @@ struct OnboardingView: View {
                         .transition(pageTransition)
                         .offset(y: -24)
                 }
+
+                if selectedPage == 3 {
+                    ProductView()
+                        .transition(pageTransition)
+//                        .background { Color.blue.opacity(0.2) }
+                        .padding(.top, -180)
+                        .padding(.bottom, -120)
+                }
             }
-            .padding(.bottom)
-            .frame(height: 320)
+            .padding(.top, 48)
+            .padding(.bottom, 64)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 20)
@@ -245,11 +267,12 @@ struct OnboardingView: View {
                 animateOnboardingTextChange(to: newValue)
             }
 
-            OnboardingText(
-                currentCopy,
-                animationToken: textAnimationToken
-            )
-
+            if selectedPage != 3 {
+                OnboardingText(
+                    currentCopy,
+                    animationToken: textAnimationToken
+                )
+            }
             Spacer()
         }
     }
@@ -430,6 +453,203 @@ struct OnboardingView: View {
         .frame(width: 320, height: 240)
     }
 
+    @ViewBuilder private func ProductView() -> some View {
+        ScrollView {
+            Color.clear.frame(height: 120)
+
+            HStack {
+                Image("ImageLogo")
+                Image("TextLogo")
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+
+            welcomePage()
+                .padding(.horizontal, 28)
+
+            // CheckList
+            VStack(spacing: 14) {
+                ProductCheckListView(
+                    title: "Cognitive Index™",
+                    text: "讓結構可見",
+                    description: "輕鬆掃一眼，即可知道結構，不妨礙思緒運作。"
+                )
+
+                ProductCheckListView(
+                    title: "長文支持",
+                    text: "最高支持 15,000 Token 輸入",
+                    description: "長文分段技術，讓本地模型也能應付長文章。"
+                )
+
+                ProductCheckListView(
+                    title: "Safari Extension",
+                    text: "透過 Web-LLM / Foundation Models 方案",
+                    description: "無需離開網頁，即可預見結構。"
+                )
+
+                ProductCheckListView(
+                    title: "本地優先",
+                    text: "Qwen3 0.6b / apple intelligence",
+                    description: "敏感閱讀也能安心用。"
+                )
+
+                ProductCheckListView(
+                    title: "開源可驗證",
+                    text: "",
+                    description: "信任不是口號，是可檢查的事實。"
+                )
+
+                ProductCheckListView(
+                    title: "Library 與 Tag",
+                    text: "",
+                    description: "Tag 是你的專項回顧篩選模式"
+                )
+            }
+            .padding()
+            .multilineTextAlignment(.leading)
+
+            .padding(.horizontal, 14)
+
+            HStack {
+                Text("Unlock Full Access")
+                    .font(.caption)
+                    .fontWeight(.bold)
+
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, -4)
+            .padding(.top)
+
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .padding(.trailing, 8)
+
+                VStack(alignment: .leading) {
+                    Text("Lifetime Access")
+                        .font(.headline)
+
+                    Text("One-time purchase")
+                        .foregroundStyle(.secondary)
+                        .fontWeight(.light)
+                }
+
+                Spacer()
+
+                Text("14.99 USD")
+                    .foregroundStyle(.primary)
+                    .fontWeight(.semibold)
+            }
+            .padding()
+            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+            .padding(.horizontal)
+
+            HStack {
+                Text("No subscription. Restore anytime.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+
+            Color.clear.frame(height: 130)
+        }
+        .scrollIndicators(.hidden)
+        .mask {
+            LinearGradient(
+                colors: [.clear, .black, .black, .black, .black, .black, .black, .black, .clear],
+                startPoint: UnitPoint(x: 0.5, y: 0),
+                endPoint: UnitPoint(x: 0.5, y: 1)
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    @ViewBuilder func ProductCheckListView(
+        title: String,
+        text: String,
+        description: String
+    ) -> some View {
+        VStack {
+            HStack {
+                Text(title)
+                    .fontWeight(.bold)
+
+                Spacer()
+            }
+
+            if text != "" {
+                HStack {
+                    Text(text)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+                }
+            }
+
+            Color.clear.frame(height: 1)
+
+            HStack {
+                Text(description)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+        }
+        .padding()
+        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+    }
+
+    private func descriptionText(_ description: String) -> Text {
+        let pattern = "（SF Symbols: ([^）]+)）|\\(SF Symbols: ([^)]+)\\)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return Text(description)
+        }
+
+        let nsDescription = description as NSString
+        let matches = regex.matches(in: description, range: NSRange(location: 0, length: nsDescription.length))
+        guard !matches.isEmpty else {
+            return Text(description)
+        }
+
+        var combined = Text("")
+        var currentLocation = 0
+
+        for match in matches {
+            if match.range.location > currentLocation {
+                let prefix = nsDescription.substring(with: NSRange(location: currentLocation, length: match.range.location - currentLocation))
+                combined = combined + Text(prefix)
+            }
+
+            let symbolRange = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
+            let symbolName = nsDescription.substring(with: symbolRange).trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawToken = nsDescription.substring(with: match.range)
+            let usesFullWidth = rawToken.hasPrefix("（")
+            let openParen = usesFullWidth ? "（" : "("
+            let closeParen = usesFullWidth ? "）" : ")"
+
+            if symbolName.isEmpty {
+                combined = combined + Text(rawToken)
+            } else {
+                combined = combined + Text(openParen)
+                combined = combined + Text(Image(systemName: symbolName))
+                combined = combined + Text(closeParen)
+            }
+
+            currentLocation = match.range.location + match.range.length
+        }
+
+        if currentLocation < nsDescription.length {
+            let suffix = nsDescription.substring(from: currentLocation)
+            combined = combined + Text(suffix)
+        }
+
+        return combined
+    }
+
     @ViewBuilder func logoView() -> some View {
         VStack {
             HStack {
@@ -468,8 +688,8 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder private func welcomePage() -> some View {
-        VStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .center, spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(
                     attributedLine(
                         "Read less linearly.",
@@ -845,5 +1065,7 @@ private struct BorderedTintButtonStyle: ButtonStyle {
 }
 
 #Preview {
-    OnboardingView()
+    OnboardingView(defaultPage: 3)
+        .environment(\.locale, .init(identifier: "en"))
+        .environment(\.layoutDirection, .leftToRight)
 }
