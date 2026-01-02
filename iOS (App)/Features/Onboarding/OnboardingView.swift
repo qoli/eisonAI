@@ -523,7 +523,7 @@ struct OnboardingView: View {
                 ),
             ]
 
-            VStack(spacing: 18) {
+            VStack(spacing: 12) {
                 ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
                     ProductChecklistRow(
                         item: item,
@@ -678,7 +678,7 @@ struct OnboardingView: View {
         }
 
         private func dynamicChecklistRotation(progress: CGFloat, isLeading: Bool) -> Angle {
-            let maxRotation: CGFloat = 8
+            let maxRotation: CGFloat = 14
             let direction: CGFloat = isLeading ? -1 : 1
             return .degrees(Double(maxRotation * progress * direction))
         }
@@ -701,6 +701,7 @@ struct OnboardingView: View {
                         .font(.headline)
                         .fontWeight(.bold)
                         .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if text != "" {
@@ -710,6 +711,7 @@ struct OnboardingView: View {
                             .foregroundStyle(.secondary)
                             .opacity(0.7)
                             .lineLimit(1)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
@@ -720,6 +722,8 @@ struct OnboardingView: View {
                         .font(.callout)
                         .foregroundStyle(.primary)
                         .opacity(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(4)
                 }
             }
             .multilineTextAlignment(.center)
