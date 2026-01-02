@@ -155,6 +155,8 @@ struct OnboardingView: View {
             logoView()
 
             actionButton()
+            
+//            welcomePage()
         }
         .onAppear {
             guard modelLanguageTag.isEmpty else { return }
