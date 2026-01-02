@@ -8,6 +8,7 @@ struct PromptSettingsView: View {
     @State private var summaryPrompt = ""
     @State private var chunkPrompt = ""
     @State private var titlePrompt = ""
+    @State private var modelLanguage = ""
 
     @State private var summaryStatus = ""
     @State private var chunkStatus = ""
@@ -25,17 +26,20 @@ struct PromptSettingsView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
 
+                Text("A language hint is automatically appended: \"- 請使用\(ModelLanguage.displayName(forTag: modelLanguage))輸出\".")
+                    .foregroundStyle(.secondary)
+
                 HStack {
                     Button("Save") {
-                        systemPromptStore.save(summaryPrompt)
-                        summaryPrompt = systemPromptStore.load()
+                        systemPromptStore.saveBase(summaryPrompt)
+                        summaryPrompt = systemPromptStore.loadBase()
                         summaryStatus = "Saved."
                     }
                     .buttonStyle(.borderedProminent)
 
                     Button("Reset to default") {
-                        systemPromptStore.save(nil)
-                        summaryPrompt = systemPromptStore.load()
+                        systemPromptStore.saveBase(nil)
+                        summaryPrompt = systemPromptStore.loadBase()
                         summaryStatus = "Reset to default."
                     }
                     .buttonStyle(.bordered)
@@ -113,9 +117,10 @@ struct PromptSettingsView: View {
         .onAppear {
             guard !didLoad else { return }
             didLoad = true
-            summaryPrompt = systemPromptStore.load()
+            summaryPrompt = systemPromptStore.loadBase()
             chunkPrompt = chunkPromptStore.load()
             titlePrompt = titlePromptStore.load()
+            modelLanguage = ModelLanguageStore().loadOrRecommended()
         }
     }
 }

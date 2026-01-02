@@ -64,14 +64,19 @@ struct OnboardingView: View {
 
     private let onboardingCopies: [OnboardingCopy] = [
         OnboardingCopy(
-            line1: "你通常不是沒時間讀",
-            line2: "而是不知道哪裡值得花時間",
-            line3: "找到屬於你的認知節奏"
+            line1: "Language is not just output",
+            line2: "It defines how ideas are formed",
+            line3: "Before they become words"
         ),
         OnboardingCopy(
-            line1: "從這裡開始",
-            line2: "透過 AI 技術的幫助",
-            line3: "結構化閱讀技術"
+            line1: "Read less linearly",
+            line2: "Think more deliberately",
+            line3: "Make structure visible"
+        ),
+        OnboardingCopy(
+            line1: "Begin with structure",
+            line2: "Let AI surface what matters",
+            line3: "Then choose where to focus"
         ),
     ]
 
@@ -105,6 +110,7 @@ struct OnboardingView: View {
     @State private var selectedPage = 0
     @State private var textAnimationToken = 0
     @State private var isForwardTransition = true
+    @State private var modelLanguageTag = ""
 
     private var currentCopy: OnboardingCopy {
         onboardingCopy(for: selectedPage)
@@ -117,6 +123,13 @@ struct OnboardingView: View {
             logoView()
 
             actionButton()
+        }
+        .onAppear {
+            guard modelLanguageTag.isEmpty else { return }
+            let store = ModelLanguageStore()
+            let tag = store.loadOrRecommended()
+            modelLanguageTag = tag
+            store.save(tag)
         }
     }
 
@@ -140,7 +153,7 @@ struct OnboardingView: View {
                 goToPage(selectedPage + 1)
             } label: {
                 HStack {
-                    Text(selectedPage == onboardingCopies.count - 1 ? "Continue" : "Get started")
+                    Text(selectedPage == 0 ? "Get started" : "Continue")
                 }
                 .padding(.vertical, 6)
                 .frame(width: 180)
@@ -162,13 +175,19 @@ struct OnboardingView: View {
 
             Color.clear.frame(height: 40)
 
+            // Like TabView
             ZStack {
                 if selectedPage == 0 {
-                    longTextPage()
+                    modelLanguagePage()
                         .transition(pageTransition)
                 }
 
                 if selectedPage == 1 {
+                    longTextPage()
+                        .transition(pageTransition)
+                }
+
+                if selectedPage == 2 {
                     keyPointView()
                         .transition(pageTransition)
                         .offset(y: -24)
@@ -212,8 +231,10 @@ struct OnboardingView: View {
         VStack(alignment: .center, spacing: 12) {
             VStack(spacing: 6) {
                 ScrambleText(text: line1, trigger: animationToken, delay: 0)
+                    .lineLimit(1)
 
-                ScrambleText(text: line2, trigger: animationToken, delay: 0.06)
+                ScrambleText(text: line2, trigger: animationToken, delay: 0.12)
+                    .lineLimit(1)
             }
             .foregroundStyle(.primary)
             .font(.title3)
@@ -223,21 +244,23 @@ struct OnboardingView: View {
             Divider().frame(width: 32)
 
             VStack(spacing: 6) {
-                ScrambleText(text: line3, trigger: animationToken, delay: 0.12)
+                ScrambleText(text: line3, trigger: animationToken, delay: 0.24)
                     .foregroundStyle(.secondary)
                     .font(.footnote)
+                    .lineLimit(1)
 
                 Text("Cognitive Index™")
                     .foregroundStyle(.secondary)
                     .font(.caption)
                     .opacity(0.6)
+                    .lineLimit(1)
             }
 
             Color.clear.frame(height: 1)
                 .padding(.top, -1)
         }
         .padding(.horizontal)
-        .frame(maxWidth: 320)
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder func keyPointView() -> some View {
@@ -273,22 +296,22 @@ struct OnboardingView: View {
             ScrollView {
                 VStack {
                     Markdown("""
-                    # 閱讀挑戰：結構而非內容
+                    # Reading challenge: Structure, not content
 
-                    ### 問題：
+                    ### Problem:
 
-                    *   **不具意義的順序**：文章依賴的順序，並非讓讀者理解的順序。
-                    *   **不連貫的思考**：想法不 neatly 排列，重要背景資訊出現得太晚，關鍵假設被埋下。
-                    *   **突如其來的過渡**：讀者必須不斷調整理解，而非直接思考。
+                    *   **Unhelpful order**: The writing order isn't the comprehension order.
+                    *   **Missing structure**: Key assumptions hide in plain sight; background arrives too late.
+                    *   **Abrupt transitions**: You keep adjusting instead of thinking.
 
-                    ### 結果：
+                    ### Result:
 
-                    *   **記憶重複**：讀者記得內容，但未理解核心決策。
-                    *   **認知負擔**：維持順序、追蹤位置、猜測相關性，而非真正思考。
+                    *   **Recall without clarity**: You can summarize, but can't locate where meaning formed.
+                    *   **Cognitive load**: Tracking position replaces judgment.
 
-                    ### 結論：
+                    ### Conclusion:
 
-                    *   閱讀問題不是內容問題，而是結構問題。
+                    *   The problem isn't the content — it's the structure.
                     """)
                     .markdownTheme(.librarySummary)
                 }
@@ -320,6 +343,54 @@ struct OnboardingView: View {
         }
         .frame(width: 320)
         .frame(height: 240)
+    }
+
+    @ViewBuilder private func modelLanguagePage() -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Language of Thought")
+                    .font(.headline)
+                    .fontWeight(.bold)
+
+                Spacer()
+            }
+
+            Text("Choose the language eisonAI uses to think and write.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Menu {
+                ForEach(ModelLanguage.supported) { language in
+                    Button(language.displayName) {
+                        modelLanguageTag = language.tag
+                        ModelLanguageStore().save(language.tag)
+                    }
+                }
+            } label: {
+                HStack {
+                    Text(ModelLanguage.displayName(forTag: modelLanguageTag))
+                        .fontWeight(.semibold)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .opacity(0.7)
+                }
+            }
+            .padding()
+//            .menuStyle(.borderlessButton)
+            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+
+            Text("You can change this later at any time.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
+        }
+
+//        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+        .frame(width: 320, height: 240)
     }
 
     @ViewBuilder func logoView() -> some View {

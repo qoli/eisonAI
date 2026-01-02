@@ -793,7 +793,7 @@ const DEFAULT_SYSTEM_PROMPT =
 
 輸出要求：
 - 合適的格式結構
-- 使用繁體中文。`;
+`;
 
 const DEFAULT_CHUNK_PROMPT =
   `你是一個文字整理員。

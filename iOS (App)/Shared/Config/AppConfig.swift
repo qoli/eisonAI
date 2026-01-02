@@ -10,6 +10,7 @@ import Foundation
 enum AppConfig {
     static let appGroupIdentifier = "group.com.qoli.eisonAI"
     static let systemPromptKey = "eison.systemPrompt"
+    static let modelLanguageKey = "eison.modelLanguage"
     static let chunkPromptKey = "eison.chunkPrompt"
     static let titlePromptKey = "eison.titlePrompt"
     static let foundationModelsAppEnabledKey = "eison.foundationModels.app.enabled"
@@ -40,7 +41,6 @@ enum AppConfig {
 
         輸出要求：
         - 合適的格式結構
-        - 使用繁體中文。
         """
     }()
 

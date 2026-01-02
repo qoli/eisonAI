@@ -22,11 +22,33 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
     private let appGroupIdentifier = AppConfig.appGroupIdentifier
     private let systemPromptKey = AppConfig.systemPromptKey
+    private let modelLanguageKey = AppConfig.modelLanguageKey
     private let chunkPromptKey = AppConfig.chunkPromptKey
     private let tokenEstimatorEncodingKey = AppConfig.tokenEstimatorEncodingKey
     private let longDocumentChunkTokenSizeKey = AppConfig.longDocumentChunkTokenSizeKey
     private let longDocumentMaxChunkCountKey = AppConfig.longDocumentMaxChunkCountKey
     private let rawLibraryMaxItems = AppConfig.rawLibraryMaxItems
+
+    private static let supportedModelLanguages: [(tag: String, displayName: String)] = [
+        (tag: "en-US", displayName: "English (US)"),
+        (tag: "en-GB", displayName: "English (UK)"),
+        (tag: "fr-FR", displayName: "French (France)"),
+        (tag: "de", displayName: "German"),
+        (tag: "it", displayName: "Italian"),
+        (tag: "pt-BR", displayName: "Portuguese (Brazil)"),
+        (tag: "pt-PT", displayName: "Portuguese (Portugal)"),
+        (tag: "es-ES", displayName: "Spanish (Spain)"),
+        (tag: "zh-Hans", displayName: "Chinese (Simplified)"),
+        (tag: "zh-Hant", displayName: "Chinese (Traditional)"),
+        (tag: "ja", displayName: "Japanese"),
+        (tag: "ko", displayName: "Korean"),
+        (tag: "da", displayName: "Danish"),
+        (tag: "nl", displayName: "Dutch"),
+        (tag: "no", displayName: "Norwegian"),
+        (tag: "sv", displayName: "Swedish"),
+        (tag: "tr", displayName: "Turkish"),
+        (tag: "vi", displayName: "Vietnamese"),
+    ]
     private struct RawHistoryItem: Codable {
         var v: Int = 1
         var id: String
@@ -224,13 +246,19 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadSystemPrompt() -> String {
-        guard let stored = sharedDefaults()?.string(forKey: systemPromptKey) else {
-            return AppConfig.defaultSystemPrompt
+        let base: String
+        if let stored = sharedDefaults()?.string(forKey: systemPromptKey) {
+            let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+            base = trimmed.isEmpty ? AppConfig.defaultSystemPrompt : trimmed
+        } else {
+            base = AppConfig.defaultSystemPrompt
         }
-        if stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return AppConfig.defaultSystemPrompt
-        }
-        return stored
+
+        let normalizedBase = normalizeBaseSystemPrompt(base)
+        let languageTag = loadModelLanguageTag()
+        let languageName = modelLanguageDisplayName(forTag: languageTag)
+        let languageLine = "- 請使用\(languageName)輸出"
+        return composeSystemPrompt(base: normalizedBase, languageLine: languageLine)
     }
 
     private func loadChunkPrompt() -> String {
@@ -282,8 +310,125 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         if trimmed.isEmpty {
             defaults.removeObject(forKey: systemPromptKey)
         } else {
-            defaults.set(trimmed, forKey: systemPromptKey)
+            defaults.set(normalizeBaseSystemPrompt(trimmed), forKey: systemPromptKey)
         }
+    }
+
+    private func composeSystemPrompt(base: String, languageLine: String) -> String {
+        let normalizedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedLanguageLine = languageLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalizedLanguageLine.isEmpty { return normalizedBase }
+        if normalizedBase.contains(normalizedLanguageLine) { return normalizedBase }
+        return "\(normalizedBase)\n\n\(normalizedLanguageLine)"
+    }
+
+    private func normalizeBaseSystemPrompt(_ base: String) -> String {
+        let lines = base
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { String($0) }
+
+        let filtered = lines.filter { line in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return true }
+            if trimmed == "- 使用繁體中文。" { return false }
+            if trimmed == "- 使用繁體中文" { return false }
+            return true
+        }
+
+        return filtered.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func normalizeLanguageTag(_ tag: String) -> String {
+        tag.replacingOccurrences(of: "_", with: "-").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isSupportedModelLanguageTag(_ tag: String) -> Bool {
+        let normalized = normalizeLanguageTag(tag)
+        return Self.supportedModelLanguages.contains(where: { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame })
+    }
+
+    private func canonicalModelLanguageTag(_ tag: String) -> String {
+        let normalized = normalizeLanguageTag(tag)
+        return Self.supportedModelLanguages.first(where: { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame })?.tag ?? normalized
+    }
+
+    private func modelLanguageDisplayName(forTag tag: String) -> String {
+        let normalized = normalizeLanguageTag(tag)
+        return Self.supportedModelLanguages.first(where: { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame })?.displayName ?? normalized
+    }
+
+    private func recommendedModelLanguageTag(for locale: Locale) -> String {
+        let identifier = normalizeLanguageTag(locale.identifier)
+        if isSupportedModelLanguageTag(identifier) {
+            return canonicalModelLanguageTag(identifier)
+        }
+
+        let components = Locale.components(fromIdentifier: locale.identifier)
+        let language = components[NSLocale.Key.languageCode.rawValue] ?? ""
+        let script = components[NSLocale.Key.scriptCode.rawValue]
+        let region = components[NSLocale.Key.countryCode.rawValue]
+
+        if !language.isEmpty {
+            if language == "zh" {
+                if let script, isSupportedModelLanguageTag("zh-\(script)") {
+                    return canonicalModelLanguageTag("zh-\(script)")
+                }
+                if let region {
+                    let upper = region.uppercased()
+                    if ["TW", "HK", "MO"].contains(upper) { return "zh-Hant" }
+                    if ["CN", "SG"].contains(upper) { return "zh-Hans" }
+                }
+                return "zh-Hans"
+            }
+
+            if language == "en" {
+                if let region, region.uppercased() == "GB" { return "en-GB" }
+                return "en-US"
+            }
+
+            if language == "pt" {
+                if let region, region.uppercased() == "PT" { return "pt-PT" }
+                if let region, region.uppercased() == "BR" { return "pt-BR" }
+                return "pt-BR"
+            }
+
+            if let region, isSupportedModelLanguageTag("\(language)-\(region)") {
+                return canonicalModelLanguageTag("\(language)-\(region)")
+            }
+
+            if let script, isSupportedModelLanguageTag("\(language)-\(script)") {
+                return canonicalModelLanguageTag("\(language)-\(script)")
+            }
+
+            if isSupportedModelLanguageTag(language) {
+                return canonicalModelLanguageTag(language)
+            }
+        }
+
+        return "en-US"
+    }
+
+    private func loadModelLanguageTag() -> String {
+        guard let defaults = sharedDefaults() else {
+            return recommendedModelLanguageTag(for: .current)
+        }
+
+        guard let stored = defaults.string(forKey: modelLanguageKey) else {
+            let recommended = recommendedModelLanguageTag(for: .current)
+            defaults.set(recommended, forKey: modelLanguageKey)
+            return recommended
+        }
+        let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || !isSupportedModelLanguageTag(trimmed) {
+            let recommended = recommendedModelLanguageTag(for: .current)
+            defaults.set(recommended, forKey: modelLanguageKey)
+            return recommended
+        }
+        let canonical = canonicalModelLanguageTag(trimmed)
+        if canonical != trimmed {
+            defaults.set(canonical, forKey: modelLanguageKey)
+        }
+        return canonical
     }
 
     private func isFoundationModelsExtensionEnabled() -> Bool {
