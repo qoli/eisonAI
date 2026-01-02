@@ -473,48 +473,48 @@ struct OnboardingView: View {
 
                 // CheckList
                 let checklistItems: [ProductChecklistItem] = [
-                        ProductChecklistItem(
-                            title: "Cognitive Index™",
-                            text: "Make structure visible",
-                            description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
-                            symbolName: "viewfinder.circle",
-                            color: .red
-                        ),
-                        ProductChecklistItem(
-                            title: "Long-Document Support",
-                            text: "Up to 15,000 tokens",
-                            description: "Segmented long-text processing keeps local models effective on lengthy articles.",
-                            symbolName: "doc.text.magnifyingglass",
-                            color: .orange
-                        ),
-                        ProductChecklistItem(
-                            title: "Safari Extension",
-                            text: "Web-LLM / Foundation Models",
-                            description: "See structure directly on the page without leaving your browser.",
-                            symbolName: "puzzlepiece.extension",
-                            color: .yellow
-                        ),
-                        ProductChecklistItem(
-                            title: "Local-First",
-                            text: "",
-                            description: "Privacy-first reading, even for sensitive content.",
-                            symbolName: "lock.square",
-                            color: .green
-                        ),
-                        ProductChecklistItem(
-                            title: "Source Trust",
-                            text: "",
-                            description: "Trust isn’t a slogan; it’s something you can verify.",
-                            symbolName: "checkmark.seal.fill",
-                            color: .blue
-                        ),
-                        ProductChecklistItem(
-                            title: "Library & Tags",
-                            text: "",
-                            description: "Tags power focused review and retrieval.",
-                            symbolName: "books.vertical",
-                            color: .purple
-                        ),
+                    ProductChecklistItem(
+                        title: "Cognitive Index™",
+                        text: "Make structure visible",
+                        description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
+                        symbolName: "viewfinder.circle",
+                        color: .red
+                    ),
+                    ProductChecklistItem(
+                        title: "Long-Document Support",
+                        text: "Up to 15,000 tokens",
+                        description: "Segmented long-text processing keeps local models effective on lengthy articles.",
+                        symbolName: "doc.text.magnifyingglass",
+                        color: .orange
+                    ),
+                    ProductChecklistItem(
+                        title: "Safari Extension",
+                        text: "Web-LLM / Foundation Models",
+                        description: "See structure directly on the page without leaving your browser.",
+                        symbolName: "puzzlepiece.extension",
+                        color: .yellow
+                    ),
+                    ProductChecklistItem(
+                        title: "Local-First",
+                        text: "",
+                        description: "Privacy-first reading, even for sensitive content.",
+                        symbolName: "lock.square",
+                        color: .green
+                    ),
+                    ProductChecklistItem(
+                        title: "Source Trust",
+                        text: "",
+                        description: "Trust isn’t a slogan; it’s something you can verify.",
+                        symbolName: "checkmark.seal.fill",
+                        color: .blue
+                    ),
+                    ProductChecklistItem(
+                        title: "Library & Tags",
+                        text: "",
+                        description: "Tags power focused review and retrieval.",
+                        symbolName: "books.vertical",
+                        color: .purple
+                    ),
                 ]
 
                 VStack(spacing: 18) {
@@ -550,9 +550,9 @@ struct OnboardingView: View {
                         Text("Lifetime Access")
                             .font(.headline)
 
-                        Text("One-time purchase")
-                            .foregroundStyle(.secondary)
-                            .fontWeight(.light)
+//                        Text("One-time purchase")
+//                            .foregroundStyle(.secondary)
+//                            .fontWeight(.light)
                     }
 
                     Spacer()
@@ -707,7 +707,7 @@ struct OnboardingView: View {
                 Color.clear.frame(height: 1)
 
                 HStack {
-                    descriptionText(description)
+                    Text(description)
                         .font(.callout)
                         .foregroundStyle(.primary)
                         .opacity(0.8)
@@ -718,59 +718,19 @@ struct OnboardingView: View {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(accentColor.opacity(0.16))
+                        .fill(accentColor.opacity(0.3))
+                        .mask {
+                            LinearGradient(
+                                colors: [.black, .clear],
+                                startPoint: UnitPoint(x: 0.5, y: 0),
+                                endPoint: UnitPoint(x: 0.5, y: 1)
+                            )
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
                     RoundedRectangle(cornerRadius: 16)
                         .fill(.ultraThinMaterial)
                 }
-                .shadow(color: Color.black.opacity(0.12), radius: 14, x: 0, y: 12)
             }
-        }
-
-        private func descriptionText(_ description: String) -> Text {
-            let pattern = "（SF Symbols: ([^）]+)）|\\(SF Symbols: ([^)]+)\\)"
-            guard let regex = try? NSRegularExpression(pattern: pattern) else {
-                return Text(description)
-            }
-
-            let nsDescription = description as NSString
-            let matches = regex.matches(in: description, range: NSRange(location: 0, length: nsDescription.length))
-            guard !matches.isEmpty else {
-                return Text(description)
-            }
-
-            var combined = Text("")
-            var currentLocation = 0
-
-            for match in matches {
-                if match.range.location > currentLocation {
-                    let prefix = nsDescription.substring(with: NSRange(location: currentLocation, length: match.range.location - currentLocation))
-                    combined = combined + Text(prefix)
-                }
-
-                let symbolRange = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
-                let symbolName = nsDescription.substring(with: symbolRange).trimmingCharacters(in: .whitespacesAndNewlines)
-                let rawToken = nsDescription.substring(with: match.range)
-                let usesFullWidth = rawToken.hasPrefix("（")
-                let openParen = usesFullWidth ? "（" : "("
-                let closeParen = usesFullWidth ? "）" : ")"
-
-                if symbolName.isEmpty {
-                    combined = combined + Text(rawToken)
-                } else {
-                    combined = combined + Text(openParen)
-                    combined = combined + Text(Image(systemName: symbolName))
-                    combined = combined + Text(closeParen)
-                }
-
-                currentLocation = match.range.location + match.range.length
-            }
-
-            if currentLocation < nsDescription.length {
-                let suffix = nsDescription.substring(from: currentLocation)
-                combined = combined + Text(suffix)
-            }
-
-            return combined
         }
     }
 
