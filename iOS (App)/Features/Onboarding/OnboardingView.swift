@@ -473,48 +473,48 @@ struct OnboardingView: View {
 
                 // CheckList
                 let checklistItems: [ProductChecklistItem] = [
-                    ProductChecklistItem(
-                        title: "Cognitive Index™",
-                        text: "Make structure visible",
-                        description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
-                        symbolName: "scope",
-                        color: .red
-                    ),
-                    ProductChecklistItem(
-                        title: "Long-Document Support",
-                        text: "Up to 15,000 tokens",
-                        description: "Segmented long-text processing keeps local models effective on lengthy articles.",
-                        symbolName: "text.book.closed",
-                        color: .orange
-                    ),
-                    ProductChecklistItem(
-                        title: "Safari Extension",
-                        text: "Web-LLM / Foundation Models",
-                        description: "See structure directly on the page without leaving your browser.",
-                        symbolName: "safari",
-                        color: .yellow
-                    ),
-                    ProductChecklistItem(
-                        title: "Local-First",
-                        text: "",
-                        description: "Privacy-first reading, even for sensitive content.",
-                        symbolName: "lock.shield",
-                        color: .green
-                    ),
-                    ProductChecklistItem(
-                        title: "Source Trust",
-                        text: "",
-                        description: "Trust isn’t a slogan; it’s something you can verify.",
-                        symbolName: "checkmark.seal",
-                        color: .blue
-                    ),
-                    ProductChecklistItem(
-                        title: "Library & Tags",
-                        text: "",
-                        description: "Tags power focused review and retrieval.",
-                        symbolName: "tag",
-                        color: .purple
-                    ),
+                        ProductChecklistItem(
+                            title: "Cognitive Index™",
+                            text: "Make structure visible",
+                            description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
+                            symbolName: "viewfinder.circle",
+                            color: .red
+                        ),
+                        ProductChecklistItem(
+                            title: "Long-Document Support",
+                            text: "Up to 15,000 tokens",
+                            description: "Segmented long-text processing keeps local models effective on lengthy articles.",
+                            symbolName: "doc.text.magnifyingglass",
+                            color: .orange
+                        ),
+                        ProductChecklistItem(
+                            title: "Safari Extension",
+                            text: "Web-LLM / Foundation Models",
+                            description: "See structure directly on the page without leaving your browser.",
+                            symbolName: "puzzlepiece.extension",
+                            color: .yellow
+                        ),
+                        ProductChecklistItem(
+                            title: "Local-First",
+                            text: "",
+                            description: "Privacy-first reading, even for sensitive content.",
+                            symbolName: "lock.square",
+                            color: .green
+                        ),
+                        ProductChecklistItem(
+                            title: "Source Trust",
+                            text: "",
+                            description: "Trust isn’t a slogan; it’s something you can verify.",
+                            symbolName: "checkmark.seal.fill",
+                            color: .blue
+                        ),
+                        ProductChecklistItem(
+                            title: "Library & Tags",
+                            text: "",
+                            description: "Tags power focused review and retrieval.",
+                            symbolName: "books.vertical",
+                            color: .purple
+                        ),
                 ]
 
                 VStack(spacing: 18) {
