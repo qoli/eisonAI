@@ -1,7 +1,9 @@
 import Foundation
 
+#if !targetEnvironment(simulator)
 #if canImport(MLCSwift)
 import MLCSwift
+#endif
 #endif
 
 @MainActor
@@ -15,7 +17,7 @@ final class MLCClient {
             case .notAvailable:
                 return "MLCSwift not integrated."
             case .disabledOnSimulator:
-                return "MLC is disabled on Simulator. Set EISONAI_ENABLE_MLC_SIMULATOR=1 to enable."
+                return "MLC is disabled on Simulator/SwiftUI Preview."
             }
         }
     }
@@ -24,8 +26,10 @@ final class MLCClient {
     private var isLoaded = false
     private let enableSimulatorMLC: Bool
 
+#if !targetEnvironment(simulator)
 #if canImport(MLCSwift)
     private let engine = MLCEngine()
+#endif
 #endif
 
     init(enableSimulatorMLC: Bool? = nil) {
@@ -40,6 +44,7 @@ final class MLCClient {
         guard !isLoaded else { return }
         guard enableSimulatorMLC else { throw ClientError.disabledOnSimulator }
 
+#if !targetEnvironment(simulator)
 #if canImport(MLCSwift)
         let selection = try MLCModelLocator().resolveSelection()
         await engine.reload(modelPath: selection.modelPath, modelLib: selection.modelLib)
@@ -48,16 +53,22 @@ final class MLCClient {
 #else
         throw ClientError.notAvailable
 #endif
+#else
+        throw ClientError.disabledOnSimulator
+#endif
     }
 
     func reset() async {
         guard enableSimulatorMLC else { return }
+#if !targetEnvironment(simulator)
 #if canImport(MLCSwift)
         await engine.reset()
+#endif
 #endif
     }
 
     func streamChat(systemPrompt: String, userPrompt: String) async throws -> AsyncThrowingStream<String, Error> {
+#if !targetEnvironment(simulator)
 #if canImport(MLCSwift)
         try await loadIfNeeded()
         await engine.reset()
@@ -110,11 +121,14 @@ final class MLCClient {
 #else
         throw ClientError.notAvailable
 #endif
+#else
+        throw ClientError.disabledOnSimulator
+#endif
     }
 
     private static func resolveSimulatorMLCOverride() -> Bool {
         #if targetEnvironment(simulator)
-        return ProcessInfo.processInfo.environment["EISONAI_ENABLE_MLC_SIMULATOR"] == "1"
+        return false
         #else
         return true
         #endif

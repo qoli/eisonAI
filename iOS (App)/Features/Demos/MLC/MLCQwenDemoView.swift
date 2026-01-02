@@ -7,8 +7,10 @@
 
 import SwiftUI
 
+#if !targetEnvironment(simulator)
 #if canImport(MLCSwift)
     import MLCSwift
+#endif
 #endif
 
 @MainActor
@@ -22,8 +24,10 @@ final class MLCQwenDemoViewModel: ObservableObject {
     private var loadTask: Task<Void, Never>?
     private var generateTask: Task<Void, Never>?
 
+    #if !targetEnvironment(simulator)
     #if canImport(MLCSwift)
         private let engine = MLCEngine()
+    #endif
     #endif
     private let modelIDCandidates = [
         "Qwen3-0.6B-q4f16_1-MLC",
@@ -38,6 +42,7 @@ final class MLCQwenDemoViewModel: ObservableObject {
 
         loadTask = Task { [weak self] in
             guard let self else { return }
+            #if !targetEnvironment(simulator)
             #if canImport(MLCSwift)
                 do {
                     let selected = try self.resolveBundledModel()
@@ -48,6 +53,9 @@ final class MLCQwenDemoViewModel: ObservableObject {
                 }
             #else
                 self.status = "MLCSwift not integrated."
+            #endif
+            #else
+                self.status = "MLC is disabled on Simulator."
             #endif
             self.isLoading = false
         }
@@ -60,10 +68,12 @@ final class MLCQwenDemoViewModel: ObservableObject {
         output = ""
         status = "Cleared."
         isGenerating = false
+        #if !targetEnvironment(simulator)
         #if canImport(MLCSwift)
             Task { [engine] in
                 await engine.reset()
             }
+        #endif
         #endif
     }
 
@@ -81,6 +91,7 @@ final class MLCQwenDemoViewModel: ObservableObject {
 
         generateTask = Task { [weak self] in
             guard let self else { return }
+            #if !targetEnvironment(simulator)
             #if canImport(MLCSwift)
                 await self.engine.reset()
                 let stream = await self.engine.chat.completions.create(
@@ -102,14 +113,19 @@ final class MLCQwenDemoViewModel: ObservableObject {
             #else
                 self.status = "MLCSwift not integrated."
             #endif
+            #else
+                self.status = "MLC is disabled on Simulator."
+            #endif
             self.isGenerating = false
         }
     }
 
+    #if !targetEnvironment(simulator)
     #if canImport(MLCSwift)
         private func loadEngine(modelPath: String, modelLib: String) async throws {
             await engine.reload(modelPath: modelPath, modelLib: modelLib)
         }
+    #endif
     #endif
 
     private struct BundledModel {
@@ -308,13 +324,22 @@ struct MLCQwenDemoView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
-            #if !canImport(MLCSwift)
+            #if targetEnvironment(simulator)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Missing dependency: MLCSwift")
+                    Text("MLC disabled on Simulator")
                         .font(.headline)
-                    Text("Follow https://llm.mlc.ai/docs/deploy/ios.html → “Build Apps with MLC Swift API” to add the local package `ios/MLCSwift`, bundle `dist/bundle`, and link the required libraries.")
+                    Text("MLC Swift cannot run in Simulator or SwiftUI Preview. Test on a real device.")
                         .foregroundStyle(.secondary)
                 }
+            #else
+                #if !canImport(MLCSwift)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Missing dependency: MLCSwift")
+                            .font(.headline)
+                        Text("Follow https://llm.mlc.ai/docs/deploy/ios.html → “Build Apps with MLC Swift API” to add the local package `ios/MLCSwift`, bundle `dist/bundle`, and link the required libraries.")
+                            .foregroundStyle(.secondary)
+                    }
+                #endif
             #endif
         }
         .padding()
