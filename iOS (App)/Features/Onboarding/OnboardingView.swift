@@ -8,6 +8,7 @@
 import Combine
 import Foundation
 import MarkdownUI
+import StoreKit
 import SwiftUI
 import UIKit
 
@@ -153,6 +154,11 @@ struct OnboardingView: View {
     @State private var modelLanguageTag = ""
     @State private var productScrollOffset: CGFloat = 0
     @State private var productScrollViewportHeight: CGFloat = 1
+    @State private var lifetimeProduct: Product?
+    @State private var isPurchasing = false
+    @State private var isPurchased = false
+    @State private var purchaseErrorMessage: String?
+    @State private var hasLoadedStore = false
 
     private var currentCopy: OnboardingCopy {
         onboardingCopy(for: selectedPage)
@@ -175,6 +181,22 @@ struct OnboardingView: View {
             actionButton()
 
 //            welcomePage()
+        }
+        .task {
+            await configureStoreIfNeeded()
+        }
+        .task {
+            await listenForTransactions()
+        }
+        .alert("Purchase Error", isPresented: Binding(
+            get: { purchaseErrorMessage != nil },
+            set: { isPresented in
+                if !isPresented { purchaseErrorMessage = nil }
+            }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(purchaseErrorMessage ?? "")
         }
         .onAppear {
             guard modelLanguageTag.isEmpty else { return }
@@ -203,7 +225,11 @@ struct OnboardingView: View {
 
             Button {
                 if selectedPage == 3 {
-                    onGetLifetimeAccess()
+                    if isPurchased {
+                        onGetLifetimeAccess()
+                    } else {
+                        Task { await purchaseLifetimeAccess() }
+                    }
                 } else {
                     goToPage(selectedPage + 1)
                 }
@@ -296,7 +322,7 @@ struct OnboardingView: View {
 
                 // Paywall-Button
                 Button {
-                    //
+                    Task { await purchaseLifetimeAccess() }
                 } label: {
                     HStack {
                         ZStack {
@@ -311,7 +337,7 @@ struct OnboardingView: View {
 
                         Spacer()
 
-                        Text("14.99 USD")
+                        Text(lifetimePriceLabel)
                             .fontWeight(.bold)
                     }
                     .padding(.all, 20)
@@ -323,10 +349,11 @@ struct OnboardingView: View {
                     RoundedRectangle(cornerRadius: 16).fill(Color.accentColor.opacity(0.1))
                 }
                 .padding(.horizontal)
+                .disabled(isPurchasing || isPurchased || lifetimeProduct == nil)
 
                 // Paywall-Button
                 Button {
-                    // TODO: restore purchases
+                    Task { await restorePurchases() }
                 } label: {
                     HStack {
                         ZStack {
@@ -666,6 +693,99 @@ struct OnboardingView: View {
 
     private func updateProductScrollViewportHeight() {
         productScrollViewportHeight = max(UIScreen.main.bounds.height, 1)
+    }
+
+    private var lifetimePriceLabel: String {
+        if isPurchased { return "Purchased" }
+        if let product = lifetimeProduct { return product.displayPrice }
+        return "Loading..."
+    }
+
+    @MainActor
+    private func configureStoreIfNeeded() async {
+        guard !hasLoadedStore else { return }
+        hasLoadedStore = true
+        await loadProducts()
+        await refreshPurchasedState()
+    }
+
+    @MainActor
+    private func loadProducts() async {
+        do {
+            let products = try await Product.products(for: [AppConfig.lifetimeAccessProductId])
+            lifetimeProduct = products.first
+            purchaseErrorMessage = nil
+        } catch {
+            purchaseErrorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func refreshPurchasedState() async {
+        var hasAccess = false
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result else { continue }
+            if transaction.productID == AppConfig.lifetimeAccessProductId {
+                hasAccess = true
+                break
+            }
+        }
+        isPurchased = hasAccess
+    }
+
+    private func listenForTransactions() async {
+        for await result in Transaction.updates {
+            guard case .verified(let transaction) = result else { continue }
+            if transaction.productID == AppConfig.lifetimeAccessProductId {
+                await MainActor.run {
+                    isPurchased = true
+                    onGetLifetimeAccess()
+                }
+            }
+            await transaction.finish()
+        }
+    }
+
+    @MainActor
+    private func purchaseLifetimeAccess() async {
+        guard let product = lifetimeProduct else { return }
+        guard !isPurchasing else { return }
+        isPurchasing = true
+        purchaseErrorMessage = nil
+        defer { isPurchasing = false }
+
+        do {
+            let result = try await product.purchase()
+            switch result {
+            case .success(let verification):
+                switch verification {
+                case .verified(let transaction):
+                    await transaction.finish()
+                    await refreshPurchasedState()
+                    onGetLifetimeAccess()
+                case .unverified:
+                    purchaseErrorMessage = "Purchase could not be verified."
+                }
+            case .pending:
+                break
+            case .userCancelled:
+                break
+            @unknown default:
+                break
+            }
+        } catch {
+            purchaseErrorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func restorePurchases() async {
+        do {
+            try await AppStore.sync()
+            await refreshPurchasedState()
+        } catch {
+            purchaseErrorMessage = error.localizedDescription
+        }
     }
 
     private struct ProductChecklistItem: Identifiable {

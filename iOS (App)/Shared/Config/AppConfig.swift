@@ -27,6 +27,7 @@ enum AppConfig {
     static let rawLibraryTagsCacheFilename = "cacheTags.json"
     static let rawLibrarySyncManifestFilename = "sync_manifest.json"
     static let sharePayloadsPathComponents = ["SharePayloads"]
+    static let lifetimeAccessProductId = "eisonai.unlock"
 
     static let defaultSystemPrompt: String = {
         if
