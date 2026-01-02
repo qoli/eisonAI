@@ -57,6 +57,7 @@ struct UnevenRoundedRectangle: Shape {
 }
 
 struct OnboardingView: View {
+    let onGetLifetimeAccess: () -> Void
     private struct BionicLine: Equatable {
         let text: String
         let boldParts: [String]
@@ -156,9 +157,10 @@ struct OnboardingView: View {
         onboardingCopy(for: selectedPage)
     }
 
-    init(defaultPage: Int = 0) {
+    init(defaultPage: Int = 0, onGetLifetimeAccess: @escaping () -> Void = {}) {
         let clamped = max(0, min(defaultPage, onboardingCopies.count - 1))
         _selectedPage = State(initialValue: clamped)
+        self.onGetLifetimeAccess = onGetLifetimeAccess
     }
 
     var body: some View {
@@ -199,7 +201,11 @@ struct OnboardingView: View {
             .padding(.bottom, 4)
 
             Button {
-                goToPage(selectedPage + 1)
+                if selectedPage == 3 {
+                    onGetLifetimeAccess()
+                } else {
+                    goToPage(selectedPage + 1)
+                }
             } label: {
                 HStack {
                     Text(selectedPage == 0 ? "Get started" :

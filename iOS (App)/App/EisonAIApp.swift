@@ -11,10 +11,17 @@ import UIKit
 @main
 struct EisonAIApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var showsOnboarding = true
 
     var body: some Scene {
         WindowGroup {
-            LibraryRootView()
+            if showsOnboarding {
+                OnboardingView {
+                    showsOnboarding = false
+                }
+            } else {
+                LibraryRootView()
+            }
         }
     }
 }
