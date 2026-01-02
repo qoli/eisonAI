@@ -286,6 +286,7 @@ struct OnboardingView: View {
                     Text("Unlock Full Access")
                         .font(.caption)
                         .fontWeight(.bold)
+                        .foregroundStyle(.secondary)
 
                     Spacer()
                 }
@@ -298,9 +299,12 @@ struct OnboardingView: View {
                     //
                 } label: {
                     HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .padding(.trailing, 8)
-                            .foregroundStyle(.secondary)
+                        ZStack {
+                            Image(systemName: "checkmark.seal.fill")
+                        }
+                        .frame(width: 18, height: 18)
+                        .padding(.trailing, 8)
+                        .fontWeight(.bold)
 
                         Text("Lifetime Access")
                             .font(.headline)
@@ -308,13 +312,16 @@ struct OnboardingView: View {
                         Spacer()
 
                         Text("14.99 USD")
-                            .foregroundStyle(.primary)
-                            .fontWeight(.semibold)
+                            .fontWeight(.bold)
                     }
                     .padding(.all, 20)
+                    .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
                 .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                .background {
+                    RoundedRectangle(cornerRadius: 16).fill(Color.accentColor.opacity(0.1))
+                }
                 .padding(.horizontal)
 
                 // Paywall-Button
@@ -322,9 +329,12 @@ struct OnboardingView: View {
                     // TODO: restore purchases
                 } label: {
                     HStack {
-                        Image(systemName: "arrow.trianglehead.counterclockwise.rotate.90")
-                            .padding(.trailing, 8)
-                            .foregroundStyle(.secondary)
+                        ZStack {
+                            Image(systemName: "purchased")
+                        }
+                        .frame(width: 18, height: 18)
+                        .padding(.trailing, 8)
+                        .fontWeight(.bold)
 
                         Text("Restore Purchases")
                             .font(.headline)
@@ -552,7 +562,7 @@ struct OnboardingView: View {
                     color: .red
                 ),
                 ProductChecklistItem(
-                    title: "Long-Document Support",
+                    title: "Long-Document",
                     text: "Up to 15,000 tokens",
                     description: "Segmented long-text processing keeps local models effective on lengthy articles.",
                     symbolName: "doc.text.magnifyingglass",
