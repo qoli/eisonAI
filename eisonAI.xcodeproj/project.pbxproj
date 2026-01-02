@@ -28,6 +28,8 @@
 		EABCD6822F00650B0013F6F9 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
 		EAC6EC112F073B5900E06D40 /* Eison AI.storekit in Resources */ = {isa = PBXBuildFile; fileRef = EAC6EC102F073B5900E06D40 /* Eison AI.storekit */; };
 		EAC6EC122F073B5900E06D40 /* Eison AI.storekit in Resources */ = {isa = PBXBuildFile; fileRef = EAC6EC102F073B5900E06D40 /* Eison AI.storekit */; };
+		EAD9D7922F080B7600DA6923 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAD9D7912F080B7600DA6923 /* Assets.xcassets */; };
+		EAD9D7932F080B7600DA6923 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAD9D7912F080B7600DA6923 /* Assets.xcassets */; };
 		F859CD0359BA4345930FE1C0 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
 /* End PBXBuildFile section */
 
@@ -82,6 +84,7 @@
 		EA7726562BC5B6B3005A194D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EA886F342EF7D254003B59A9 /* shareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = shareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		EAC6EC102F073B5900E06D40 /* Eison AI.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Eison AI.storekit"; sourceTree = "<group>"; };
+		EAD9D7912F080B7600DA6923 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -250,6 +253,7 @@
 				EAF756FE2EF3D23700CA34C3 /* Features */,
 				EAF757042EF3D23700CA34C3 /* Shared */,
 				EA77263A2BC5B6B3005A194D /* LaunchScreen.storyboard */,
+				EAD9D7912F080B7600DA6923 /* Assets.xcassets */,
 			);
 			path = "iOS (App)";
 			sourceTree = "<group>";
@@ -419,6 +423,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EAD9D7922F080B7600DA6923 /* Assets.xcassets in Resources */,
 				2BDA4184F6F345EA88F54044 /* Base in Resources */,
 				EAC6EC112F073B5900E06D40 /* Eison AI.storekit in Resources */,
 				CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */,
@@ -429,6 +434,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EAD9D7932F080B7600DA6923 /* Assets.xcassets in Resources */,
 				EAC6EC122F073B5900E06D40 /* Eison AI.storekit in Resources */,
 				EA77263C2BC5B6B3005A194D /* Base in Resources */,
 				EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */,
