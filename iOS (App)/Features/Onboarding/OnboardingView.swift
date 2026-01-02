@@ -916,6 +916,7 @@ struct OnboardingView: View {
                         .fontWeight(.bold)
                         .lineLimit(1)
                         .fixedSize(horizontal: false, vertical: true)
+                        .foregroundStyle(.primary)
                 }
 
                 if text != "" {
@@ -945,7 +946,10 @@ struct OnboardingView: View {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(accentColor.opacity(colorScheme == .dark ? 0.1 : 0.5))
+                        .fill(.regularMaterial)
+
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(accentColor.opacity(0.1))
                         .mask {
                             LinearGradient(
                                 colors: [.black, .clear],
@@ -954,8 +958,6 @@ struct OnboardingView: View {
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(.ultraThinMaterial)
                 }
             }
         }
