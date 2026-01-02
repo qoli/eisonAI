@@ -149,6 +149,8 @@ struct OnboardingView: View {
     @State private var textAnimationToken = 0
     @State private var isForwardTransition = true
     @State private var modelLanguageTag = ""
+    @State private var productScrollOffset: CGFloat = 0
+    @State private var productScrollViewportHeight: CGFloat = 1
 
     private var currentCopy: OnboardingCopy {
         onboardingCopy(for: selectedPage)
@@ -246,7 +248,7 @@ struct OnboardingView: View {
                         .transition(pageTransition)
 //                        .background { Color.blue.opacity(0.2) }
                         .padding(.top, -180)
-                        .padding(.bottom, -120)
+                        .padding(.bottom, -50)
                 }
             }
             .padding(.top, 48)
@@ -454,114 +456,136 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder private func ProductView() -> some View {
-        ScrollView {
-            Color.clear.frame(height: 120)
+        ScrollViewReader { _ in
+            GeometryReader { proxy in
+                ScrollView {
+                    Color.clear.frame(height: 120)
 
-            HStack {
-                Image("ImageLogo")
-                Image("TextLogo")
-                Spacer()
-            }
-            .padding(.horizontal, 28)
-            .padding(.bottom)
+                    HStack {
+                        Image("ImageLogo")
+                        Image("TextLogo")
+                        Spacer()
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom)
 
-            welcomePage()
-                .padding(.horizontal, 28)
+                    welcomePage()
+                        .padding(.horizontal, 28)
 
-            // CheckList
-            let checklistItems: [ProductChecklistItem] = [
-                ProductChecklistItem(
-                    title: "Cognitive Index™",
-                    text: "讓結構可見",
-                    description: "輕鬆掃一眼，即可知道結構，不妨礙思緒運作。"
-                ),
-                ProductChecklistItem(
-                    title: "長文支持",
-                    text: "最高支持 15,000 Token 輸入",
-                    description: "長文分段技術，讓本地模型也能應付長文章。"
-                ),
-                ProductChecklistItem(
-                    title: "Safari Extension",
-                    text: "透過 Web-LLM / Foundation Models 方案",
-                    description: "無需離開網頁，即可預見結構。"
-                ),
-                ProductChecklistItem(
-                    title: "本地優先",
-                    text: "Qwen3 0.6b / apple intelligence",
-                    description: "敏感閱讀也能安心用。"
-                ),
-                ProductChecklistItem(
-                    title: "開源可驗證",
-                    text: "",
-                    description: "信任不是口號，是可檢查的事實。"
-                ),
-                ProductChecklistItem(
-                    title: "Library 與 Tag",
-                    text: "",
-                    description: "Tag 是你的專項回顧篩選模式"
-                ),
-            ]
+                    // CheckList
+                    let checklistItems: [ProductChecklistItem] = [
+                        ProductChecklistItem(
+                            title: "Cognitive Index™",
+                            text: "Make structure visible",
+                            description: "A quick scan reveals the shape of ideas without interrupting the flow of thought."
+                        ),
+                        ProductChecklistItem(
+                            title: "Long-Document Support",
+                            text: "Up to 15,000 tokens",
+                            description: "Segmented long-text processing keeps local models effective on lengthy articles."
+                        ),
+                        ProductChecklistItem(
+                            title: "Safari Extension",
+                            text: "Web-LLM / Foundation Models",
+                            description: "See structure directly on the page without leaving your browser."
+                        ),
+                        ProductChecklistItem(
+                            title: "Local-First",
+                            text: "",
+                            description: "Privacy-first reading, even for sensitive content."
+                        ),
+                        ProductChecklistItem(
+                            title: "Source Trust",
+                            text: "",
+                            description: "Trust isn’t a slogan; it’s something you can verify."
+                        ),
+                        ProductChecklistItem(
+                            title: "Library & Tags",
+                            text: "",
+                            description: "Tags power focused review and retrieval."
+                        ),
+                    ]
 
-            VStack(spacing: 18) {
-                ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
-                    ProductChecklistRow(item: item, isLeading: index.isMultiple(of: 2))
-                        .padding(.bottom, CGFloat(index + 1) * -12)
+                    VStack(spacing: 18) {
+                        ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
+                            ProductChecklistRow(
+                                item: item,
+                                index: index,
+                                viewportHeight: productScrollViewportHeight
+                            )
+                        }
+                    }
+                    .padding()
+                    .multilineTextAlignment(.leading)
+
+                    .padding(.horizontal, 14)
+
+                    HStack {
+                        Text("Unlock Full Access")
+                            .font(.caption)
+                            .fontWeight(.bold)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, -4)
+                    .padding(.top)
+
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .padding(.trailing, 8)
+
+                        VStack(alignment: .leading) {
+                            Text("Lifetime Access")
+                                .font(.headline)
+
+                            Text("One-time purchase")
+                                .foregroundStyle(.secondary)
+                                .fontWeight(.light)
+                        }
+
+                        Spacer()
+
+                        Text("14.99 USD")
+                            .foregroundStyle(.primary)
+                            .fontWeight(.semibold)
+                    }
+                    .padding()
+                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                    .padding(.horizontal)
+
+                    HStack {
+                        Text("No subscription. Restore anytime.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 28)
+
+                    Color.clear.frame(height: 130)
+                }
+                .scrollIndicators(.hidden)
+                .coordinateSpace(name: "ProductScroll")
+                .onAppear {
+                    productScrollViewportHeight = max(proxy.size.height, 1)
+                }
+                .onChange(of: proxy.size.height) { _, newValue in
+                    productScrollViewportHeight = max(newValue, 1)
+                }
+                .onScrollGeometryChange(for: CGFloat.self) { scrollGeometry in
+                    scrollGeometry.contentOffset.y
+                } action: { _, newValue in
+                    productScrollOffset = newValue
+                }
+                .onChange(of: productScrollOffset) { _, newValue in
+                    print("ProductView scroll offset:", newValue)
                 }
             }
-            .padding()
-            .multilineTextAlignment(.leading)
-
-            .padding(.horizontal, 14)
-
-            HStack {
-                Text("Unlock Full Access")
-                    .font(.caption)
-                    .fontWeight(.bold)
-
-                Spacer()
-            }
-            .padding(.horizontal, 28)
-            .padding(.bottom, -4)
-            .padding(.top)
-
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .padding(.trailing, 8)
-
-                VStack(alignment: .leading) {
-                    Text("Lifetime Access")
-                        .font(.headline)
-
-                    Text("One-time purchase")
-                        .foregroundStyle(.secondary)
-                        .fontWeight(.light)
-                }
-
-                Spacer()
-
-                Text("14.99 USD")
-                    .foregroundStyle(.primary)
-                    .fontWeight(.semibold)
-            }
-            .padding()
-            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-            .padding(.horizontal)
-
-            HStack {
-                Text("No subscription. Restore anytime.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-            }
-            .padding(.horizontal, 28)
-
-            Color.clear.frame(height: 130)
         }
-        .scrollIndicators(.hidden)
         .mask {
             LinearGradient(
-                colors: [.clear, .black, .black, .black, .black, .black, .black, .black, .clear],
+                colors: [.clear, .black, .black, .black, .black, .black, .clear],
                 startPoint: UnitPoint(x: 0.5, y: 0),
                 endPoint: UnitPoint(x: 0.5, y: 1)
             )
@@ -576,118 +600,157 @@ struct OnboardingView: View {
         let description: String
     }
 
-    @ViewBuilder private func ProductChecklistRow(item: ProductChecklistItem, isLeading: Bool) -> some View {
-        HStack {
-            if isLeading {
+    private struct ProductChecklistRow: View {
+        let item: ProductChecklistItem
+        let index: Int
+        let viewportHeight: CGFloat
+
+        @State private var rowMidY: CGFloat = 0
+
+        var body: some View {
+            let isLeading = index.isMultiple(of: 2)
+            let progress = normalizedDistanceToCenter
+            let bottomPadding = dynamicChecklistBottomPadding(progress: progress)
+            let rotation = dynamicChecklistRotation(progress: progress, isLeading: isLeading)
+
+            HStack {
+                Spacer()
+
                 ProductCheckListView(
                     title: item.title,
                     text: item.text,
                     description: item.description
                 )
                 .frame(maxWidth: 230, alignment: .leading)
-                .rotationEffect(.degrees(-3), anchor: .topLeading)
-
-                Spacer(minLength: 0)
-            } else {
-                Spacer(minLength: 0)
-
-                ProductCheckListView(
-                    title: item.title,
-                    text: item.text,
-                    description: item.description
-                )
-                .frame(maxWidth: 260, alignment: .leading)
-                .rotationEffect(.degrees(3), anchor: .topLeading)
-            }
-        }
-    }
-
-    @ViewBuilder func ProductCheckListView(
-        title: String,
-        text: String,
-        description: String
-    ) -> some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text(title)
-                    .fontWeight(.bold)
+                .rotationEffect(rotation)
+                .padding(.vertical, bottomPadding)
+                .offset(x: isLeading ? 20 : -20)
 
                 Spacer()
             }
+            .background(
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            rowMidY = proxy.frame(in: .named("ProductScroll")).midY
+                        }
+                        .onChange(of: proxy.frame(in: .named("ProductScroll")).midY) { _, newValue in
+                            rowMidY = newValue
+                        }
+                }
+            )
+        }
 
-            if text != "" {
+        private var normalizedDistanceToCenter: CGFloat {
+            let safeHeight = max(viewportHeight, 1)
+            let centerY = safeHeight / 2
+            let distance = abs(rowMidY - centerY)
+            return min(distance / centerY, 1)
+        }
+
+        private func dynamicChecklistBottomPadding(progress: CGFloat) -> CGFloat {
+            let fullPadding: CGFloat = 0
+            let tightPadding: CGFloat = -32
+            return fullPadding + (tightPadding - fullPadding) * progress
+        }
+
+        private func dynamicChecklistRotation(progress: CGFloat, isLeading: Bool) -> Angle {
+            let maxRotation: CGFloat = 6
+            let direction: CGFloat = isLeading ? -1 : 1
+            return .degrees(Double(maxRotation * progress * direction))
+        }
+    }
+
+    private struct ProductCheckListView: View {
+        let title: String
+        let text: String
+        let description: String
+
+        var body: some View {
+            VStack(alignment: .center) {
                 HStack {
-                    Text(text)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .opacity(0.7)
+                    Image(systemName: "checkmark.circle")
 
-                    Spacer()
+                    Text(title)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+                }
+
+                if text != "" {
+                    HStack {
+                        Text(text)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .opacity(0.7)
+                            .lineLimit(1)
+                    }
+                }
+
+                Color.clear.frame(height: 1)
+
+                HStack {
+                    descriptionText(description)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                        .opacity(0.8)
                 }
             }
-
-            Color.clear.frame(height: 1)
-
-            HStack {
-                descriptionText(description)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
-
-                Spacer()
+            .multilineTextAlignment(.center)
+            .padding()
+            .background {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: Color.black.opacity(0.12), radius: 14, x: 0, y: 12)
             }
         }
-        .padding()
-//        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-        .background {
-            RoundedRectangle(cornerRadius: 16).glassed()
-        }
-    }
 
-    private func descriptionText(_ description: String) -> Text {
-        let pattern = "（SF Symbols: ([^）]+)）|\\(SF Symbols: ([^)]+)\\)"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else {
-            return Text(description)
-        }
-
-        let nsDescription = description as NSString
-        let matches = regex.matches(in: description, range: NSRange(location: 0, length: nsDescription.length))
-        guard !matches.isEmpty else {
-            return Text(description)
-        }
-
-        var combined = Text("")
-        var currentLocation = 0
-
-        for match in matches {
-            if match.range.location > currentLocation {
-                let prefix = nsDescription.substring(with: NSRange(location: currentLocation, length: match.range.location - currentLocation))
-                combined = combined + Text(prefix)
+        private func descriptionText(_ description: String) -> Text {
+            let pattern = "（SF Symbols: ([^）]+)）|\\(SF Symbols: ([^)]+)\\)"
+            guard let regex = try? NSRegularExpression(pattern: pattern) else {
+                return Text(description)
             }
 
-            let symbolRange = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
-            let symbolName = nsDescription.substring(with: symbolRange).trimmingCharacters(in: .whitespacesAndNewlines)
-            let rawToken = nsDescription.substring(with: match.range)
-            let usesFullWidth = rawToken.hasPrefix("（")
-            let openParen = usesFullWidth ? "（" : "("
-            let closeParen = usesFullWidth ? "）" : ")"
-
-            if symbolName.isEmpty {
-                combined = combined + Text(rawToken)
-            } else {
-                combined = combined + Text(openParen)
-                combined = combined + Text(Image(systemName: symbolName))
-                combined = combined + Text(closeParen)
+            let nsDescription = description as NSString
+            let matches = regex.matches(in: description, range: NSRange(location: 0, length: nsDescription.length))
+            guard !matches.isEmpty else {
+                return Text(description)
             }
 
-            currentLocation = match.range.location + match.range.length
-        }
+            var combined = Text("")
+            var currentLocation = 0
 
-        if currentLocation < nsDescription.length {
-            let suffix = nsDescription.substring(from: currentLocation)
-            combined = combined + Text(suffix)
-        }
+            for match in matches {
+                if match.range.location > currentLocation {
+                    let prefix = nsDescription.substring(with: NSRange(location: currentLocation, length: match.range.location - currentLocation))
+                    combined = combined + Text(prefix)
+                }
 
-        return combined
+                let symbolRange = match.range(at: 1).location != NSNotFound ? match.range(at: 1) : match.range(at: 2)
+                let symbolName = nsDescription.substring(with: symbolRange).trimmingCharacters(in: .whitespacesAndNewlines)
+                let rawToken = nsDescription.substring(with: match.range)
+                let usesFullWidth = rawToken.hasPrefix("（")
+                let openParen = usesFullWidth ? "（" : "("
+                let closeParen = usesFullWidth ? "）" : ")"
+
+                if symbolName.isEmpty {
+                    combined = combined + Text(rawToken)
+                } else {
+                    combined = combined + Text(openParen)
+                    combined = combined + Text(Image(systemName: symbolName))
+                    combined = combined + Text(closeParen)
+                }
+
+                currentLocation = match.range.location + match.range.length
+            }
+
+            if currentLocation < nsDescription.length {
+                let suffix = nsDescription.substring(from: currentLocation)
+                combined = combined + Text(suffix)
+            }
+
+            return combined
+        }
     }
 
     @ViewBuilder func logoView() -> some View {
