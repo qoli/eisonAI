@@ -248,7 +248,7 @@ struct OnboardingView: View {
                         .transition(pageTransition)
 //                        .background { Color.blue.opacity(0.2) }
                         .padding(.top, -180)
-                        .padding(.bottom, -50)
+                        .padding(.bottom, -40)
                 }
             }
             .padding(.top, 48)
@@ -664,12 +664,12 @@ struct OnboardingView: View {
 
         private func dynamicChecklistVerticalCompaction(progress: CGFloat) -> CGFloat {
             let fullPadding: CGFloat = 0
-            let tightPadding: CGFloat = -32
+            let tightPadding: CGFloat = -48
             return fullPadding + (tightPadding - fullPadding) * progress
         }
 
         private func dynamicChecklistRotation(progress: CGFloat, isLeading: Bool) -> Angle {
-            let maxRotation: CGFloat = 6
+            let maxRotation: CGFloat = 8
             let direction: CGFloat = isLeading ? -1 : 1
             return .degrees(Double(maxRotation * progress * direction))
         }
