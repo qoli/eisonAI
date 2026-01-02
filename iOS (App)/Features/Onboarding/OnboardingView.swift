@@ -251,7 +251,7 @@ struct OnboardingView: View {
                 }
 
                 if selectedPage == 3 {
-                    ProductView()
+                    productView()
                         .transition(pageTransition)
 //                        .background { Color.blue.opacity(0.2) }
                         .padding(.top, -180)
@@ -537,7 +537,7 @@ struct OnboardingView: View {
         .frame(width: 320, height: 240)
     }
 
-    @ViewBuilder private func ProductView() -> some View {
+    @ViewBuilder private func productView() -> some View {
         ScrollView {
             Color.clear.frame(height: 120)
 
