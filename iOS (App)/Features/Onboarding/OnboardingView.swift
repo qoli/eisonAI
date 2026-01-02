@@ -9,6 +9,7 @@ import Combine
 import Foundation
 import MarkdownUI
 import SwiftUI
+import UIKit
 
 struct UnevenRoundedRectangle: Shape {
     var topLeadingRadius: CGFloat = 0
@@ -462,142 +463,140 @@ struct OnboardingView: View {
     }
 
     @ViewBuilder private func ProductView() -> some View {
-        GeometryReader { proxy in
-            ScrollView {
-                Color.clear.frame(height: 120)
+        ScrollView {
+            Color.clear.frame(height: 120)
 
-                HStack {
-                    Image("ImageLogo")
-                    Image("TextLogo")
-                    Spacer()
-                }
+            HStack {
+                Image("ImageLogo")
+                Image("TextLogo")
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom)
+
+            welcomePage()
                 .padding(.horizontal, 28)
-                .padding(.bottom)
 
-                welcomePage()
-                    .padding(.horizontal, 28)
+            // CheckList
+            let checklistItems: [ProductChecklistItem] = [
+                ProductChecklistItem(
+                    title: "Cognitive Index™",
+                    text: "Make structure visible",
+                    description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
+                    symbolName: "viewfinder.circle",
+                    color: .red
+                ),
+                ProductChecklistItem(
+                    title: "Long-Document Support",
+                    text: "Up to 15,000 tokens",
+                    description: "Segmented long-text processing keeps local models effective on lengthy articles.",
+                    symbolName: "doc.text.magnifyingglass",
+                    color: .orange
+                ),
+                ProductChecklistItem(
+                    title: "Safari Extension",
+                    text: "Web-LLM / Foundation Models",
+                    description: "See structure directly on the page without leaving your browser.",
+                    symbolName: "puzzlepiece.extension",
+                    color: .yellow
+                ),
+                ProductChecklistItem(
+                    title: "Local-First",
+                    text: "",
+                    description: "Privacy-first reading, even for sensitive content.",
+                    symbolName: "lock.square",
+                    color: .green
+                ),
+                ProductChecklistItem(
+                    title: "Source Trust",
+                    text: "",
+                    description: "Trust isn’t a slogan; it’s something you can verify.",
+                    symbolName: "checkmark.seal.fill",
+                    color: .blue
+                ),
+                ProductChecklistItem(
+                    title: "Library & Tags",
+                    text: "",
+                    description: "Tags power focused review and retrieval.",
+                    symbolName: "books.vertical",
+                    color: .purple
+                ),
+            ]
 
-                // CheckList
-                let checklistItems: [ProductChecklistItem] = [
-                    ProductChecklistItem(
-                        title: "Cognitive Index™",
-                        text: "Make structure visible",
-                        description: "A quick scan reveals the shape of ideas without interrupting the flow of thought.",
-                        symbolName: "viewfinder.circle",
-                        color: .red
-                    ),
-                    ProductChecklistItem(
-                        title: "Long-Document Support",
-                        text: "Up to 15,000 tokens",
-                        description: "Segmented long-text processing keeps local models effective on lengthy articles.",
-                        symbolName: "doc.text.magnifyingglass",
-                        color: .orange
-                    ),
-                    ProductChecklistItem(
-                        title: "Safari Extension",
-                        text: "Web-LLM / Foundation Models",
-                        description: "See structure directly on the page without leaving your browser.",
-                        symbolName: "puzzlepiece.extension",
-                        color: .yellow
-                    ),
-                    ProductChecklistItem(
-                        title: "Local-First",
-                        text: "",
-                        description: "Privacy-first reading, even for sensitive content.",
-                        symbolName: "lock.square",
-                        color: .green
-                    ),
-                    ProductChecklistItem(
-                        title: "Source Trust",
-                        text: "",
-                        description: "Trust isn’t a slogan; it’s something you can verify.",
-                        symbolName: "checkmark.seal.fill",
-                        color: .blue
-                    ),
-                    ProductChecklistItem(
-                        title: "Library & Tags",
-                        text: "",
-                        description: "Tags power focused review and retrieval.",
-                        symbolName: "books.vertical",
-                        color: .purple
-                    ),
-                ]
-
-                VStack(spacing: 18) {
-                    ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
-                        ProductChecklistRow(
-                            item: item,
-                            index: index,
-                            viewportHeight: productScrollViewportHeight
-                        )
-                    }
+            VStack(spacing: 18) {
+                ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
+                    ProductChecklistRow(
+                        item: item,
+                        index: index,
+                        viewportHeight: productScrollViewportHeight
+                    )
                 }
-                .padding()
-                .multilineTextAlignment(.leading)
+            }
+            .padding()
+            .multilineTextAlignment(.leading)
 
-                .padding(.horizontal, 14)
+            .padding(.horizontal, 14)
 
-                HStack {
-                    Text("Unlock Full Access")
-                        .font(.caption)
-                        .fontWeight(.bold)
+            HStack {
+                Text("Unlock Full Access")
+                    .font(.caption)
+                    .fontWeight(.bold)
 
-                    Spacer()
-                }
-                .padding(.horizontal, 28)
-                .padding(.bottom, -4)
-                .padding(.top)
+                Spacer()
+            }
+            .padding(.horizontal, 28)
+            .padding(.bottom, -4)
+            .padding(.top)
 
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .padding(.trailing, 8)
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .padding(.trailing, 8)
 
-                    VStack(alignment: .leading) {
-                        Text("Lifetime Access")
-                            .font(.headline)
+                VStack(alignment: .leading) {
+                    Text("Lifetime Access")
+                        .font(.headline)
 
 //                        Text("One-time purchase")
 //                            .foregroundStyle(.secondary)
 //                            .fontWeight(.light)
-                    }
-
-                    Spacer()
-
-                    Text("14.99 USD")
-                        .foregroundStyle(.primary)
-                        .fontWeight(.semibold)
                 }
-                .padding()
-                .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-                .padding(.horizontal)
 
-                HStack {
-                    Text("No subscription. Restore anytime.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                Spacer()
 
-                    Spacer()
-                }
-                .padding(.horizontal, 28)
+                Text("14.99 USD")
+                    .foregroundStyle(.primary)
+                    .fontWeight(.semibold)
+            }
+            .padding()
+            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+            .padding(.horizontal)
 
-                Color.clear.frame(height: 50)
+            HStack {
+                Text("No subscription. Restore anytime.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
             }
-            .scrollIndicators(.hidden)
-            .coordinateSpace(name: "ProductScroll")
-            .onAppear {
-                productScrollViewportHeight = max(proxy.size.height, 1)
-            }
-            .onChange(of: proxy.size.height) { _, newValue in
-                productScrollViewportHeight = max(newValue, 1)
-            }
-            .onScrollGeometryChange(for: CGFloat.self) { scrollGeometry in
-                scrollGeometry.contentOffset.y
-            } action: { _, newValue in
-                productScrollOffset = newValue
-            }
-            .onChange(of: productScrollOffset) { _, newValue in
-                print("ProductView scroll offset:", newValue)
-            }
+            .padding(.horizontal, 28)
+
+            Color.clear.frame(height: 80)
+        }
+        .scrollIndicators(.hidden)
+        .coordinateSpace(name: "ProductScroll")
+        .onAppear {
+            updateProductScrollViewportHeight()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            updateProductScrollViewportHeight()
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { scrollGeometry in
+            scrollGeometry.contentOffset.y
+        } action: { _, newValue in
+            productScrollOffset = newValue
+        }
+        .onChange(of: productScrollOffset) { _, newValue in
+            print("ProductView scroll offset:", newValue)
         }
         .mask {
             LinearGradient(
@@ -607,6 +606,10 @@ struct OnboardingView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private func updateProductScrollViewportHeight() {
+        productScrollViewportHeight = max(UIScreen.main.bounds.height, 1)
     }
 
     private struct ProductChecklistItem: Identifiable {
@@ -750,31 +753,6 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(.top, 48)
-    }
-
-    @ViewBuilder func actionButton2() -> some View {
-        VStack(alignment: .leading) {
-            Color.clear.frame(height: 1)
-
-            VStack(alignment: .leading) {
-                HStack {
-                    Spacer()
-
-                    Button {
-                    } label: {
-                        Text("Continue")
-                    }
-
-                    Spacer()
-                }
-            }
-            .padding()
-
-            Color.clear.frame(height: 1)
-        }
-        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-        .padding(.horizontal, -8)
-        .offset(y: 8)
     }
 
     @ViewBuilder private func welcomePage() -> some View {
@@ -936,10 +914,10 @@ private struct ScrambleText: View {
         .onAppear {
             displayText = text
         }
-        .onChange(of: trigger) { _ in
+        .onChange(of: trigger) { _, _ in
             startScramble()
         }
-        .onChange(of: text) { newValue in
+        .onChange(of: text) { _, newValue in
             if displayText.isEmpty {
                 displayText = newValue
             }
@@ -1061,7 +1039,7 @@ private struct InfiniteAutoScrollText: View {
                         GeometryReader { proxy in
                             Color.clear
                                 .onAppear { updateContentHeight(proxy.size.height) }
-                                .onChange(of: proxy.size.height) { newValue in
+                                .onChange(of: proxy.size.height) { _, newValue in
                                     updateContentHeight(newValue)
                                 }
                         }
@@ -1085,7 +1063,7 @@ private struct InfiniteAutoScrollText: View {
                 y += velocity
             }
         }
-        .onChange(of: y) { newValue in
+        .onChange(of: y) { _, newValue in
             scrollPosition.scrollTo(y: newValue)
         }
         .onScrollGeometryChange(for: Double.self) { scrollGeometry in
