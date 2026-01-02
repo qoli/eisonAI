@@ -255,7 +255,7 @@ struct OnboardingView: View {
                         .transition(pageTransition)
 //                        .background { Color.blue.opacity(0.2) }
                         .padding(.top, -180)
-                        .padding(.bottom, -40)
+                        .padding(.bottom, -256)
                 }
             }
             .padding(.top, 48)
@@ -281,6 +281,71 @@ struct OnboardingView: View {
                     currentCopy,
                     animationToken: textAnimationToken
                 )
+            } else {
+                HStack {
+                    Text("Unlock Full Access")
+                        .font(.caption)
+                        .fontWeight(.bold)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, -4)
+                .padding(.top)
+
+                // Paywall-Button
+                Button {
+                    //
+                } label: {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .padding(.trailing, 8)
+                            .foregroundStyle(.secondary)
+
+                        Text("Lifetime Access")
+                            .font(.headline)
+
+                        Spacer()
+
+                        Text("14.99 USD")
+                            .foregroundStyle(.primary)
+                            .fontWeight(.semibold)
+                    }
+                    .padding(.all, 20)
+                }
+                .buttonStyle(.plain)
+                .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                .padding(.horizontal)
+
+                // Paywall-Button
+                Button {
+                    // TODO: restore purchases
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.trianglehead.counterclockwise.rotate.90")
+                            .padding(.trailing, 8)
+                            .foregroundStyle(.secondary)
+
+                        Text("Restore Purchases")
+                            .font(.headline)
+
+                        Spacer()
+                    }
+                    .padding(.all, 20)
+                }
+                .buttonStyle(.plain)
+                .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                .padding(.horizontal)
+
+                HStack {
+                    Text("No subscription. Restore anytime.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 28)
+                .padding(.bottom, 80)
             }
             Spacer()
         }
@@ -523,7 +588,7 @@ struct OnboardingView: View {
                 ),
             ]
 
-            VStack(spacing: 12) {
+            VStack(spacing: 18) {
                 ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
                     ProductChecklistRow(
                         item: item,
@@ -533,54 +598,34 @@ struct OnboardingView: View {
                 }
             }
             .padding()
-            .multilineTextAlignment(.leading)
-
             .padding(.horizontal, 14)
 
-            HStack {
-                Text("Unlock Full Access")
-                    .font(.caption)
-                    .fontWeight(.bold)
+            // 協議
 
-                Spacer()
-            }
-            .padding(.horizontal, 28)
-            .padding(.bottom, -4)
-            .padding(.top)
+            Divider()
+                .padding(.top)
 
             HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .padding(.trailing, 8)
-
-                VStack(alignment: .leading) {
-                    Text("Lifetime Access")
-                        .font(.headline)
-
-//                        Text("One-time purchase")
-//                            .foregroundStyle(.secondary)
-//                            .fontWeight(.light)
+                Button("Terms of Service") {
+                    // TODO: add URL once confirmed
                 }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
 
-                Spacer()
-
-                Text("14.99 USD")
-                    .foregroundStyle(.primary)
-                    .fontWeight(.semibold)
-            }
-            .padding()
-            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-            .padding(.horizontal)
-
-            HStack {
-                Text("No subscription. Restore anytime.")
-                    .font(.caption)
+                Text("•")
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
 
-                Spacer()
+                Button("Privacy Policy") {
+                    // TODO: add URL once confirmed
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 28)
+            .padding(.top, 8)
 
-            Color.clear.frame(height: 80)
+            Color.clear.frame(height: 180)
         }
         .scrollIndicators(.hidden)
         .coordinateSpace(name: "ProductScroll")
@@ -600,7 +645,7 @@ struct OnboardingView: View {
         }
         .mask {
             LinearGradient(
-                colors: [.clear, .black, .black, .black, .black, .black, .black, .black, .black, .black, .clear],
+                colors: [.clear, .black, .black, .black, .black, .black, .black, .black, .black, .clear],
                 startPoint: UnitPoint(x: 0.5, y: 0),
                 endPoint: UnitPoint(x: 0.5, y: 1)
             )
@@ -633,6 +678,8 @@ struct OnboardingView: View {
             let progress = normalizedDistanceToCenter
             let verticalCompaction = dynamicChecklistVerticalCompaction(progress: progress)
             let rotation = dynamicChecklistRotation(progress: progress, isLeading: isLeading)
+            let scale = dynamicChecklistScale(progress: progress)
+            let horizontalOffset = dynamicChecklistHorizontalOffset(progress: progress, isLeading: isLeading)
 
             HStack {
                 Spacer()
@@ -646,8 +693,9 @@ struct OnboardingView: View {
                 )
                 .frame(maxWidth: 230, alignment: .leading)
                 .rotationEffect(rotation)
+                .scaleEffect(scale)
                 .padding(.vertical, verticalCompaction)
-                .offset(x: isLeading ? 20 : -20)
+                .offset(x: horizontalOffset)
 
                 Spacer()
             }
@@ -680,7 +728,22 @@ struct OnboardingView: View {
         private func dynamicChecklistRotation(progress: CGFloat, isLeading: Bool) -> Angle {
             let maxRotation: CGFloat = 14
             let direction: CGFloat = isLeading ? -1 : 1
-            return .degrees(Double(maxRotation * progress * direction))
+            let easedProgress = progress * progress * (3 - 2 * progress)
+            return .degrees(Double(maxRotation * easedProgress * direction))
+        }
+
+        private func dynamicChecklistScale(progress: CGFloat) -> CGFloat {
+            let minScale: CGFloat = 0.92
+            let easedProgress = progress * progress * (3 - 2 * progress)
+            return 1 - (1 - minScale) * easedProgress
+        }
+
+        private func dynamicChecklistHorizontalOffset(progress: CGFloat, isLeading: Bool) -> CGFloat {
+            let baseOffset: CGFloat = 10
+            let maxExtraOffset: CGFloat = 20
+            let direction: CGFloat = isLeading ? 1 : -1
+            let easedProgress = progress * progress * (3 - 2 * progress)
+            return direction * (baseOffset + maxExtraOffset * easedProgress)
         }
     }
 
@@ -690,6 +753,8 @@ struct OnboardingView: View {
         let description: String
         let symbolName: String
         let accentColor: Color
+
+        @Environment(\.colorScheme) private var colorScheme
 
         var body: some View {
             VStack(alignment: .center) {
@@ -731,7 +796,7 @@ struct OnboardingView: View {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(accentColor.opacity(0.3))
+                        .fill(accentColor.opacity(colorScheme == .dark ? 0.1 : 0.5))
                         .mask {
                             LinearGradient(
                                 colors: [.black, .clear],
