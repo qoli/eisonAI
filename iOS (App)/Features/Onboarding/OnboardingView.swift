@@ -463,47 +463,50 @@ struct OnboardingView: View {
                 Spacer()
             }
             .padding(.horizontal, 28)
+            .padding(.bottom)
 
             welcomePage()
                 .padding(.horizontal, 28)
 
             // CheckList
-            VStack(spacing: 14) {
-                ProductCheckListView(
+            let checklistItems: [ProductChecklistItem] = [
+                ProductChecklistItem(
                     title: "Cognitive Index™",
                     text: "讓結構可見",
                     description: "輕鬆掃一眼，即可知道結構，不妨礙思緒運作。"
-                )
-
-                ProductCheckListView(
+                ),
+                ProductChecklistItem(
                     title: "長文支持",
                     text: "最高支持 15,000 Token 輸入",
                     description: "長文分段技術，讓本地模型也能應付長文章。"
-                )
-
-                ProductCheckListView(
+                ),
+                ProductChecklistItem(
                     title: "Safari Extension",
                     text: "透過 Web-LLM / Foundation Models 方案",
                     description: "無需離開網頁，即可預見結構。"
-                )
-
-                ProductCheckListView(
+                ),
+                ProductChecklistItem(
                     title: "本地優先",
                     text: "Qwen3 0.6b / apple intelligence",
                     description: "敏感閱讀也能安心用。"
-                )
-
-                ProductCheckListView(
+                ),
+                ProductChecklistItem(
                     title: "開源可驗證",
                     text: "",
                     description: "信任不是口號，是可檢查的事實。"
-                )
-
-                ProductCheckListView(
+                ),
+                ProductChecklistItem(
                     title: "Library 與 Tag",
                     text: "",
                     description: "Tag 是你的專項回顧篩選模式"
-                )
+                ),
+            ]
+
+            VStack(spacing: 18) {
+                ForEach(Array(checklistItems.enumerated()), id: \.offset) { index, item in
+                    ProductChecklistRow(item: item, isLeading: index.isMultiple(of: 2))
+                        .padding(.bottom, CGFloat(index + 1) * -12)
+                }
             }
             .padding()
             .multilineTextAlignment(.leading)
@@ -566,12 +569,45 @@ struct OnboardingView: View {
         }
     }
 
+    private struct ProductChecklistItem: Identifiable, Equatable {
+        let id = UUID()
+        let title: String
+        let text: String
+        let description: String
+    }
+
+    @ViewBuilder private func ProductChecklistRow(item: ProductChecklistItem, isLeading: Bool) -> some View {
+        HStack {
+            if isLeading {
+                ProductCheckListView(
+                    title: item.title,
+                    text: item.text,
+                    description: item.description
+                )
+                .frame(maxWidth: 230, alignment: .leading)
+                .rotationEffect(.degrees(-3), anchor: .topLeading)
+
+                Spacer(minLength: 0)
+            } else {
+                Spacer(minLength: 0)
+
+                ProductCheckListView(
+                    title: item.title,
+                    text: item.text,
+                    description: item.description
+                )
+                .frame(maxWidth: 260, alignment: .leading)
+                .rotationEffect(.degrees(3), anchor: .topLeading)
+            }
+        }
+    }
+
     @ViewBuilder func ProductCheckListView(
         title: String,
         text: String,
         description: String
     ) -> some View {
-        VStack {
+        VStack(alignment: .leading) {
             HStack {
                 Text(title)
                     .fontWeight(.bold)
@@ -584,6 +620,7 @@ struct OnboardingView: View {
                     Text(text)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                        .opacity(0.7)
 
                     Spacer()
                 }
@@ -592,15 +629,18 @@ struct OnboardingView: View {
             Color.clear.frame(height: 1)
 
             HStack {
-                Text(description)
+                descriptionText(description)
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.primary)
 
                 Spacer()
             }
         }
         .padding()
-        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+//        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+        .background {
+            RoundedRectangle(cornerRadius: 16).glassed()
+        }
     }
 
     private func descriptionText(_ description: String) -> Text {
