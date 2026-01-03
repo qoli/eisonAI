@@ -283,6 +283,7 @@ struct OnboardingView: View {
 //                        .background { Color.blue.opacity(0.2) }
                         .padding(.top, -180)
                         .padding(.bottom, -256)
+                        .frame(maxWidth: 480)
                 }
             }
             .padding(.top, 48)
@@ -309,81 +310,84 @@ struct OnboardingView: View {
                     animationToken: textAnimationToken
                 )
             } else {
-                HStack {
-                    Text("Unlock Full Access")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.secondary)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 28)
-                .padding(.bottom, -4)
-                .padding(.top)
-
-                // Paywall-Button
-                Button {
-                    Task { await purchaseLifetimeAccess() }
-                } label: {
+                VStack {
                     HStack {
-                        ZStack {
-                            Image(systemName: "checkmark.seal.fill")
-                        }
-                        .frame(width: 18, height: 18)
-                        .padding(.trailing, 8)
-                        .fontWeight(.bold)
-
-                        Text("Lifetime Access")
-                            .font(.headline)
-
-                        Spacer()
-
-                        Text(lifetimePriceLabel)
+                        Text("Unlock Full Access")
+                            .font(.caption)
                             .fontWeight(.bold)
-                    }
-                    .padding(.all, 20)
-                    .foregroundStyle(Color.accentColor)
-                }
-                .buttonStyle(.plain)
-                .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-                .background {
-                    RoundedRectangle(cornerRadius: 16).fill(Color.accentColor.opacity(0.1))
-                }
-                .padding(.horizontal)
-                .disabled(isPurchasing || isPurchased || lifetimeProduct == nil)
-
-                // Paywall-Button
-                Button {
-                    Task { await restorePurchases() }
-                } label: {
-                    HStack {
-                        ZStack {
-                            Image(systemName: "purchased")
-                        }
-                        .frame(width: 18, height: 18)
-                        .padding(.trailing, 8)
-                        .fontWeight(.bold)
-
-                        Text("Restore Purchases")
-                            .font(.headline)
+                            .foregroundStyle(.secondary)
 
                         Spacer()
                     }
-                    .padding(.all, 20)
-                }
-                .buttonStyle(.plain)
-                .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-                .padding(.horizontal)
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, -4)
+                    .padding(.top)
 
-                HStack {
-                    Text("No subscription. Restore anytime.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    // Paywall-Button
+                    Button {
+                        Task { await purchaseLifetimeAccess() }
+                    } label: {
+                        HStack {
+                            ZStack {
+                                Image(systemName: "checkmark.seal.fill")
+                            }
+                            .frame(width: 18, height: 18)
+                            .padding(.trailing, 8)
+                            .fontWeight(.bold)
 
-                    Spacer()
+                            Text("Lifetime Access")
+                                .font(.headline)
+
+                            Spacer()
+
+                            Text(lifetimePriceLabel)
+                                .fontWeight(.bold)
+                        }
+                        .padding(.all, 20)
+                        .foregroundStyle(Color.accentColor)
+                    }
+                    .buttonStyle(.plain)
+                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                    .background {
+                        RoundedRectangle(cornerRadius: 16).fill(Color.accentColor.opacity(0.1))
+                    }
+                    .padding(.horizontal)
+                    .disabled(isPurchasing || isPurchased || lifetimeProduct == nil)
+
+                    // Paywall-Button
+                    Button {
+                        Task { await restorePurchases() }
+                    } label: {
+                        HStack {
+                            ZStack {
+                                Image(systemName: "purchased")
+                            }
+                            .frame(width: 18, height: 18)
+                            .padding(.trailing, 8)
+                            .fontWeight(.bold)
+
+                            Text("Restore Purchases")
+                                .font(.headline)
+
+                            Spacer()
+                        }
+                        .padding(.all, 20)
+                    }
+                    .buttonStyle(.plain)
+                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                    .padding(.horizontal)
+
+                    HStack {
+                        Text("No subscription. Restore anytime.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.bottom, 70)
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 70)
+                .frame(maxWidth: 480)
             }
             Spacer()
         }
