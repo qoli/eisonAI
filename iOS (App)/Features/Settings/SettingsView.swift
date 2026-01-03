@@ -24,9 +24,11 @@ struct SettingsView: View {
     @State private var longDocumentChunkTokenSize: Int = 2600
     @State private var longDocumentMaxChunkCount: Int = 5
 
-    var body: some View {
-        let fmStatus = FoundationModelsAvailability.currentStatus()
+    var fmStatus: FoundationModelsAvailability.Status {
+        FoundationModelsAvailability.currentStatus()
+    }
 
+    var body: some View {
         Form {
             #if DEBUG
                 Section("Demos") {
@@ -95,9 +97,9 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("高階設定") {
+            Section("Advanced Settings") {
                 Picker(
-                    "Token 計算方式",
+                    "Token Estimation Method",
                     selection: Binding(
                         get: { tokenEstimatorEncoding },
                         set: { newValue in
@@ -111,11 +113,11 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("此設定會同步影響 App 與 Safari Extension 的 token 計算。")
+                Text("This setting syncs token estimation for both the app and Safari extension.")
                     .foregroundStyle(.secondary)
 
                 Picker(
-                    "長文切段大小",
+                    "Long Document Chunk Size",
                     selection: Binding(
                         get: { longDocumentChunkTokenSize },
                         set: { newValue in
@@ -129,11 +131,11 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("長文切段大小固定在選項內（超過上限段數則丟棄）。")
+                Text("Chunk size is fixed to these options; chunks beyond the max count are discarded.")
                     .foregroundStyle(.secondary)
 
                 Picker(
-                    "長文段落上限",
+                    "Max Chunk Count",
                     selection: Binding(
                         get: { longDocumentMaxChunkCount },
                         set: { newValue in
@@ -147,7 +149,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("超過上限的段落會直接丟棄。")
+                Text("Chunks beyond the limit are discarded.")
                     .foregroundStyle(.secondary)
             }
 
@@ -175,29 +177,29 @@ struct SettingsView: View {
 
             Section("RawLibrary") {
                 HStack {
-                    Text("歷史紀錄收件箱上限")
+                    Text("History Inbox Limit")
                     Spacer()
-                    Text("\(AppConfig.rawLibraryMaxItems) 筆")
+                    Text("\(AppConfig.rawLibraryMaxItems) items")
                         .foregroundStyle(.secondary)
                 }
 
                 HStack {
-                    Text("目前已使用")
+                    Text("Currently Used")
                     Spacer()
-                    Text("\(rawLibraryItemCount) 筆")
+                    Text("\(rawLibraryItemCount) items")
                         .foregroundStyle(.secondary)
                 }
 
-                Text("超過上限時會自動移除最舊的記錄。")
+                Text("When over the limit, the oldest records are removed automatically.")
                     .foregroundStyle(.secondary)
 
-                Button("清理無效 Tag") {
+                Button("Clean Invalid Tags") {
                     do {
                         rawLibraryCleanupStatus = ""
                         let result = try rawLibraryStore.cleanUnusedTags()
-                        rawLibraryCleanupStatus = "已清理 \(result.removed) 個無效 Tag（剩餘 \(result.kept)）"
+                        rawLibraryCleanupStatus = "Removed \(result.removed) invalid tag(s) (\(result.kept) remaining)."
                     } catch {
-                        rawLibraryCleanupStatus = "清理失敗：\(error.localizedDescription)"
+                        rawLibraryCleanupStatus = "Cleanup failed: \(error.localizedDescription)"
                     }
                 }
 
@@ -278,9 +280,15 @@ struct SettingsView: View {
                 rawLibraryStatus = ""
                 rawLibraryItemCount = try rawLibraryStore.countItems()
             } catch {
-                rawLibraryStatus = "讀取 RawLibrary 失敗：\(error.localizedDescription)"
+                rawLibraryStatus = "Failed to load RawLibrary: \(error.localizedDescription)"
                 rawLibraryItemCount = 0
             }
         }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        SettingsView()
     }
 }
