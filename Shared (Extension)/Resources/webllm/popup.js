@@ -34,6 +34,7 @@ const stopButton = document.getElementById("stop");
 const statusEl = document.getElementById("status");
 const envEl = document.getElementById("env");
 const progressEl = document.getElementById("progress");
+const progressDotEl = document.querySelector(".progress-dot");
 const inputEl = document.getElementById("input");
 const inputTokensEl = document.getElementById("input-tokens");
 const thinkEl = document.getElementById("think");
@@ -44,15 +45,122 @@ const shareEl = document.getElementById("share");
 let lastModelOutputMarkdown = "";
 let markdownParser = null;
 
+const DOT_STATES = {
+  engine: { className: "state-engine", breathing: true },
+  generating: { className: "state-generating", breathing: true },
+  longdoc: { className: "state-longdoc", breathing: true },
+  reading: { className: "state-reading", breathing: true },
+  stopped: { className: "state-stopped", breathing: false },
+  error: { className: "state-error", breathing: true },
+};
+const DOT_STATE_CLASSES = Object.values(DOT_STATES).map((state) => state.className);
+
+const STATUS_ENGINE = new Set([
+  "Creating worker…",
+  "Loading model…",
+  "Ready",
+  "Unloaded",
+  "Engine crashed, restarting…",
+]);
+const STATUS_GENERATING = new Set([
+  "Generating…",
+  "Generating summary…",
+  "Starting native stream…",
+  "Native failed, falling back…",
+]);
+const STATUS_LONGDOC = new Set([
+  "Preparing long document…",
+]);
+const STATUS_READING = new Set([
+  "Reading page…",
+]);
+const STATUS_STOPPED = new Set([
+  "Stopping…",
+]);
+const STATUS_NO_DOT_CHANGE = new Set([
+  "已複製系統提示詞",
+  "無法寫入剪貼簿，已在下方顯示內容，請手動複製。",
+  "Preparing user prompt…",
+  "已準備用戶提示詞，請再按一次「複製用戶提示詞」。",
+  "已複製用戶提示詞",
+  "沒有可分享的內容",
+  "已複製摘要與連結",
+]);
+
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
 }
 
-function setStatus(text, progress) {
-  statusEl.textContent = text;
-  if (typeof progress === "number") {
-    progressEl.value = Math.min(1, Math.max(0, progress));
+function setProgressDotState(stateKey, { breathing } = {}) {
+  if (!progressDotEl) return;
+  const state = DOT_STATES[stateKey];
+  if (!state) return;
+  progressDotEl.classList.remove(
+    ...DOT_STATE_CLASSES,
+    "is-breathing",
+    "progress-dot-breathe",
+  );
+  progressDotEl.classList.add(state.className);
+  const shouldBreathe = typeof breathing === "boolean" ? breathing : state.breathing;
+  if (shouldBreathe) {
+    progressDotEl.classList.add("is-breathing");
   }
+}
+
+function applyStatusDotState(text, options = {}) {
+  if (!progressDotEl || options.skipDot) return;
+  const value = String(text ?? "");
+  if (!value || STATUS_NO_DOT_CHANGE.has(value)) return;
+
+  if (options.state) {
+    setProgressDotState(options.state, options);
+    return;
+  }
+
+  if (STATUS_ENGINE.has(value)) {
+    setProgressDotState("engine");
+    return;
+  }
+  if (
+    STATUS_GENERATING.has(value) ||
+    value.startsWith("Generating chunk ")
+  ) {
+    setProgressDotState("generating");
+    return;
+  }
+  if (
+    STATUS_LONGDOC.has(value) ||
+    value.startsWith("Reading chunk ") ||
+    value.startsWith("Context limit hit. Retrying with chunk size ")
+  ) {
+    setProgressDotState("longdoc");
+    return;
+  }
+  if (STATUS_READING.has(value) || value === NO_SUMMARY_TEXT_MESSAGE) {
+    setProgressDotState("reading");
+    return;
+  }
+  if (STATUS_STOPPED.has(value)) {
+    setProgressDotState("stopped");
+  }
+}
+
+function setStatus(text, progress, options) {
+  let progressValue = progress;
+  let opts = options;
+  if (progress && typeof progress === "object") {
+    opts = progress;
+    progressValue = undefined;
+  }
+  statusEl.textContent = text;
+  if (typeof progressValue === "number") {
+    progressEl.value = Math.min(1, Math.max(0, progressValue));
+  }
+  applyStatusDotState(text, opts);
+}
+
+function setStatusError(text, progress) {
+  setStatus(text, progress, { state: "error" });
 }
 
 function setOutput(text) {
@@ -542,7 +650,7 @@ function enableControls(loaded) {
 }
 
 function initProgressCallback(report) {
-  setStatus(report.text, report.progress);
+  setStatus(report.text, report.progress, { skipDot: true });
 }
 
 function tryExecCommandCopy(value) {
@@ -861,7 +969,7 @@ async function stopGenerationForRestart() {
       await recoverEngine(err);
       return true;
     }
-    setStatus(err?.message ? String(err.message) : String(err));
+    setStatusError(err?.message ? String(err.message) : String(err));
     return false;
   }
 
@@ -1878,7 +1986,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
             try {
               await loadEngine(modelSelect.value);
             } catch (loadErr) {
-              setStatus(loadErr?.message ? String(loadErr.message) : String(loadErr), 0);
+              setStatusError(loadErr?.message ? String(loadErr.message) : String(loadErr), 0);
               enableControls(false);
               return;
             } finally {
@@ -1900,7 +2008,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
           try {
             await loadEngine(modelSelect.value);
           } catch (err) {
-            setStatus(err?.message ? String(err.message) : String(err), 0);
+            setStatusError(err?.message ? String(err.message) : String(err), 0);
             enableControls(false);
             return;
           } finally {
@@ -1913,7 +2021,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
       }
       await saveRawHistoryItem(ctx);
     } catch (err) {
-      setStatus(err?.message ? String(err.message) : String(err));
+      setStatusError(err?.message ? String(err.message) : String(err));
     }
   } finally {
     autoSummarizeRunning = false;
@@ -1924,7 +2032,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
       autoSummarizeQueued = false;
       autoSummarizeActiveTab({ force: true }).catch((err) => {
         console.warn("[WebLLM Demo] autoSummarizeActiveTab queued run failed:", err);
-        setStatus(err?.message ? String(err.message) : String(err));
+        setStatusError(err?.message ? String(err.message) : String(err));
       });
     }
   }
@@ -1939,7 +2047,7 @@ loadButton.addEventListener("click", async () => {
   try {
     await loadEngine(modelSelect.value);
   } catch (err) {
-    setStatus(err?.message ? String(err.message) : String(err), 0);
+    setStatusError(err?.message ? String(err.message) : String(err), 0);
     enableControls(false);
   } finally {
     loadButton.disabled = false;
@@ -1984,7 +2092,7 @@ stopButton.addEventListener("click", async () => {
       await recoverEngine(err);
       return;
     }
-    setStatus(err?.message ? String(err.message) : String(err));
+    setStatusError(err?.message ? String(err.message) : String(err));
   }
 });
 
@@ -2044,7 +2152,7 @@ runButton.addEventListener("click", async () => {
     setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
     await streamChatWithRecovery([{ role: "user", content: prompt }]);
   } catch (err) {
-    setStatus(err?.message ? String(err.message) : String(err));
+    setStatusError(err?.message ? String(err.message) : String(err));
   }
 });
 
@@ -2126,7 +2234,7 @@ summarizeButton.addEventListener("click", async () => {
     }
     await saveRawHistoryItem(ctx);
   } catch (err) {
-    setStatus(err?.message ? String(err.message) : String(err));
+    setStatusError(err?.message ? String(err.message) : String(err));
   }
 });
 
@@ -2161,14 +2269,14 @@ shareEl?.addEventListener("click", async (event) => {
     await copyToClipboard(shareText);
     setStatus("已複製摘要與連結", 1);
   } catch (err) {
-    setStatus(err?.message ? String(err.message) : String(err));
+    setStatusError(err?.message ? String(err.message) : String(err));
   }
 });
 
 statusEl.addEventListener("click", () => {
   autoSummarizeActiveTab({ force: true, restart: true }).catch((err) => {
     console.warn("[WebLLM Demo] status click autoSummarizeActiveTab failed:", err);
-    setStatus(err?.message ? String(err.message) : String(err));
+    setStatusError(err?.message ? String(err.message) : String(err));
   });
 });
 
@@ -2203,5 +2311,5 @@ globalThis.addEventListener("error", (event) => {
 
 autoSummarizeActiveTab().catch((err) => {
   console.warn("[WebLLM Demo] autoSummarizeActiveTab failed:", err);
-  setStatus(err?.message ? String(err.message) : String(err));
+  setStatusError(err?.message ? String(err.message) : String(err));
 });

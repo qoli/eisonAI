@@ -8,6 +8,11 @@
   --border: rgba(0, 0, 0, 0.08);
   --link: rgba(0, 0, 0, 0.42);
   --accent: #ffd86d;
+  --status-gray: var(--muted);
+  --status-green: #34c759;
+  --status-purple: #af52de;
+  --status-yellow: #ffd86d;
+  --status-red: #ff3b30;
   --code-bg: rgba(0, 0, 0, 0.04);
   --quote-bg: rgba(0, 0, 0, 0.03);
   --table-header-bg: rgba(0, 0, 0, 0.03);
@@ -338,11 +343,36 @@ progress::-webkit-progress-value {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--muted);
+  background: var(--status-gray);
 }
 
-.progress-dot-breathe {
+.progress-dot.is-breathing {
   animation: progress-dot-breathe 1.6s ease-in-out infinite;
+}
+
+.progress-dot.state-engine {
+  background: var(--status-gray);
+}
+
+.progress-dot.state-generating {
+  background: var(--status-green);
+}
+
+.progress-dot.state-longdoc {
+  background: var(--status-purple);
+}
+
+.progress-dot.state-reading {
+  background: var(--status-yellow);
+}
+
+.progress-dot.state-error {
+  background: var(--status-red);
+}
+
+.progress-dot.state-stopped {
+  background: var(--status-gray);
+  animation: none;
 }
 
 @keyframes progress-dot-breathe {
