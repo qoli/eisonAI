@@ -946,18 +946,20 @@ struct OnboardingView: View {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(.regularMaterial)
-
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(accentColor.opacity(0.1))
+                        .fill(accentColor.opacity(0.3))
                         .mask {
                             LinearGradient(
-                                colors: [.black, .clear],
+                                colors: [.black, .black.opacity(0.3)],
                                 startPoint: UnitPoint(x: 0.5, y: 0),
                                 endPoint: UnitPoint(x: 0.5, y: 1)
                             )
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
+
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(.regularMaterial)
+//                        .fill(.ultraThinMaterial)
+//                        .fill(.ultraThickMaterial)
                 }
             }
         }
