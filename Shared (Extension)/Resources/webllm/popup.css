@@ -366,6 +366,11 @@ progress::-webkit-progress-value {
   background: var(--status-yellow);
 }
 
+.progress-dot.state-ready {
+  background: var(--status-green);
+  animation: none;
+}
+
 .progress-dot.state-error {
   background: var(--status-red);
 }

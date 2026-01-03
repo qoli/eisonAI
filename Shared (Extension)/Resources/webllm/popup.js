@@ -5,7 +5,7 @@ const browser = globalThis.browser ?? globalThis.chrome;
 const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
-const NO_SUMMARY_TEXT_MESSAGE = "無可用總結正文";
+const NO_SUMMARY_TEXT_MESSAGE = "No summary text";
 const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2600;
 const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
@@ -56,21 +56,21 @@ const DOT_STATES = {
   reading: { className: "state-reading", breathing: true },
   stopped: { className: "state-stopped", breathing: false },
   error: { className: "state-error", breathing: true },
+  ready: { className: "state-ready", breathing: false },
 };
 const DOT_STATE_CLASSES = Object.values(DOT_STATES).map((state) => state.className);
 
 const STATUS_ENGINE = new Set([
   "Creating worker…",
   "Loading model…",
-  "Ready",
   "Unloaded",
   "Engine crashed, restarting…",
 ]);
 const STATUS_GENERATING = new Set([
   "Generating…",
   "Generating summary…",
-  "Starting native stream…",
-  "Native failed, falling back…",
+  "Starting native…",
+  "Native failed, fallback…",
 ]);
 const STATUS_LONGDOC = new Set([
   "Preparing long document…",
@@ -82,13 +82,13 @@ const STATUS_STOPPED = new Set([
   "Stopping…",
 ]);
 const STATUS_NO_DOT_CHANGE = new Set([
-  "已複製系統提示詞",
-  "無法寫入剪貼簿，已在下方顯示內容，請手動複製。",
-  "Preparing user prompt…",
-  "已準備用戶提示詞，請再按一次「複製用戶提示詞」。",
-  "已複製用戶提示詞",
-  "沒有可分享的內容",
-  "已複製摘要與連結",
+  "System prompt copied",
+  "Clipboard unavailable, content shown.",
+  "Preparing prompt…",
+  "User prompt ready (click again to copy)",
+  "User prompt copied",
+  "Nothing to share",
+  "Summary and link copied",
 ]);
 
 function hasWebGPU() {
@@ -127,6 +127,11 @@ function applyStatusDotState(text, options = {}) {
     return;
   }
 
+  if (value === "Ready") {
+    setProgressDotState("ready");
+    return;
+  }
+
   if (STATUS_ENGINE.has(value)) {
     setProgressDotState("engine");
     return;
@@ -141,7 +146,7 @@ function applyStatusDotState(text, options = {}) {
   if (
     STATUS_LONGDOC.has(value) ||
     value.startsWith("Reading chunk ") ||
-    value.startsWith("Context limit hit. Retrying with chunk size ")
+    value.startsWith("Context limit, retry ")
   ) {
     setProgressDotState("longdoc");
     return;
@@ -1794,7 +1799,7 @@ async function runLongDocumentPipeline(ctx) {
         lastRoutingThreshold = 0;
         lastSummarySystemPrompt = "";
 
-        setStatus(`Context limit hit. Retrying with chunk size ${nextChunkTokenSize}…`, 0);
+        setStatus(`Context limit, retry ${nextChunkTokenSize}…`, 0);
         resetOutputForVisibility();
         setThink("");
         setShareVisible(false);
@@ -1865,7 +1870,7 @@ async function streamSummaryWithFoundationModels(ctx) {
       console.warn("[WebLLM Demo] fm.prewarm failed:", err);
     }
 
-    setStatus("Starting native stream…", 0);
+    setStatus("Starting native…", 0);
     const started = await startFoundationModelsStream({
       systemPrompt,
       userPrompt: cachedUserPrompt,
@@ -1987,7 +1992,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
           await streamSummaryWithFoundationModels(ctx);
         } catch (err) {
           console.warn("[WebLLM Demo] Foundation Models failed, falling back to WebLLM:", err);
-          setStatus("Native failed, falling back…", 0);
+          setStatus("Native failed, fallback…", 0);
           activeModelIdOverride = "";
           if (!engine) {
             loadButton.disabled = true;
@@ -2112,12 +2117,12 @@ copySystemButton?.addEventListener("click", async () => {
   try {
     await refreshSystemPromptFromNative();
     await copyToClipboard(systemPrompt);
-    setStatus("已複製系統提示詞");
+    setStatus("System prompt copied");
   } catch (err) {
     setShareVisible(false);
     setThink("");
     setOutput(systemPrompt);
-    setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
+    setStatus("Clipboard unavailable, content shown.");
   }
 });
 
@@ -2125,7 +2130,7 @@ copyUserButton?.addEventListener("click", async () => {
   if (!cachedUserPrompt) {
     copyUserButton.disabled = true;
     try {
-      setStatus("Preparing user prompt…");
+      setStatus("Preparing prompt…");
       await refreshSystemPromptFromNative();
       const ctx = await prepareSummaryContextWithRetry();
       if (!ctx) {
@@ -2135,7 +2140,7 @@ copyUserButton?.addEventListener("click", async () => {
         setOutput(NO_SUMMARY_TEXT_MESSAGE);
         return;
       }
-      setStatus("已準備用戶提示詞，請再按一次「複製用戶提示詞」。", 1);
+      setStatus("User prompt ready (click again to copy)", 1);
     } finally {
       copyUserButton.disabled = false;
     }
@@ -2144,12 +2149,12 @@ copyUserButton?.addEventListener("click", async () => {
 
   try {
     await copyToClipboard(cachedUserPrompt);
-    setStatus("已複製用戶提示詞");
+    setStatus("User prompt copied");
   } catch (err) {
     setShareVisible(false);
     setThink("");
     setOutput(cachedUserPrompt);
-    setStatus("無法寫入剪貼簿，已在下方顯示內容，請手動複製。");
+    setStatus("Clipboard unavailable, content shown.");
   }
 });
 
@@ -2157,7 +2162,7 @@ runButton.addEventListener("click", async () => {
   try {
     const prompt = inputEl.value.trim();
     if (!prompt) {
-      setStatus("請先輸入 prompt");
+      setStatus("Enter a prompt first");
       return;
     }
     preparedMessagesForTokenEstimate = [{ role: "user", content: prompt }];
@@ -2208,7 +2213,7 @@ summarizeButton.addEventListener("click", async () => {
         await streamSummaryWithFoundationModels(ctx);
       } catch (err) {
         console.warn("[WebLLM Demo] Foundation Models failed, falling back to WebLLM:", err);
-        setStatus("Native failed, falling back…", 0);
+        setStatus("Native failed, fallback…", 0);
         activeModelIdOverride = "";
         if (!engine) {
           loadButton.disabled = true;
@@ -2256,7 +2261,7 @@ shareEl?.addEventListener("click", async (event) => {
 
   const text = String(outputEl?.textContent ?? "").trim();
   if (!text || text === NO_SUMMARY_TEXT_MESSAGE) {
-    setStatus("沒有可分享的內容", 1);
+    setStatus("Nothing to share", 1);
     return;
   }
 
@@ -2279,7 +2284,7 @@ shareEl?.addEventListener("click", async (event) => {
     }
 
     await copyToClipboard(shareText);
-    setStatus("已複製摘要與連結", 1);
+    setStatus("Summary and link copied", 1);
   } catch (err) {
     setStatusError(err?.message ? String(err.message) : String(err));
   }
