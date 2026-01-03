@@ -10,7 +10,6 @@ struct SettingsView: View {
     private let longDocumentChunkSizeOptions: [Int] = [2200, 2600, 3000, 3200]
     private let longDocumentMaxChunkOptions: [Int] = [4, 5, 6, 7]
 
-    @State private var debugStatus = ""
     @State private var cloudSyncStatus = ""
     @State private var isCloudSyncing = false
     @State private var didLoad = false
@@ -30,21 +29,11 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            #if DEBUG
-                Section("Demos") {
-                    NavigationLink("Qwen3 0.6B (MLC Swift)") {
-                        MLCQwenDemoView()
-                    }
-                    Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
-                        .foregroundStyle(.secondary)
-
-                    NavigationLink("Clipboard 2600-Token Splitter") {
-                        ClipboardTokenChunkingView()
-                    }
-                    Text("Paste from clipboard and split long text into 2600-token chunks (using the selected tokenizer).")
-                        .foregroundStyle(.secondary)
+            Section("About") {
+                NavigationLink("About") {
+                    AboutView()
                 }
-            #endif
+            }
 
             Section("Foundation Models (Apple Intelligence)") {
                 Toggle(
@@ -86,14 +75,6 @@ struct SettingsView: View {
                 }
 
                 Text("When unavailable, the app/extension automatically falls back to the bundled WebLLM/MLC paths.")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Prompts") {
-                NavigationLink("Prompt Settings") {
-                    PromptSettingsView()
-                }
-                Text("Manage summary, chunk, and title prompts in one place.")
                     .foregroundStyle(.secondary)
             }
 
@@ -239,23 +220,6 @@ struct SettingsView: View {
                 }
             }
 
-            #if DEBUG
-                Section("Share Payload (Debug)") {
-                    Button("Clear pending share payloads") {
-                        do {
-                            let count = try SharePayloadStore().clearAllPending()
-                            debugStatus = "Cleared \(count) payload(s)."
-                        } catch {
-                            debugStatus = "Clear failed: \(error.localizedDescription)"
-                        }
-                    }
-
-                    if !debugStatus.isEmpty {
-                        Text(debugStatus)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            #endif
         }
         .navigationTitle("Settings")
         .onAppear {
