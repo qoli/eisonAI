@@ -35,6 +35,7 @@ const statusEl = document.getElementById("status");
 const envEl = document.getElementById("env");
 const progressEl = document.getElementById("progress");
 const progressDotEl = document.querySelector(".progress-dot");
+const aiModelEl = document.querySelector(".ai-model");
 const inputEl = document.getElementById("input");
 const inputTokensEl = document.getElementById("input-tokens");
 const thinkEl = document.getElementById("think");
@@ -44,6 +45,9 @@ const shareEl = document.getElementById("share");
 
 let lastModelOutputMarkdown = "";
 let markdownParser = null;
+
+const AI_MODEL_WEBLLM_LABEL = "Qwen3 0.6B";
+const AI_MODEL_FM_LABEL = "Apple Intelligence";
 
 const DOT_STATES = {
   engine: { className: "state-engine", breathing: true },
@@ -89,6 +93,12 @@ const STATUS_NO_DOT_CHANGE = new Set([
 
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
+}
+
+function updateAiModelLabel(info) {
+  if (!aiModelEl) return;
+  const enabled = Boolean(info?.enabled && info?.available);
+  aiModelEl.textContent = enabled ? AI_MODEL_FM_LABEL : AI_MODEL_WEBLLM_LABEL;
 }
 
 function setProgressDotState(stateKey, { breathing } = {}) {
@@ -891,6 +901,7 @@ console.log("[WebLLM Demo] modelUrl =", demoModelUrl);
 console.log("[WebLLM Demo] wasmUrl  =", WASM_URL);
 setShareVisible(false);
 enableControls(false);
+updateAiModelLabel();
 
 function hasReadableBodyText(text) {
   return Boolean(String(text ?? "").trim());
@@ -1170,6 +1181,7 @@ async function checkFoundationModelsAvailabilityFromNative() {
 
 async function shouldUseFoundationModels() {
   const info = await checkFoundationModelsAvailabilityFromNative();
+  updateAiModelLabel(info);
   return Boolean(info.enabled && info.available);
 }
 
