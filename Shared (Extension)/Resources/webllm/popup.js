@@ -385,18 +385,6 @@ function getErrorMessage(err) {
   }
 }
 
-function logDetailedError(context, err) {
-  const info = {
-    context,
-    name: err?.name,
-    message: getErrorMessage(err),
-    code: err?.code ?? err?.errorCode,
-    cause: err?.cause,
-    stack: err?.stack,
-  };
-  console.error("[WebLLM Demo]", info, err);
-}
-
 function isTokenizerDeletedBindingError(err) {
   const msg = getErrorMessage(err);
   return (
@@ -2304,7 +2292,7 @@ shareEl?.addEventListener("click", async (event) => {
 
 statusEl.addEventListener("click", () => {
   autoSummarizeActiveTab({ force: true, restart: true }).catch((err) => {
-    logDetailedError("status click autoSummarizeActiveTab failed", err);
+    console.warn("[WebLLM Demo] status click autoSummarizeActiveTab failed:", err);
     setStatusError(err?.message ? String(err.message) : String(err));
   });
 });
@@ -2339,6 +2327,6 @@ globalThis.addEventListener("error", (event) => {
 });
 
 autoSummarizeActiveTab().catch((err) => {
-  logDetailedError("autoSummarizeActiveTab failed", err);
+  console.warn("[WebLLM Demo] autoSummarizeActiveTab failed:", err);
   setStatusError(err?.message ? String(err.message) : String(err));
 });
