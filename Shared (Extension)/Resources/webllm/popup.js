@@ -736,7 +736,7 @@ function getLocalAppConfig(modelId) {
 function clampText(text, limit) {
   const normalized = String(text ?? "").trim();
   if (normalized.length <= limit) return normalized;
-  return normalized.slice(0, limit) + "\n\n（內容過長，已截斷）";
+  return normalized.slice(0, limit) + "\n\n(Content too long, truncated)";
 }
 
 function truncateForVisibility(text) {
@@ -857,7 +857,7 @@ function buildSummaryUserPrompt({ title, text, url }) {
   const clippedText = clampText(text, 8000);
   return [
     `${title || "(no title)"}`,
-    `【正文】\n${clippedText || "(empty)"}`,
+    `Content\n${clippedText || "(empty)"}`,
   ].join("\n\n");
 }
 
@@ -1615,7 +1615,7 @@ function buildReadingAnchorSystemPrompt({ index, total }) {
 
 function buildReadingAnchorUserPrompt(text) {
   const trimmed = String(text ?? "").trim();
-  return `【正文】\\n${trimmed || "(empty)"}`;
+  return `Content\\n${trimmed || "(empty)"}`;
 }
 
 function buildSummaryUserPromptFromAnchors(anchors) {
@@ -2274,7 +2274,7 @@ shareEl?.addEventListener("click", async (event) => {
     if (typeof globalThis.navigator?.share === "function") {
       const shareData = { text: shareText };
       // if (httpUrl) shareData.url = httpUrl;
-      // 不能傳遞 URL，會導致文本信息消失
+      // Cannot pass URL; it causes the text to disappear.
       try {
         await globalThis.navigator.share(shareData);
       } catch {
