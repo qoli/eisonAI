@@ -20,12 +20,7 @@ struct LibraryItemDetailView: View {
     @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
     @State private var regenerateRequest: RegenerateRequest?
 
-    private let mlc = MLCClient()
-    private let foundationModels = FoundationModelsClient()
-    private let foundationSettings = FoundationModelsSettingsStore()
     private let rawLibraryStore = RawLibraryStore()
-
-    private let titlePromptStore = TitlePromptStore()
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -138,7 +133,7 @@ struct LibraryItemDetailView: View {
                     Divider()
 
                     Button {
-                        generateTitleIfNeeded(force: true)
+                        requestGenerateTitle(force: true)
                     } label: {
                         Label("Regenerate Title", systemImage: "arrow.clockwise")
                     }
@@ -272,7 +267,7 @@ struct LibraryItemDetailView: View {
             item = viewModel.loadDetail(for: entry)
             log("detail load result item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
-            generateTitleIfNeeded(force: false)
+            requestGenerateTitle(force: false)
         }
     }
 
@@ -475,14 +470,10 @@ struct LibraryItemDetailView: View {
         }
     }
 
-    private func generateTitleIfNeeded(force: Bool) {
+    private func requestGenerateTitle(force: Bool) {
         guard !isGeneratingTitle else { return }
-        guard let item else { return }
-        let currentTitle = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !force && !currentTitle.isEmpty { return }
 
         isGeneratingTitle = true
-        log("title generation start force=\(force) path=\(entry.fileURL.lastPathComponent)")
         Task {
             defer {
                 Task { @MainActor in
@@ -490,112 +481,13 @@ struct LibraryItemDetailView: View {
                 }
             }
 
-            do {
-                let systemPrompt = titlePromptStore.load()
-                let userPrompt = buildTitleUserPrompt(for: item)
-                let useFoundationModels = foundationSettings.isAppEnabled()
-                    && FoundationModelsAvailability.currentStatus() == .available
-                let stream: AsyncThrowingStream<String, Error>
-                if useFoundationModels {
-                    log("title generation using FoundationModels")
-                    let prefix = clampText(userPrompt, maxChars: 800)
-                    foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prefix)
-                    stream = try await foundationModels.streamChat(
-                        systemPrompt: systemPrompt,
-                        userPrompt: userPrompt,
-                        temperature: 0.4,
-                        maximumResponseTokens: 128
-                    )
-                } else {
-                    log("title generation using MLC")
-                    try await mlc.loadIfNeeded()
-                    stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
-                }
-                var output = ""
-                for try await chunk in stream {
-                    output += chunk
-                }
-
-                if !useFoundationModels, isQwen3Model(mlc.loadedModelID) {
-                    log("title generation stripping <think> tags for qwen3")
-                    output = stripThinkTags(output)
-                }
-
-                let title = sanitizeTitle(output)
-                guard !title.isEmpty else { return }
-                log("title generation result=\"\(title)\"")
-                let updated = try rawLibraryStore.updateTitle(fileURL: entry.fileURL, title: title)
-                await MainActor.run {
-                    self.item = updated
-                    viewModel.reload()
-                }
-            } catch {
-                log("title generation error \(error.localizedDescription)")
-                // No-op: failure strategy is silent.
+            let updated = await GenerationService.shared.generateTitleIfNeeded(force: force, fileURL: entry.fileURL)
+            guard let updated else { return }
+            await MainActor.run {
+                self.item = updated
+                viewModel.reload()
             }
         }
-    }
-
-    private func buildTitleUserPrompt(for item: RawHistoryItem) -> String {
-        let pieces = [
-            item.summaryText,
-            item.articleText,
-        ]
-        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .filter { !$0.isEmpty }
-        .joined(separator: "\n\n")
-
-        let content = pieces.isEmpty ? item.url : pieces
-        return clampText(content, maxChars: 4000)
-    }
-
-    private func sanitizeTitle(_ text: String) -> String {
-        let strippedMarkdown = stripMarkdown(text)
-        let trimmed = strippedMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
-        let firstLine = trimmed.components(separatedBy: .newlines).first ?? trimmed
-        let stripped = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
-        return stripped.trimmingCharacters(in: CharacterSet(charactersIn: "\"「」"))
-    }
-
-    private func clampText(_ text: String, maxChars: Int) -> String {
-        guard text.count > maxChars else { return text }
-        let idx = text.index(text.startIndex, offsetBy: maxChars)
-        return String(text[..<idx])
-    }
-
-    private func isQwen3Model(_ modelID: String?) -> Bool {
-        guard let modelID else { return false }
-        return modelID.lowercased().contains("qwen3-0.6b")
-    }
-
-    private func stripThinkTags(_ text: String) -> String {
-        let pattern = "(?is)<think>.*?</think>"
-        var cleaned = text.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
-        cleaned = cleaned.replacingOccurrences(of: "<think>", with: "", options: .caseInsensitive)
-        cleaned = cleaned.replacingOccurrences(of: "</think>", with: "", options: .caseInsensitive)
-        return cleaned
-    }
-
-    private func stripMarkdown(_ text: String) -> String {
-        var output = text
-        // Remove fenced code blocks
-        output = output.replacingOccurrences(of: "(?s)```.*?```", with: "", options: .regularExpression)
-        // Remove inline code
-        output = output.replacingOccurrences(of: "`([^`]*)`", with: "$1", options: .regularExpression)
-        // Images: ![alt](url) -> alt
-        output = output.replacingOccurrences(of: "!\\[([^\\]]*)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
-        // Links: [text](url) -> text
-        output = output.replacingOccurrences(of: "\\[([^\\]]+)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
-        // Headings and blockquotes
-        output = output.replacingOccurrences(of: "(?m)^(\\s{0,3}#{1,6}\\s+)", with: "", options: .regularExpression)
-        output = output.replacingOccurrences(of: "(?m)^(\\s*>\\s?)", with: "", options: .regularExpression)
-        // Bold/italic markers
-        output = output.replacingOccurrences(of: "(\\*\\*|__)", with: "", options: .regularExpression)
-        output = output.replacingOccurrences(of: "(\\*|_)", with: "", options: .regularExpression)
-        // List markers
-        output = output.replacingOccurrences(of: "(?m)^(\\s*[-+*]\\s+)", with: "", options: .regularExpression)
-        output = output.replacingOccurrences(of: "(?m)^(\\s*\\d+\\.\\s+)", with: "", options: .regularExpression)
-        return output
     }
 
     private func log(_ message: String) {
