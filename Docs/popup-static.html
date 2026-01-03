@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebLLM Demo (Static)</title>
+  <link rel="stylesheet" href="../Shared%20(Extension)/Resources/webllm/popup.css" />
+</head>
+
+<body>
+  <header class="header">
+    <div class="row">
+      <div class="flexCenter">
+        <svg width="30" height="27" viewBox="0 0 30 27" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M0 10.25C0 4.86522 4.36522 0.5 9.75 0.5H16.25C21.6348 0.5 26 4.86522 26 10.25V16.75C26 22.1348 21.6348 26.5 16.25 26.5H2.4375C1.09131 26.5 0 25.4087 0 24.0625V10.25Z"
+            fill="#FFD86D" />
+          <path
+            d="M17.0613 11.041C17.0613 13.2847 15.2425 15.1035 12.9988 15.1035C10.7552 15.1035 8.93634 13.2847 8.93634 11.041C8.93634 8.79736 10.7552 6.97852 12.9988 6.97852C15.2425 6.97852 17.0613 8.79736 17.0613 11.041Z"
+            stroke="black" stroke-width="1.625" />
+          <path
+            d="M28.4375 11.041C28.4375 13.2847 26.6187 15.1035 24.375 15.1035C22.1314 15.1035 20.3125 13.2847 20.3125 11.041C20.3125 8.79736 22.1314 6.97852 24.375 6.97852C26.6187 6.97852 28.4375 8.79736 28.4375 11.041Z"
+            stroke="black" stroke-width="1.625" />
+          <path d="M13.8119 10.6489V12.2739" stroke="black" stroke-width="1.625" stroke-linecap="round" />
+          <path d="M19.7008 10.2129H17.8727" stroke="black" stroke-width="1.625" stroke-linecap="round" />
+          <path d="M23.5615 10.6489V12.2739" stroke="black" stroke-width="1.625" stroke-linecap="round" />
+          <path d="M15.436 19.417V19.417C17.7662 19.8474 20.1736 19.4673 22.2577 18.3397V18.3397" stroke="black"
+            stroke-width="1.625" stroke-linecap="round" />
+        </svg>
+
+        <svg width="93" height="43" viewBox="0 0 93 43" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M19.0586 20.0078V23.9805H8.65234V29.6758H20.4297V34H3.76562V10.4453H20.4297V14.6641H8.65234V20.0078H19.0586ZM29.7109 7C30.5547 7 31.2812 7.30469 31.8906 7.91406C32.5 8.5 32.8047 9.20312 32.8047 10.0234C32.8047 10.8203 32.5 11.5234 31.8906 12.1328C31.2812 12.7422 30.5547 13.0469 29.7109 13.0469C28.8672 13.0469 28.1406 12.7422 27.5312 12.1328C26.9453 11.5234 26.6523 10.8203 26.6523 10.0234C26.6523 9.20312 26.9453 8.5 27.5312 7.91406C28.1406 7.30469 28.8672 7 29.7109 7ZM32.3125 16.2461V34H27.8477V20.043H25V16.2461H32.3125ZM43.668 15.7891C44.7695 15.7891 45.7891 15.9531 46.7266 16.2812C47.6641 16.6094 48.3906 16.9844 48.9062 17.4062V21.3438C48.3438 20.9688 47.6523 20.6055 46.832 20.2539C46.0352 19.9023 45.2031 19.7266 44.3359 19.7266C43.4922 19.7266 42.8242 19.9141 42.332 20.2891C41.8398 20.6641 41.5938 21.1094 41.5938 21.625C41.5938 22 41.7344 22.3516 42.0156 22.6797C42.2969 22.9844 42.8359 23.2539 43.6328 23.4883L45.6367 24.1562C48.332 24.9531 49.6797 26.5117 49.6797 28.832C49.6797 29.9336 49.3633 30.918 48.7305 31.7852C48.1211 32.6289 47.2891 33.2969 46.2344 33.7891C45.2031 34.2812 44.0547 34.5273 42.7891 34.5273C41.5938 34.5273 40.4336 34.3398 39.3086 33.9648C38.1836 33.5898 37.3281 33.1797 36.7422 32.7344V28.832C37.1875 29.1367 37.7266 29.4297 38.3594 29.7109C38.9922 29.9922 39.6484 30.2266 40.3281 30.4141C41.0078 30.5781 41.6289 30.6602 42.1914 30.6602C43.082 30.6602 43.7617 30.5078 44.2305 30.2031C44.7227 29.875 44.9688 29.418 44.9688 28.832C44.9688 28.3867 44.7695 28.0352 44.3711 27.7773C43.9727 27.5195 43.3867 27.2617 42.6133 27.0039L40.4336 26.2305C39.0742 25.7852 38.1367 25.1523 37.6211 24.332C37.1055 23.5117 36.8477 22.5391 36.8477 21.4141C36.8477 20.2891 37.1289 19.3164 37.6914 18.4961C38.2773 17.6523 39.0859 16.9961 40.1172 16.5273C41.1484 16.0352 42.332 15.7891 43.668 15.7891Z"
+            fill="currentColor" />
+          <circle cx="60.25" cy="17.5" r="6" stroke="currentColor" stroke-width="4" />
+          <path d="M54.25 31.652V31.652C59.4277 32.2007 64.6374 30.9651 69.0172 28.1497L69.25 28" stroke="currentColor"
+            stroke-width="4" stroke-linecap="round" />
+          <path
+            d="M77.457 16.2461V18.7773C77.9961 18.0508 78.7227 17.3711 79.6367 16.7383C80.5742 16.1055 81.6406 15.7891 82.8359 15.7891C84.6406 15.7891 86.1523 16.3984 87.3711 17.6172C88.5898 18.8359 89.1992 20.6641 89.1992 23.1016V34H84.7344L84.6992 23.6992C84.6992 22.5039 84.4062 21.6133 83.8203 21.0273C83.2578 20.4414 82.4727 20.1484 81.4648 20.1484C80.668 20.1484 79.918 20.4062 79.2148 20.9219C78.5352 21.4375 77.9492 22.0469 77.457 22.75V34H72.9922V16.2461H77.457Z"
+            fill="currentColor" />
+        </svg>
+      </div>
+
+      <div class="block"></div>
+
+      <div class="flexColumn">
+        <progress id="progress" value="1" max="1"></progress>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <pre id="think" class="output content hideScrollbar">已整理完成（靜態示例）</pre>
+    <div class="fade-overlay"></div>
+  </div>
+
+  <div id="output" class="output rendered">
+    <h2>頁面摘要（靜態示例）</h2>
+    <p>此版本不依賴 JavaScript，僅用假資料展示版面與排版效果。</p>
+
+    <h3>重點整理</h3>
+    <ul>
+      <li>主要結論：產品在行動端表現穩定，啟動時間約 1.2 秒。</li>
+      <li>使用者回饋：易用性評分 4.6/5，最大痛點是初次設定流程。</li>
+      <li>建議方向：加入快速上手引導與離線說明頁。</li>
+    </ul>
+
+    <h3>數據概覽</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>項目</th>
+          <th>數值</th>
+          <th>備註</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>平均延遲</td>
+          <td>380 ms</td>
+          <td>Wi-Fi 環境</td>
+        </tr>
+        <tr>
+          <td>摘要長度</td>
+          <td>210 字</td>
+          <td>平均值</td>
+        </tr>
+        <tr>
+          <td>成功率</td>
+          <td>98.4%</td>
+          <td>過去 7 天</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <blockquote>
+      提示：這些內容為靜態示例，不代表實際產出。
+    </blockquote>
+
+    <pre><code>MODEL_ID = "demo-static"
+TOKENS_IN = 872
+TOKENS_OUT = 210</code></pre>
+  </div>
+
+  <div class="token-footer row">
+    <div id="status" class="status" title="點擊重新摘要">已完成</div>
+    <span id="input-tokens">1,082 tokens</span>
+    <a class="link" id="share" href="#share">Share</a>
+  </div>
+
+  <div class="legacy-hidden" aria-hidden="true">
+    <div id="env" class="env"></div>
+    <label for="model">Model</label>
+    <select id="model"></select>
+    <button id="load" type="button">Load</button>
+    <button id="unload" type="button">Unload</button>
+    <button id="summarize" type="button">Summarize active tab</button>
+    <button id="copy-system" type="button">Copy system prompt</button>
+    <button id="copy-user" type="button">Copy user prompt</button>
+    <button id="clear" type="button">Clear</button>
+    <textarea id="input" rows="4"></textarea>
+    <button id="run" type="button">Generate</button>
+    <button id="stop" type="button">Stop</button>
+  </div>
+</body>
+
+</html>

@@ -240,7 +240,6 @@ progress::-webkit-progress-value {
 #output.rendered blockquote {
   margin: 0 0 0.85em;
   padding: 0.5em 0.85em;
-  border-left: 3px solid var(--border);
   background: var(--quote-bg);
   color: var(--muted);
   border-radius: 12px;
