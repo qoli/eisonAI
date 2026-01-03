@@ -322,12 +322,16 @@ progress::-webkit-progress-value {
   display: none; /* Safari / Chrome */
 }
 
-.output-title {
+.output-title-bar {
   font-size: 0.6em;
   padding: 0;
   margin: 0;
   margin: 6px 12px;
   padding-top: 12px;
+}
+
+.output-title {
+  font-weight: bold;
 }
 
 .progress-dot {
