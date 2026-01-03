@@ -35,11 +35,14 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private let foundationSettings = FoundationModelsSettingsStore()
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
+    private let titlePromptStore = TitlePromptStore()
     private let tokenEstimator = GPTTokenEstimator.shared
     private let tokenEstimatorSettings = TokenEstimatorSettingsStore.shared
     private let longDocumentSettings = LongDocumentSettingsStore.shared
 
     private var runTask: Task<Void, Never>?
+    private var isGeneratingTitle: Bool = false
+    private var lastSavedFileURL: URL?
 
     init(input: KeyPointInput = .clipboard, saveMode: SaveMode = .createNew) {
         self.input = input
@@ -54,6 +57,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         chunkStatus = ""
         shouldDismiss = false
         errorMessage = nil
+        lastSavedFileURL = nil
         Task { [mlc] in
             await mlc.reset()
         }
@@ -158,9 +162,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 }
 
                 self.status = "Save…"
+                let savedFileURL: URL
                 switch self.saveMode {
                 case .createNew:
-                    try self.store.saveRawItem(
+                    let saved = try self.store.saveRawItem(
                         url: normalized.url,
                         title: normalized.title,
                         articleText: normalized.text,
@@ -175,6 +180,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         routingThreshold: routingThresholdForSave,
                         isLongDocument: isLongDocument
                     )
+                    savedFileURL = saved.fileURL
                 case let .updateExisting(fileURL, updateArticle, updateTitle):
                     let trimmedArticle = normalized.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     if updateArticle, trimmedArticle.isEmpty {
@@ -199,7 +205,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         routingThreshold: routingThresholdForSave,
                         isLongDocument: isLongDocument
                     )
+                    savedFileURL = fileURL
                 }
+
+                self.lastSavedFileURL = savedFileURL
+                await self.generateTitleIfNeeded(force: false)
 
                 self.status = "Done"
                 self.shouldDismiss = true
@@ -618,6 +628,120 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         if text.count <= maxChars { return text }
         let idx = text.index(text.startIndex, offsetBy: maxChars)
         return String(text[..<idx])
+    }
+
+    private func generateTitleIfNeeded(force: Bool) async {
+        guard !isGeneratingTitle else { return }
+        guard let fileURL = lastSavedFileURL else { return }
+
+        do {
+            let item = try store.loadItem(fileURL: fileURL)
+            let currentTitle = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !force && !currentTitle.isEmpty { return }
+
+            isGeneratingTitle = true
+            defer { isGeneratingTitle = false }
+
+            status = "Title…"
+            log("title generation start force=\(force) path=\(fileURL.lastPathComponent)")
+
+            let systemPrompt = titlePromptStore.load()
+            let userPrompt = buildTitleUserPrompt(for: item)
+
+            let useFoundationModels = foundationSettings.isAppEnabled()
+                && FoundationModelsAvailability.currentStatus() == .available
+
+            let stream: AsyncThrowingStream<String, Error>
+            if useFoundationModels {
+                let prefix = Self.clampText(userPrompt, maxChars: 800)
+                foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prefix)
+                stream = try await foundationModels.streamChat(
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    temperature: 0.4,
+                    maximumResponseTokens: 128
+                )
+            } else {
+                try await mlc.loadIfNeeded()
+                stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+            }
+
+            var output = ""
+            for try await chunk in stream {
+                if Task.isCancelled { break }
+                output += chunk
+            }
+            if Task.isCancelled { return }
+
+            if !useFoundationModels, isQwen3Model(mlc.loadedModelID) {
+                log("title generation stripping <think> tags for qwen3")
+                output = stripThinkTags(output)
+            }
+
+            let title = sanitizeTitle(output)
+            guard !title.isEmpty else { return }
+            log("title generation result=\"\(title)\"")
+            _ = try store.updateTitle(fileURL: fileURL, title: title)
+        } catch {
+            log("title generation error \(error.localizedDescription)")
+            // No-op: failure strategy is silent.
+        }
+    }
+
+    private func buildTitleUserPrompt(for item: RawHistoryItem) -> String {
+        let pieces = [
+            item.summaryText,
+            item.articleText,
+        ]
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n\n")
+
+        let content = pieces.isEmpty ? item.url : pieces
+        return Self.clampText(content, maxChars: 4000)
+    }
+
+    private func sanitizeTitle(_ text: String) -> String {
+        let strippedMarkdown = stripMarkdown(text)
+        let trimmed = strippedMarkdown.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstLine = trimmed.components(separatedBy: .newlines).first ?? trimmed
+        let stripped = firstLine.trimmingCharacters(in: .whitespacesAndNewlines)
+        return stripped.trimmingCharacters(in: CharacterSet(charactersIn: "\"「」"))
+    }
+
+    private func isQwen3Model(_ modelID: String?) -> Bool {
+        guard let modelID else { return false }
+        return modelID.lowercased().contains("qwen3-0.6b")
+    }
+
+    private func stripThinkTags(_ text: String) -> String {
+        let pattern = "(?is)<think>.*?</think>"
+        var cleaned = text.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(of: "<think>", with: "", options: .caseInsensitive)
+        cleaned = cleaned.replacingOccurrences(of: "</think>", with: "", options: .caseInsensitive)
+        return cleaned
+    }
+
+    private func stripMarkdown(_ text: String) -> String {
+        var output = text
+        // Remove fenced code blocks
+        output = output.replacingOccurrences(of: "(?s)```.*?```", with: "", options: .regularExpression)
+        // Remove inline code
+        output = output.replacingOccurrences(of: "`([^`]*)`", with: "$1", options: .regularExpression)
+        // Images: ![alt](url) -> alt
+        output = output.replacingOccurrences(of: "!\\[([^\\]]*)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
+        // Links: [text](url) -> text
+        output = output.replacingOccurrences(of: "\\[([^\\]]+)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
+        // Headings and blockquotes
+        output = output.replacingOccurrences(of: "(?m)^(\\s{0,3}#{1,6}\\s+)", with: "", options: .regularExpression)
+        output = output.replacingOccurrences(of: "(?m)^(\\s*>\\s?)", with: "", options: .regularExpression)
+        // Bold/italic markers
+        output = output.replacingOccurrences(of: "(\\*\\*|__)", with: "", options: .regularExpression)
+        output = output.replacingOccurrences(of: "(\\*|_)", with: "", options: .regularExpression)
+        // List markers
+        output = output.replacingOccurrences(of: "(?m)^(\\s*[-+*]\\s+)", with: "", options: .regularExpression)
+        output = output.replacingOccurrences(of: "(?m)^(\\s*\\d+\\.\\s+)", with: "", options: .regularExpression)
+        return output
     }
 
     private var inputDescription: String {

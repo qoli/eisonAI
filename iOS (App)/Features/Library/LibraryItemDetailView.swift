@@ -363,8 +363,7 @@ struct LibraryItemDetailView: View {
         if !urlString.isEmpty,
            let url = URL(string: urlString),
            let scheme = url.scheme?.lowercased(),
-           scheme == "http" || scheme == "https"
-        {
+           scheme == "http" || scheme == "https" {
             let payload = SharePayload(
                 id: UUID().uuidString,
                 createdAt: Date(),

@@ -211,8 +211,7 @@ struct RawLibraryStore {
 
         var cached = Set<String>()
         if let data = try? Data(contentsOf: indexURL, options: .mappedIfSafe),
-           let file = try? decoder.decode(FavoriteIndexFile.self, from: data)
-        {
+           let file = try? decoder.decode(FavoriteIndexFile.self, from: data) {
             cached = Set(file.filenames)
         }
 
@@ -332,10 +331,10 @@ struct RawLibraryStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         #if DEBUG
-        let path = fileSystemPath(for: fileURL)
-        let exists = fileManager.fileExists(atPath: path)
-        let readable = fileManager.isReadableFile(atPath: path)
-        print("[RawLibraryStore] loadItem path=\(path) exists=\(exists) readable=\(readable)")
+            let path = fileSystemPath(for: fileURL)
+            let exists = fileManager.fileExists(atPath: path)
+            let readable = fileManager.isReadableFile(atPath: path)
+            print("[RawLibraryStore] loadItem path=\(path) exists=\(exists) readable=\(readable)")
         #endif
         let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
         return try decoder.decode(RawHistoryItem.self, from: data)
@@ -479,7 +478,7 @@ struct RawLibraryStore {
 
         if isFavorite {
             #if DEBUG
-            print("[RawLibraryStore] favorite add filename=\(filename) dest=\(destPath)")
+                print("[RawLibraryStore] favorite add filename=\(filename) dest=\(destPath)")
             #endif
             if fileManager.fileExists(atPath: destPath) {
                 _ = try synchronizeFavoriteIndex()
@@ -492,7 +491,7 @@ struct RawLibraryStore {
         }
 
         #if DEBUG
-        print("[RawLibraryStore] favorite remove filename=\(filename) dest=\(destPath)")
+            print("[RawLibraryStore] favorite remove filename=\(filename) dest=\(destPath)")
         #endif
         if fileManager.fileExists(atPath: destPath) {
             try? fileManager.removeItem(at: destURL)
@@ -538,7 +537,7 @@ struct RawLibraryStore {
         chunkTokenSize: Int? = nil,
         routingThreshold: Int? = nil,
         isLongDocument: Bool? = nil
-    ) throws -> (id: String, filename: String) {
+    ) throws -> (id: String, filename: String, fileURL: URL) {
         let directoryURL = try itemsDirectoryURL()
 
         let createdAt = Date()
@@ -600,7 +599,7 @@ struct RawLibraryStore {
         try data.write(to: fileURL, options: [.atomic])
 
         _ = try enforceRawLibraryLimit(in: directoryURL)
-        return (id, filename)
+        return (id, filename, fileURL)
     }
 
     func clearAll() throws {
