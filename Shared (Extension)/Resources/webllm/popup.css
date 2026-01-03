@@ -116,7 +116,6 @@ progress::-webkit-progress-value {
   text-decoration-color: var(--link);
 }
 
-
 .link,
 #input-tokens {
   font-size: 11px;
@@ -172,7 +171,7 @@ progress::-webkit-progress-value {
 }
 
 #output {
-  margin-top: 12px;
+  margin-top: 4px;
   min-height: 120px;
 }
 
@@ -306,9 +305,9 @@ progress::-webkit-progress-value {
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  margin: 10px 6px;
   align-items: first baseline !important;
   line-height: 1em;
+  margin: 6px 12px;
 }
 
 .legacy-hidden {
@@ -321,4 +320,19 @@ progress::-webkit-progress-value {
 
 .hideScrollbar::-webkit-scrollbar {
   display: none; /* Safari / Chrome */
+}
+
+.output-title {
+  font-size: 0.6em;
+  padding: 0;
+  margin: 0;
+  margin: 6px 12px;
+  padding-top: 12px;
+}
+
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
 }
