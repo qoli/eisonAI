@@ -338,5 +338,26 @@ progress::-webkit-progress-value {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--muted);
+}
+
+.progress-dot-breathe {
+  animation: progress-dot-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes progress-dot-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.ai-model {
+  font-size: 0.6em;
+  font-weight: lighter;
+  text-transform: capitalize;
+
 }
