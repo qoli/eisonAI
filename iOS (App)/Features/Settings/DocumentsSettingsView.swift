@@ -19,15 +19,15 @@ struct DocumentsSettingsView: View {
                     Text("Long Document Processing")
                         .font(.headline)
 
-                    Text("eisonAI estimates document length with the selected tokenizer. If a document exceeds the chunk threshold, it is split into fixed-size chunks. The app extracts key points per chunk, then creates a short summary from those points. Extra chunks beyond the limit are skipped to keep results fast and stable.")
+                    Text("eisonAI estimates token count with the selected tokenizer. If a document exceeds the routing threshold, it is split into fixed-size chunks. The app extracts key points per chunk, then generates a short summary from those key points.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             } header: {
-                Text("How It Works")
+                Text("Overview")
             }
 
-            Section("Long Documents") {
+            Section {
                 Picker(
                     "Chunk size for long documents",
                     selection: Binding(
@@ -42,10 +42,13 @@ struct DocumentsSettingsView: View {
                         Text("\(size)").tag(size)
                     }
                 }
+            } header: {
+                Text("Chunk Size")
+            } footer: {
+                Text("This size is measured in tokens and also used as the routing threshold.")
+            }
 
-                Text("Long documents are split into chunks of this size.")
-                    .foregroundStyle(.secondary)
-
+            Section {
                 Picker(
                     "Max number of chunks",
                     selection: Binding(
@@ -60,12 +63,13 @@ struct DocumentsSettingsView: View {
                         Text("\(count)").tag(count)
                     }
                 }
-
-                Text("Chunks beyond the limit are discarded.")
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Chunk Limit")
+            } footer: {
+                Text("Chunks beyond the limit are discarded to keep processing time predictable.")
             }
 
-            Section("Token Counting") {
+            Section {
                 Picker(
                     "Token counting model",
                     selection: Binding(
@@ -81,8 +85,10 @@ struct DocumentsSettingsView: View {
                     }
                 }
 
-                Text("This affects token counts in both the app and Safari extension.")
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Token Counting")
+            } footer: {
+                Text("Applies to token estimation and chunking in both the app and Safari extension.")
             }
         }
         .navigationTitle("Documents")

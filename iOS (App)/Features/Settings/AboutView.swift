@@ -19,6 +19,21 @@ struct AboutView: View {
                 }
             }
 
+            Section("Links") {
+                Link(destination: URL(string: "https://github.com/qoli/eisonAI")!) {
+                    Label("GitHub Repository", systemImage: "link")
+                }
+            }
+
+            Section("Legal") {
+                Link(destination: URL(string: "https://github.com/qoli/eisonAI/blob/main/Docs/Terms_of_Service.md")!) {
+                    Text("Terms of Service")
+                }
+                Link(destination: URL(string: "https://github.com/qoli/eisonAI/blob/main/Docs/Privacy_Policy.md")!) {
+                    Text("Privacy Policy")
+                }
+            }
+
             #if DEBUG
                 Section("Debug") {
                     NavigationLink("Debug") {

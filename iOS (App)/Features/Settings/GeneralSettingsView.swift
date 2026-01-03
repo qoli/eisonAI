@@ -8,15 +8,24 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Safari Extension") {
-                Text("Turn on the eisonAI Safari extension in Settings > Safari > Extensions.")
-                Text("Summaries run in the extension popup using built-in WebLLM models.")
-                    .foregroundStyle(.secondary)
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Safari Extension")
+                        .font(.headline)
+
+                    Text("Enable eisonAI in Settings > Safari > Extensions. Summaries run in the extension popup using built-in WebLLM models.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Extensions")
+            } footer: {
+                Text("This lets you summarize pages directly from Safari.")
             }
 
-            Section("Share Extension") {
+            Section {
                 Toggle(
-                    "Check for shared items while the app is open",
+                    "Share Polling",
                     isOn: Binding(
                         get: { sharePollingEnabled },
                         set: { newValue in
@@ -25,9 +34,10 @@ struct GeneralSettingsView: View {
                         }
                     )
                 )
-
-                Text("When enabled, the app checks for new shared items every 2 seconds while in the foreground.")
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Share Extension")
+            } footer: {
+                Text("When enabled, the app checks every 2 seconds while it is in the foreground.")
             }
         }
         .navigationTitle("General")
