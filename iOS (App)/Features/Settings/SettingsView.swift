@@ -58,7 +58,7 @@ struct SettingsView: View {
             } header: {
                 Text("About")
             } footer: {
-                Text("Version info and debug tools.")
+                //
             }
         }
         .navigationTitle("Settings")
