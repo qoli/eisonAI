@@ -12,7 +12,22 @@ struct AIModelsSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Apple Intelligence") {
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Qwen3 (0.6B)")
+                        .font(.headline)
+
+                    Text("A lightweight on‑device model optimized for speed and lower memory use. Best for quick summaries, drafting, and simple coding. For complex tasks, consider a larger model when available.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("On‑Device Model")
+            } footer: {
+                Text("Runs locally without a network connection.")
+            }
+
+            Section {
                 Toggle(
                     "Use Apple Intelligence in the app",
                     isOn: Binding(
@@ -50,11 +65,11 @@ struct AIModelsSettingsView: View {
                     Text(reason)
                         .foregroundStyle(.secondary)
                 }
-
-                Text("If unavailable, eisonAI falls back to its built-in WebLLM/MLC models.")
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Apple Intelligence")
+            } footer: {
+                Text("Uses Apple’s on‑device intelligence when available; otherwise eisonAI uses its built‑in models.")
             }
-
         }
         .navigationTitle("AI Models")
         .onAppear {

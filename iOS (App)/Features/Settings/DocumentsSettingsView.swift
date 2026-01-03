@@ -14,6 +14,19 @@ struct DocumentsSettingsView: View {
 
     var body: some View {
         Form {
+            Section {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Long Document Processing")
+                        .font(.headline)
+
+                    Text("eisonAI estimates document length with the selected tokenizer. If a document exceeds the chunk threshold, it is split into fixed-size chunks. The app extracts key points per chunk, then creates a short summary from those points. Extra chunks beyond the limit are skipped to keep results fast and stable.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("How It Works")
+            }
+
             Section("Long Documents") {
                 Picker(
                     "Chunk size for long documents",
