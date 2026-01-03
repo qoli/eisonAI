@@ -373,6 +373,7 @@ progress::-webkit-progress-value {
 
 .progress-dot.state-error {
   background: var(--status-red);
+  animation: none;
 }
 
 .progress-dot.state-stopped {

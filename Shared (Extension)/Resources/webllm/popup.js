@@ -55,7 +55,7 @@ const DOT_STATES = {
   longdoc: { className: "state-longdoc", breathing: true },
   reading: { className: "state-reading", breathing: true },
   stopped: { className: "state-stopped", breathing: false },
-  error: { className: "state-error", breathing: true },
+  error: { className: "state-error", breathing: false },
   ready: { className: "state-ready", breathing: false },
 };
 const DOT_STATE_CLASSES = Object.values(DOT_STATES).map((state) => state.className);
@@ -383,6 +383,18 @@ function getErrorMessage(err) {
   } catch {
     return String(err);
   }
+}
+
+function logDetailedError(context, err) {
+  const info = {
+    context,
+    name: err?.name,
+    message: getErrorMessage(err),
+    code: err?.code ?? err?.errorCode,
+    cause: err?.cause,
+    stack: err?.stack,
+  };
+  console.error("[WebLLM Demo]", info, err);
 }
 
 function isTokenizerDeletedBindingError(err) {
@@ -2292,7 +2304,7 @@ shareEl?.addEventListener("click", async (event) => {
 
 statusEl.addEventListener("click", () => {
   autoSummarizeActiveTab({ force: true, restart: true }).catch((err) => {
-    console.warn("[WebLLM Demo] status click autoSummarizeActiveTab failed:", err);
+    logDetailedError("status click autoSummarizeActiveTab failed", err);
     setStatusError(err?.message ? String(err.message) : String(err));
   });
 });
@@ -2327,6 +2339,6 @@ globalThis.addEventListener("error", (event) => {
 });
 
 autoSummarizeActiveTab().catch((err) => {
-  console.warn("[WebLLM Demo] autoSummarizeActiveTab failed:", err);
+  logDetailedError("autoSummarizeActiveTab failed", err);
   setStatusError(err?.message ? String(err.message) : String(err));
 });
