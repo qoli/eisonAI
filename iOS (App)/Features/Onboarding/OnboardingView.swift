@@ -280,7 +280,6 @@ struct OnboardingView: View {
                 if selectedPage == 3 {
                     productView()
                         .transition(pageTransition)
-//                        .background { Color.blue.opacity(0.2) }
                         .padding(.top, -180)
                         .padding(.bottom, -256)
                         .frame(maxWidth: 480)
