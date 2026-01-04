@@ -48,4 +48,4 @@ case "$2" in
 esac
 
 cd "$project_path"
-fastlane "$lane"
+fastlane ios "$lane"
