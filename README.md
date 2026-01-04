@@ -52,43 +52,6 @@ https://apps.apple.com/us/app/eison-ai/id6484502399
 - Native bridge（設定/儲存/Apple Intelligence）：`Shared (Extension)/SafariWebExtensionHandler.swift`
 - App Library & Sync：App Group RawLibrary + CloudKit（詳見 `iOS (App)/Shared`）
 
-## 開發（必做：下載 assets）
-
-開發流程與排障細節請看：`Docs/DEVELOPMENT.md`
-
-1. 下載模型與 wasm 到 extension assets 目錄：
-
-```bash
-python3 Scripts/download_webllm_assets.py
-```
-
-2. 用 Xcode 打開並建置：
-
-```bash
-open eisonAI.xcodeproj
-```
-
-3. 若需重建 MLC xcframeworks（需設定 `MLC_LLM_SOURCE_DIR`，輸出到 `dist/`）：
-
-```bash
-Scripts/build_mlc_xcframeworks.sh
-```
-
-## macOS（Mac Catalyst）建置
-
-使用預設腳本建置 Mac Catalyst（My Mac）：
-
-```bash
-./buildMacOS.sh TARGET=catalyst
-```
-
-## 常見限制
-
-- 需要 WebGPU；若裝置/系統不支援，popup 會提示無法載入模型。
-- Safari extension 使用 `safari-web-extension://` scheme；專案已在 vendor 的 `webllm/webllm.js` 針對非 http(s) URL 做相容處理。
-- 模型/wasm assets 在 `Shared (Extension)/Resources/webllm-assets/`（gitignored），需先執行下載腳本。
-- 模擬器不代表真機行為（WebGPU / MLCSwift 可能不可用）；建議以真機驗證。
-
 ## License
 
 This project is licensed under the PolyForm Noncommercial License 1.0.0. See `LICENSE`.
