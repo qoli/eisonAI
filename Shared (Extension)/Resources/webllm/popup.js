@@ -174,7 +174,14 @@ function setStatus(text, progress, options) {
   applyStatusDotState(text, opts);
 }
 
-function setStatusError(text, progress) {
+function setStatusError(value, progress) {
+  const code = getErrorCode(value);
+  const message = getErrorMessage(value);
+  if (code && message && message !== code) {
+    appendErrorMessageToOutput(message);
+  }
+  const text =
+    typeof value === "string" ? value : getStatusTextForError(value);
   setStatus(text, progress, { state: "error" });
 }
 
@@ -383,6 +390,28 @@ function getErrorMessage(err) {
   } catch {
     return String(err);
   }
+}
+
+function getErrorCode(err) {
+  if (!err || typeof err !== "object") return "";
+  const code = err.code ?? err.errorCode;
+  return code ? String(code) : "";
+}
+
+function getStatusTextForError(err) {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  const code = getErrorCode(err);
+  if (code) return code;
+  return getErrorMessage(err);
+}
+
+function appendErrorMessageToOutput(message) {
+  if (!outputEl || !message) return;
+  const existing = String(outputEl.textContent ?? "").trim();
+  const separator = existing ? "\n\n" : "";
+  outputEl.classList.remove("rendered");
+  outputEl.textContent = `${existing}${separator}${message}`;
 }
 
 function isTokenizerDeletedBindingError(err) {
@@ -985,7 +1014,7 @@ async function stopGenerationForRestart() {
       await recoverEngine(err);
       return true;
     }
-    setStatusError(err?.message ? String(err.message) : String(err));
+    setStatusError(err);
     return false;
   }
 
@@ -1203,7 +1232,12 @@ async function prewarmFoundationModels({ systemPrompt, promptPrefix }) {
   const payload = resp?.payload ?? resp;
   if (resp?.type === "error") {
     const msg = typeof payload?.message === "string" ? payload.message : "native prewarm failed";
-    throw new Error(msg);
+    const err = new Error(msg);
+    const code = typeof payload?.code === "string" ? payload.code : "";
+    if (code) {
+      err.code = code;
+    }
+    throw err;
   }
 
   return { ok: Boolean(payload?.ok) };
@@ -1226,7 +1260,12 @@ async function startFoundationModelsStream({ systemPrompt, userPrompt }) {
   const payload = resp?.payload ?? resp;
   if (resp?.type === "error") {
     const msg = typeof payload?.message === "string" ? payload.message : "native start failed";
-    throw new Error(msg);
+    const err = new Error(msg);
+    const code = typeof payload?.code === "string" ? payload.code : "";
+    if (code) {
+      err.code = code;
+    }
+    throw err;
   }
   const jobId = payload?.jobId ? String(payload.jobId) : "";
   const cursor = Number.isFinite(payload?.cursor) ? Number(payload.cursor) : 0;
@@ -1247,7 +1286,12 @@ async function pollFoundationModelsStream({ jobId, cursor }) {
   const payload = resp?.payload ?? resp;
   if (resp?.type === "error") {
     const msg = typeof payload?.message === "string" ? payload.message : "native poll failed";
-    throw new Error(msg);
+    const err = new Error(msg);
+    const code = typeof payload?.code === "string" ? payload.code : "";
+    if (code) {
+      err.code = code;
+    }
+    throw err;
   }
   return {
     delta: typeof payload?.delta === "string" ? payload.delta : "",
@@ -2003,7 +2047,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
             try {
               await loadEngine(modelSelect.value);
             } catch (loadErr) {
-              setStatusError(loadErr?.message ? String(loadErr.message) : String(loadErr), 0);
+              setStatusError(loadErr, 0);
               enableControls(false);
               return;
             } finally {
@@ -2025,7 +2069,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
           try {
             await loadEngine(modelSelect.value);
           } catch (err) {
-            setStatusError(err?.message ? String(err.message) : String(err), 0);
+            setStatusError(err, 0);
             enableControls(false);
             return;
           } finally {
@@ -2038,7 +2082,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
       }
       await saveRawHistoryItem(ctx);
     } catch (err) {
-      setStatusError(err?.message ? String(err.message) : String(err));
+      setStatusError(err);
     }
   } finally {
     autoSummarizeRunning = false;
@@ -2049,7 +2093,7 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
       autoSummarizeQueued = false;
       autoSummarizeActiveTab({ force: true }).catch((err) => {
         console.warn("[WebLLM Demo] autoSummarizeActiveTab queued run failed:", err);
-        setStatusError(err?.message ? String(err.message) : String(err));
+        setStatusError(err);
       });
     }
   }
@@ -2064,7 +2108,7 @@ loadButton.addEventListener("click", async () => {
   try {
     await loadEngine(modelSelect.value);
   } catch (err) {
-    setStatusError(err?.message ? String(err.message) : String(err), 0);
+    setStatusError(err, 0);
     enableControls(false);
   } finally {
     loadButton.disabled = false;
@@ -2109,7 +2153,7 @@ stopButton.addEventListener("click", async () => {
       await recoverEngine(err);
       return;
     }
-    setStatusError(err?.message ? String(err.message) : String(err));
+    setStatusError(err);
   }
 });
 
@@ -2169,7 +2213,7 @@ runButton.addEventListener("click", async () => {
     setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
     await streamChatWithRecovery([{ role: "user", content: prompt }]);
   } catch (err) {
-    setStatusError(err?.message ? String(err.message) : String(err));
+    setStatusError(err);
   }
 });
 
@@ -2251,7 +2295,7 @@ summarizeButton.addEventListener("click", async () => {
     }
     await saveRawHistoryItem(ctx);
   } catch (err) {
-    setStatusError(err?.message ? String(err.message) : String(err));
+    setStatusError(err);
   }
 });
 
@@ -2286,14 +2330,14 @@ shareEl?.addEventListener("click", async (event) => {
     await copyToClipboard(shareText);
     setStatus("Summary and link copied", 1);
   } catch (err) {
-    setStatusError(err?.message ? String(err.message) : String(err));
+    setStatusError(err);
   }
 });
 
 statusEl.addEventListener("click", () => {
   autoSummarizeActiveTab({ force: true, restart: true }).catch((err) => {
     console.warn("[WebLLM Demo] status click autoSummarizeActiveTab failed:", err);
-    setStatusError(err?.message ? String(err.message) : String(err));
+    setStatusError(err);
   });
 });
 
@@ -2328,5 +2372,5 @@ globalThis.addEventListener("error", (event) => {
 
 autoSummarizeActiveTab().catch((err) => {
   console.warn("[WebLLM Demo] autoSummarizeActiveTab failed:", err);
-  setStatusError(err?.message ? String(err.message) : String(err));
+  setStatusError(err);
 });

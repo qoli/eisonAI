@@ -6,13 +6,13 @@
 //  LLM inference runs in the extension popup via WebLLM (bundled assets).
 //
 
-import Foundation
-import SafariServices
 import CryptoKit
+import Foundation
 import os.log
+import SafariServices
 
 #if canImport(FoundationModels)
-import FoundationModels
+    import FoundationModels
 #endif
 
 final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
@@ -445,6 +445,34 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         context.completeRequest(returningItems: [response], completionHandler: nil)
     }
 
+    private func complete(
+        _ context: NSExtensionContext,
+        error: Error,
+        name: String,
+        fallbackCode: String
+    ) {
+        let errorType = String(describing: type(of: error))
+        let resolvedCode = (error as? FoundationModelsStreamManager.StreamError)?.code ?? fallbackCode
+        os_log(
+            "[Eison-Native] ResponseError=%{public}@ errorType=%{public}@ code=%{public}@ message=%{public}@",
+            log: Self.nativeLog,
+            type: .info,
+            name,
+            errorType,
+            resolvedCode,
+            error.localizedDescription
+        )
+        complete(context, responseMessage: [
+            "v": 1,
+            "type": "error",
+            "name": name,
+            "payload": [
+                "code": resolvedCode,
+                "message": error.localizedDescription,
+            ],
+        ])
+    }
+
     func beginRequest(with context: NSExtensionContext) {
         let request = context.inputItems.first as? NSExtensionItem
 
@@ -465,13 +493,13 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         let profileString = profile?.uuidString ?? "none"
         if let dict = message as? [String: Any] {
             let command = (dict["command"] as? String) ?? (dict["name"] as? String) ?? ""
-            os_log(
-                "[Eison-Native] Received native message command=%{public}@ (profile: %{public}@)",
-                log: Self.nativeLog,
-                type: .info,
-                command,
-                profileString
-            )
+//            os_log(
+//                "[Eison-Native] Received native message command=%{public}@ (profile: %{public}@)",
+//                log: Self.nativeLog,
+//                type: .info,
+//                command,
+//                profileString
+//            )
         } else {
             let messageType = message.map { String(describing: type(of: $0)) } ?? "nil"
             os_log(
@@ -699,23 +727,20 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
                 let result = await FoundationModelsStreamManager.shared.poll(jobId: jobId, cursor: cursor)
                 switch result {
-                case .success(let responsePayload):
+                case let .success(responsePayload):
                     complete(context, responseMessage: [
                         "v": 1,
                         "type": "response",
                         "name": "fm.stream.poll",
                         "payload": responsePayload,
                     ])
-                case .failure(let error):
-                    complete(context, responseMessage: [
-                        "v": 1,
-                        "type": "error",
-                        "name": "fm.stream.poll",
-                        "payload": [
-                            "code": "POLL_FAILED",
-                            "message": error.localizedDescription,
-                        ],
-                    ])
+                case let .failure(error):
+                    complete(
+                        context,
+                        error: error,
+                        name: "fm.stream.poll",
+                        fallbackCode: "POLL_FAILED"
+                    )
                 }
             }
             return
@@ -917,15 +942,31 @@ actor FoundationModelsStreamManager {
         case notSupported
         case unavailable(String)
         case jobNotFound
+        case jobFailed(message: String, code: String?)
 
         var errorDescription: String? {
             switch self {
             case .notSupported:
                 return "Foundation Models requires iOS 26+ with Apple Intelligence."
-            case .unavailable(let reason):
+            case let .unavailable(reason):
                 return reason
             case .jobNotFound:
                 return "Stream job not found."
+            case let .jobFailed(message, _):
+                return message
+            }
+        }
+
+        var code: String? {
+            switch self {
+            case .notSupported:
+                return "NOT_SUPPORTED"
+            case .unavailable:
+                return "UNAVAILABLE"
+            case .jobNotFound:
+                return "JOB_NOT_FOUND"
+            case let .jobFailed(_, code):
+                return code ?? "JOB_FAILED"
             }
         }
     }
@@ -961,78 +1002,78 @@ actor FoundationModelsStreamManager {
             ]
         }
 
-#if canImport(FoundationModels)
-        let model = SystemLanguageModel.default
-        switch model.availability {
-        case .available:
-            return [
-                "enabled": true,
-                "available": true,
-                "reason": "",
-            ]
-        case .unavailable(let reason):
-            let message: String
-            switch reason {
-            case .deviceNotEligible:
-                message = "Device not eligible for Apple Intelligence."
-            case .appleIntelligenceNotEnabled:
-                message = "Apple Intelligence is not enabled."
-            case .modelNotReady:
-                message = "Apple Intelligence models are still downloading."
-            @unknown default:
-                message = "Apple Intelligence is unavailable."
+        #if canImport(FoundationModels)
+            let model = SystemLanguageModel.default
+            switch model.availability {
+            case .available:
+                return [
+                    "enabled": true,
+                    "available": true,
+                    "reason": "",
+                ]
+            case let .unavailable(reason):
+                let message: String
+                switch reason {
+                case .deviceNotEligible:
+                    message = "Device not eligible for Apple Intelligence."
+                case .appleIntelligenceNotEnabled:
+                    message = "Apple Intelligence is not enabled."
+                case .modelNotReady:
+                    message = "Apple Intelligence models are still downloading."
+                @unknown default:
+                    message = "Apple Intelligence is unavailable."
+                }
+                return [
+                    "enabled": true,
+                    "available": false,
+                    "reason": message,
+                ]
             }
+        #else
             return [
                 "enabled": true,
                 "available": false,
-                "reason": message,
+                "reason": "FoundationModels framework is unavailable.",
             ]
-        }
-#else
-        return [
-            "enabled": true,
-            "available": false,
-            "reason": "FoundationModels framework is unavailable.",
-        ]
-#endif
+        #endif
     }
 
     func prewarm(systemPrompt: String, promptPrefix: String?) async throws {
         guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
-#if canImport(FoundationModels)
-        let availability = SystemLanguageModel.default.availability
-        if case .unavailable(let reason) = availability {
-            let message: String
-            switch reason {
-            case .deviceNotEligible:
-                message = "Device not eligible for Apple Intelligence."
-            case .appleIntelligenceNotEnabled:
-                message = "Apple Intelligence is not enabled."
-            case .modelNotReady:
-                message = "Apple Intelligence models are still downloading."
-            @unknown default:
-                message = "Apple Intelligence is unavailable."
+        #if canImport(FoundationModels)
+            let availability = SystemLanguageModel.default.availability
+            if case let .unavailable(reason) = availability {
+                let message: String
+                switch reason {
+                case .deviceNotEligible:
+                    message = "Device not eligible for Apple Intelligence."
+                case .appleIntelligenceNotEnabled:
+                    message = "Apple Intelligence is not enabled."
+                case .modelNotReady:
+                    message = "Apple Intelligence models are still downloading."
+                @unknown default:
+                    message = "Apple Intelligence is unavailable."
+                }
+                throw StreamError.unavailable(message)
             }
-            throw StreamError.unavailable(message)
-        }
 
-        let trimmedPrefix = promptPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let prewarmedSession,
-           prewarmSystemPrompt == systemPrompt,
-           prewarmPromptPrefix == trimmedPrefix {
-            return
-        }
+            let trimmedPrefix = promptPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let prewarmedSession,
+               prewarmSystemPrompt == systemPrompt,
+               prewarmPromptPrefix == trimmedPrefix {
+                return
+            }
 
-        let model = SystemLanguageModel(useCase: .general, guardrails: .default)
-        let session = LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
-        session.prewarm(promptPrefix: Prompt(trimmedPrefix ?? ""))
+            let model = SystemLanguageModel(useCase: .general, guardrails: .default)
+            let session = LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
+            session.prewarm(promptPrefix: Prompt(trimmedPrefix ?? ""))
 
-        prewarmedSession = session
-        prewarmSystemPrompt = systemPrompt
-        prewarmPromptPrefix = trimmedPrefix
-#else
-        throw StreamError.notSupported
-#endif
+            prewarmedSession = session
+            prewarmSystemPrompt = systemPrompt
+            prewarmPromptPrefix = trimmedPrefix
+        #else
+            throw StreamError.notSupported
+        #endif
     }
 
     func start(
@@ -1042,113 +1083,116 @@ actor FoundationModelsStreamManager {
         maximumResponseTokens: Int?
     ) async throws -> String {
         guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
-#if canImport(FoundationModels)
-        let availability = SystemLanguageModel.default.availability
-        if case .unavailable(let reason) = availability {
-            let message: String
-            switch reason {
-            case .deviceNotEligible:
-                message = "Device not eligible for Apple Intelligence."
-            case .appleIntelligenceNotEnabled:
-                message = "Apple Intelligence is not enabled."
-            case .modelNotReady:
-                message = "Apple Intelligence models are still downloading."
-            @unknown default:
-                message = "Apple Intelligence is unavailable."
+        #if canImport(FoundationModels)
+            let availability = SystemLanguageModel.default.availability
+            if case let .unavailable(reason) = availability {
+                let message: String
+                switch reason {
+                case .deviceNotEligible:
+                    message = "Device not eligible for Apple Intelligence."
+                case .appleIntelligenceNotEnabled:
+                    message = "Apple Intelligence is not enabled."
+                case .modelNotReady:
+                    message = "Apple Intelligence models are still downloading."
+                @unknown default:
+                    message = "Apple Intelligence is unavailable."
+                }
+                throw StreamError.unavailable(message)
             }
-            throw StreamError.unavailable(message)
-        }
 
-        let jobId = UUID().uuidString
-        var job = Job()
+            let jobId = UUID().uuidString
+            var job = Job()
 
-        let temp = temperature
-        let maxTok = maximumResponseTokens
+            let temp = temperature
+            let maxTok = maximumResponseTokens
 
-        job.task = Task {
-            await self.runJob(
-                jobId: jobId,
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                temperature: temp,
-                maximumResponseTokens: maxTok
-            )
-        }
-
-        jobs[jobId] = job
-        return jobId
-#else
-        throw StreamError.notSupported
-#endif
-    }
-
-#if canImport(FoundationModels)
-    @available(iOS 26.0, macOS 26.0, *)
-    private func runJob(
-        jobId: String,
-        systemPrompt: String,
-        userPrompt: String,
-        temperature: Double?,
-        maximumResponseTokens: Int?
-    ) async {
-        let options = GenerationOptions(
-            sampling: nil,
-            temperature: temperature,
-            maximumResponseTokens: maximumResponseTokens
-        )
-
-        do {
-            let session = takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
-                ?? LanguageModelSession(
-                    model: SystemLanguageModel(useCase: .general, guardrails: .default),
-                    instructions: Instructions(systemPrompt)
+            job.task = Task {
+                await self.runJob(
+                    jobId: jobId,
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    temperature: temp,
+                    maximumResponseTokens: maxTok
                 )
-            let stream = session.streamResponse(to: Prompt(userPrompt), options: options)
-
-            var previous = ""
-            for try await partial in stream {
-                if Task.isCancelled { break }
-                let current = partial.content
-                let delta: String
-                if current.hasPrefix(previous) {
-                    delta = String(current.dropFirst(previous.count))
-                } else {
-                    delta = current
-                }
-                previous = current
-                if !delta.isEmpty {
-                    appendDelta(jobId: jobId, delta: delta)
-                }
             }
 
-            markDone(jobId: jobId)
-        } catch {
-            let errorCode = resolveFoundationModelsErrorCode(error)
-            markError(jobId: jobId, message: error.localizedDescription, code: errorCode)
-        }
+            jobs[jobId] = job
+            return jobId
+        #else
+            throw StreamError.notSupported
+        #endif
     }
-#endif
 
-#if canImport(FoundationModels)
-    @available(iOS 26.0, macOS 26.0, *)
-    private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
-        guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
-              prewarmSystemPrompt == systemPrompt else {
-            return nil
+    #if canImport(FoundationModels)
+        @available(iOS 26.0, macOS 26.0, *)
+        private func runJob(
+            jobId: String,
+            systemPrompt: String,
+            userPrompt: String,
+            temperature: Double?,
+            maximumResponseTokens: Int?
+        ) async {
+            let options = GenerationOptions(
+                sampling: nil,
+                temperature: temperature,
+                maximumResponseTokens: maximumResponseTokens
+            )
+
+            do {
+                let session = takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
+                    ?? LanguageModelSession(
+                        model: SystemLanguageModel(useCase: .general, guardrails: .default),
+                        instructions: Instructions(systemPrompt)
+                    )
+                let stream = session.streamResponse(to: Prompt(userPrompt), options: options)
+
+                var previous = ""
+                for try await partial in stream {
+                    if Task.isCancelled { break }
+                    let current = partial.content
+                    let delta: String
+                    if current.hasPrefix(previous) {
+                        delta = String(current.dropFirst(previous.count))
+                    } else {
+                        delta = current
+                    }
+                    previous = current
+                    if !delta.isEmpty {
+                        appendDelta(jobId: jobId, delta: delta)
+                    }
+                }
+
+                markDone(jobId: jobId)
+            } catch let generationError as LanguageModelSession.GenerationError {
+                let errorCode = FoundationModelsStreamManager.mapFoundationModelsGenerationErrorCode(generationError)
+                markError(jobId: jobId, message: generationError.localizedDescription, code: errorCode)
+            } catch {
+                let errorCode = resolveFoundationModelsErrorCode(error)
+                markError(jobId: jobId, message: error.localizedDescription, code: errorCode)
+            }
         }
+    #endif
 
-        if let prefix = prewarmPromptPrefix,
-           !prefix.isEmpty,
-           !userPrompt.hasPrefix(prefix) {
-            return nil
+    #if canImport(FoundationModels)
+        @available(iOS 26.0, macOS 26.0, *)
+        private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
+            guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
+                  prewarmSystemPrompt == systemPrompt else {
+                return nil
+            }
+
+            if let prefix = prewarmPromptPrefix,
+               !prefix.isEmpty,
+               !userPrompt.hasPrefix(prefix) {
+                return nil
+            }
+
+            self.prewarmedSession = nil
+            prewarmSystemPrompt = nil
+            prewarmPromptPrefix = nil
+            return prewarmedSession
         }
-
-        self.prewarmedSession = nil
-        prewarmSystemPrompt = nil
-        prewarmPromptPrefix = nil
-        return prewarmedSession
-    }
-#endif
+    #endif
 
     private func appendDelta(jobId: String, delta: String) {
         guard var job = jobs[jobId] else { return }
@@ -1175,6 +1219,9 @@ actor FoundationModelsStreamManager {
 
     func poll(jobId: String, cursor: Int) async -> Result<[String: Any], Error> {
         guard let job = jobs[jobId] else { return .failure(StreamError.jobNotFound) }
+        if let error = job.error {
+            return .failure(StreamError.jobFailed(message: error, code: job.errorCode))
+        }
 
         let safeCursor = max(0, min(cursor, job.output.utf16.count))
         let startIndex = String.Index(utf16Offset: safeCursor, in: job.output)
@@ -1197,32 +1244,60 @@ actor FoundationModelsStreamManager {
     }
 
     private func resolveFoundationModelsErrorCode(_ error: Error) -> String? {
-#if canImport(FoundationModels)
-        var pending: [Error] = [error]
-        var seenDescriptions = Set<String>()
+        #if canImport(FoundationModels)
+            var pending: [Error] = [error]
+            var seenDescriptions = Set<String>()
 
-        while let current = pending.popLast() {
-            let description = String(describing: current)
-            if !description.isEmpty, !seenDescriptions.insert(description).inserted {
-                continue
-            }
+            while let current = pending.popLast() {
+                let description = String(describing: current)
+                if !description.isEmpty, !seenDescriptions.insert(description).inserted {
+                    continue
+                }
 
-            if #available(iOS 26.0, macOS 26.0, *),
-               let generationError = current as? LanguageModelSession.GenerationError {
-                if case .exceededContextWindowSize = generationError {
-                    return "EXCEEDED_CONTEXT_WINDOW"
+                if #available(iOS 26.0, macOS 26.0, *),
+                   let generationError = current as? LanguageModelSession.GenerationError {
+                    return FoundationModelsStreamManager.mapFoundationModelsGenerationErrorCode(generationError)
+                }
+
+                let nsError = current as NSError
+                if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                    pending.append(underlying)
+                }
+                if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
+                    pending.append(contentsOf: underlyingErrors)
                 }
             }
-
-            let nsError = current as NSError
-            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
-                pending.append(underlying)
-            }
-            if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
-                pending.append(contentsOf: underlyingErrors)
-            }
-        }
-#endif
+        #endif
         return nil
     }
+
+    #if canImport(FoundationModels)
+        @available(iOS 26.0, macOS 26.0, *)
+        fileprivate static func mapFoundationModelsGenerationErrorCode(
+            _ generationError: LanguageModelSession.GenerationError
+        ) -> String {
+            switch generationError {
+            case .exceededContextWindowSize:
+                return "EXCEEDED_CONTEXT_WINDOW"
+            case .unsupportedLanguageOrLocale:
+                return "FM_UNSUPPORTED_LOCALE"
+            case .assetsUnavailable:
+                return "FM_GEN_ASSETS_UNAVAILABLE"
+            case .guardrailViolation:
+                return "FM_GEN_GUARDRAIL_VIOLATION"
+            case .decodingFailure:
+                return "FM_GEN_DECODING_FAILURE"
+            case .unsupportedGuide:
+                return "FM_GEN_UNSUPPORTED_GUIDE"
+            case .rateLimited:
+                return "FM_GEN_RATE_LIMITED"
+            case .concurrentRequests:
+                return "FM_GEN_CONCURRENT_REQUESTS"
+            case .refusal:
+                return "FM_GEN_REFUSAL"
+            @unknown default:
+                return "FM_GEN_UNKNOWN"
+            }
+        }
+    #endif
 }
