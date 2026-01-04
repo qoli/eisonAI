@@ -180,9 +180,13 @@ struct OnboardingView: View {
             }
 
             actionButton()
-
-//            welcomePage()
         }
+        .ifMacCatalyst({ view in
+            view.padding(.bottom, 24)
+        })
+        .ifIPad({ view in
+            view.padding(.bottom, 24)
+        })
         .task {
             await configureStoreIfNeeded()
         }
@@ -376,29 +380,29 @@ struct OnboardingView: View {
                     .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
                     .padding(.horizontal)
 
-#if DEBUG
-                    Button {
-                        onGetLifetimeAccess()
-                    } label: {
-                        HStack {
-                            ZStack {
-                                Image(systemName: "ladybug.fill")
+                    #if DEBUG
+                        Button {
+                            onGetLifetimeAccess()
+                        } label: {
+                            HStack {
+                                ZStack {
+                                    Image(systemName: "ladybug.fill")
+                                }
+                                .frame(width: 18, height: 18)
+                                .padding(.trailing, 8)
+                                .fontWeight(.bold)
+
+                                Text("Skip Onboarding (Debug)")
+                                    .font(.headline)
+
+                                Spacer()
                             }
-                            .frame(width: 18, height: 18)
-                            .padding(.trailing, 8)
-                            .fontWeight(.bold)
-
-                            Text("Skip Onboarding (Debug)")
-                                .font(.headline)
-
-                            Spacer()
+                            .padding(.all, 20)
                         }
-                        .padding(.all, 20)
-                    }
-                    .buttonStyle(.plain)
-                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-                    .padding(.horizontal)
-#endif
+                        .buttonStyle(.plain)
+                        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                        .padding(.horizontal)
+                    #endif
 
                     HStack {
                         Text("No subscription. Restore anytime.")
