@@ -35,7 +35,7 @@
 - 執行環境：
   - ✅ iPhone/iPad 真機（iphoneos）
   - ✅ My Mac (Designed for iPad)（以 iOS app 形式在 macOS 上執行）
-  - ✅ Mac Catalyst（Apple Silicon, arm64）：使用 macabi 靜態庫 + `.xcframework` 分流（不含 x86_64）
+  - ✅ Mac Catalyst（Universal）：使用 macabi 靜態庫 + `.xcframework`（包含 arm64 與 x86_64，支援 Intel Mac）
 
 ## 系統架構
 
@@ -72,7 +72,7 @@
 - 專案內路徑（不進 Git）：
   - `dist/bundle/`：包含 `mlc-app-config.json`、模型目錄（內含 `mlc-chat-config.json`、tokenizer、weights 等）
   - `dist/lib/`：iphoneos 靜態庫（arm64）
-  - `dist-maccatalyst/lib/`：macabi 靜態庫（arm64）
+  - `dist-maccatalyst/lib/`：macabi 靜態庫（Universal: arm64 + x86_64）
   - `dist/xcframeworks/`：iphoneos + macabi slices 合併後的 `.xcframework`（供 Xcode link）
 - 打包設定檔：
   - `mlc-package-config.json`（device=iphone，固定 `model_lib` / `system_lib_prefix`）
