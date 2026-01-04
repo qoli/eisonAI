@@ -642,9 +642,16 @@ struct OnboardingView: View {
                     color: .green
                 ),
                 ProductChecklistItem(
-                    title: "Source Trust",
-                    text: "Verify what you read",
-                    description: "Verify sources, not slogans.",
+                    title: "CloudKit Sync",
+                    text: "Sync across devices",
+                    description: "Keep your library in sync via iCloud CloudKit.",
+                    symbolName: "icloud",
+                    color: .teal
+                ),
+                ProductChecklistItem(
+                    title: "Open Source",
+                    text: "Auditable privacy",
+                    description: "Trust code, not promises.",
                     symbolName: "checkmark.seal.fill",
                     color: .blue
                 ),
