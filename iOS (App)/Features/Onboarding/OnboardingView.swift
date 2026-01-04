@@ -182,7 +182,7 @@ struct OnboardingView: View {
             actionButton()
         }
         .ifMacCatalyst({ view in
-            view.padding(.bottom, 24)
+            view.padding(.bottom, 32)
         })
         .ifIPad({ view in
             view.padding(.bottom, 24)

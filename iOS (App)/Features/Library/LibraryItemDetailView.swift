@@ -539,6 +539,9 @@ private struct MarkdownSection: View {
                 .markdownTheme(.librarySummary)
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .ifMacCatalyst { view in
+                    view.padding(.horizontal)
+                }
         }
     }
 }
