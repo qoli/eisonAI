@@ -160,6 +160,7 @@ struct OnboardingView: View {
     @State private var isPurchased = false
     @State private var purchaseErrorMessage: String?
     @State private var hasLoadedStore = false
+    @Environment(\.openURL) private var openURL
 
     private var currentCopy: OnboardingCopy {
         onboardingCopy(for: selectedPage)
@@ -684,7 +685,10 @@ struct OnboardingView: View {
 
             HStack {
                 Button("Terms of Service") {
-                    // TODO: add URL once confirmed
+                    // https://github.com/qoli/eisonAI/blob/main/Docs/Terms_of_Service.md
+                    if let url = URL(string: "https://github.com/qoli/eisonAI/blob/main/Docs/Terms_of_Service.md") {
+                        openURL(url)
+                    }
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -694,7 +698,10 @@ struct OnboardingView: View {
                     .foregroundStyle(.secondary)
 
                 Button("Privacy Policy") {
-                    // TODO: add URL once confirmed
+                    // https://github.com/qoli/eisonAI/blob/main/Docs/Privacy_Policy.md
+                    if let url = URL(string: "https://github.com/qoli/eisonAI/blob/main/Docs/Privacy_Policy.md") {
+                        openURL(url)
+                    }
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
