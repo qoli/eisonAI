@@ -21,11 +21,14 @@ IPHONE_OUTPUT="${IPHONE_OUTPUT:-$ROOT_DIR/dist}"
 MACABI_OUTPUT="${MACABI_OUTPUT:-$ROOT_DIR/dist-maccatalyst}"
 XCFRAMEWORK_OUTPUT="${XCFRAMEWORK_OUTPUT:-$ROOT_DIR/dist/xcframeworks}"
 MLC_MACABI_DEPLOYMENT_TARGET="${MLC_MACABI_DEPLOYMENT_TARGET:-18.0}"
+MLC_MACABI_ARCHS="${MLC_MACABI_ARCHS:-arm64}"
 
 export MLC_LLM_SOURCE_DIR
 export MLC_MACABI_DEPLOYMENT_TARGET
 
 fix_model_lib_platform() {
+  local macabi_arch="$1"
+  local macabi_output="$2"
   local tmpdir
   tmpdir="$(mktemp -d)"
   echo 'int mlc_model_dummy = 0;' > "$tmpdir/dummy.c"
@@ -33,12 +36,12 @@ fix_model_lib_platform() {
     -target "arm64-apple-ios${MLC_MACABI_DEPLOYMENT_TARGET}" \
     -o "$tmpdir/dummy_ios.o"
   xcrun --sdk macosx clang -c "$tmpdir/dummy.c" \
-    -target "arm64-apple-ios${MLC_MACABI_DEPLOYMENT_TARGET}-macabi" \
+    -target "${macabi_arch}-apple-ios${MLC_MACABI_DEPLOYMENT_TARGET}-macabi" \
     -o "$tmpdir/dummy_macabi.o"
   libtool -static -o "$IPHONE_OUTPUT/lib/libmodel_iphone.a" \
     "$tmpdir/dummy_ios.o" "$IPHONE_OUTPUT/lib/libmodel_iphone.a"
-  libtool -static -o "$MACABI_OUTPUT/lib/libmodel_iphone.a" \
-    "$tmpdir/dummy_macabi.o" "$MACABI_OUTPUT/lib/libmodel_iphone.a"
+  libtool -static -o "$macabi_output/lib/libmodel_iphone.a" \
+    "$tmpdir/dummy_macabi.o" "$macabi_output/lib/libmodel_iphone.a"
   rm -rf "$tmpdir"
 }
 
@@ -47,13 +50,15 @@ echo "==> Build iphoneos libs"
   --package-config "$ROOT_DIR/mlc-package-config.json" \
   --output "$IPHONE_OUTPUT"
 
-echo "==> Build macabi libs (arm64, deployment $MLC_MACABI_DEPLOYMENT_TARGET)"
-"${MLC_LLM_CMD[@]}" package \
-  --package-config "$ROOT_DIR/mlc-package-config-macabi.json" \
-  --output "$MACABI_OUTPUT"
-
-echo "==> Patch model library metadata for xcframework packaging"
-fix_model_lib_platform
+for arch in $MLC_MACABI_ARCHS; do
+  macabi_out="$MACABI_OUTPUT/$arch"
+  echo "==> Build macabi libs ($arch, deployment $MLC_MACABI_DEPLOYMENT_TARGET)"
+  CMAKE_OSX_ARCHITECTURES="$arch" "${MLC_LLM_CMD[@]}" package \
+    --package-config "$ROOT_DIR/mlc-package-config-macabi.json" \
+    --output "$macabi_out"
+  echo "==> Patch model library metadata for xcframework packaging ($arch)"
+  fix_model_lib_platform "$arch" "$macabi_out"
+done
 
 mkdir -p "$XCFRAMEWORK_OUTPUT"
 
@@ -70,9 +75,13 @@ libs=(
 for lib in "${libs[@]}"; do
   out="$XCFRAMEWORK_OUTPUT/${lib%.a}.xcframework"
   rm -rf "$out"
+  macabi_args=()
+  for arch in $MLC_MACABI_ARCHS; do
+    macabi_args+=("-library" "$MACABI_OUTPUT/$arch/lib/$lib")
+  done
   xcodebuild -create-xcframework \
     -library "$IPHONE_OUTPUT/lib/$lib" \
-    -library "$MACABI_OUTPUT/lib/$lib" \
+    "${macabi_args[@]}" \
     -output "$out"
 done
 
