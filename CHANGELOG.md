@@ -32,9 +32,9 @@
 📥 **TestFlight 下載**: https://testflight.apple.com/join/1nfTzlPS
 
 ### 系統要求
-- macOS 12.0 或更高版本
-- iOS 15.0 或更高版本  
-- Safari 15.0 或更高版本
+- macOS 15.0 或更高版本
+- iOS 18.0 或更高版本  
+- Safari 18.0 或更高版本
 
 ### 啟用方式
 1. 從 TestFlight 安裝 EisonAI
