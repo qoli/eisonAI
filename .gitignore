@@ -61,3 +61,6 @@ dist-maccatalyst/*
 
 eisonAIUIPreview/eisonAIView/MockupData
 Eison AI.storekit
+.mlc_llm_cache/
+build-maccatalyst-arm64/
+build-maccatalyst-x86_64/

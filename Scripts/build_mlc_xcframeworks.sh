@@ -22,6 +22,7 @@ MACABI_OUTPUT="${MACABI_OUTPUT:-$ROOT_DIR/dist-maccatalyst}"
 XCFRAMEWORK_OUTPUT="${XCFRAMEWORK_OUTPUT:-$ROOT_DIR/dist/xcframeworks}"
 MLC_MACABI_DEPLOYMENT_TARGET="${MLC_MACABI_DEPLOYMENT_TARGET:-18.0}"
 MLC_MACABI_ARCHS="${MLC_MACABI_ARCHS:-arm64}"
+MLC_MACABI_CACHE_ROOT="${MLC_MACABI_CACHE_ROOT:-$ROOT_DIR/.mlc_llm_cache}"
 
 export MLC_LLM_SOURCE_DIR
 export MLC_MACABI_DEPLOYMENT_TARGET
@@ -52,15 +53,18 @@ echo "==> Build iphoneos libs"
 
 for arch in $MLC_MACABI_ARCHS; do
   macabi_out="$MACABI_OUTPUT/$arch"
+  macabi_cache="$MLC_MACABI_CACHE_ROOT/$arch"
   echo "==> Build macabi libs ($arch, deployment $MLC_MACABI_DEPLOYMENT_TARGET)"
-  CMAKE_OSX_ARCHITECTURES="$arch" "${MLC_LLM_CMD[@]}" package \
+  MLC_MACABI_ARCH="$arch" \
+  MLC_LLM_HOME="$macabi_cache" \
+  MLC_JIT_POLICY=REDO \
+  CMAKE_OSX_ARCHITECTURES="$arch" \
+  "${MLC_LLM_CMD[@]}" package \
     --package-config "$ROOT_DIR/mlc-package-config-macabi.json" \
     --output "$macabi_out"
   echo "==> Patch model library metadata for xcframework packaging ($arch)"
   fix_model_lib_platform "$arch" "$macabi_out"
 done
-
-mkdir -p "$XCFRAMEWORK_OUTPUT"
 
 libs=(
   libmlc_llm.a
@@ -72,16 +76,29 @@ libs=(
   libmodel_iphone.a
 )
 
+mkdir -p "$XCFRAMEWORK_OUTPUT"
+
+first_macabi_arch="${MLC_MACABI_ARCHS%% *}"
+macabi_lib_root="$MACABI_OUTPUT/$first_macabi_arch/lib"
+if [[ "$MLC_MACABI_ARCHS" == *" "* ]]; then
+  macabi_universal_root="$MACABI_OUTPUT/universal/lib"
+  mkdir -p "$macabi_universal_root"
+  for lib in "${libs[@]}"; do
+    inputs=()
+    for arch in $MLC_MACABI_ARCHS; do
+      inputs+=("$MACABI_OUTPUT/$arch/lib/$lib")
+    done
+    lipo -create "${inputs[@]}" -output "$macabi_universal_root/$lib"
+  done
+  macabi_lib_root="$macabi_universal_root"
+fi
+
 for lib in "${libs[@]}"; do
   out="$XCFRAMEWORK_OUTPUT/${lib%.a}.xcframework"
   rm -rf "$out"
-  macabi_args=()
-  for arch in $MLC_MACABI_ARCHS; do
-    macabi_args+=("-library" "$MACABI_OUTPUT/$arch/lib/$lib")
-  done
   xcodebuild -create-xcframework \
     -library "$IPHONE_OUTPUT/lib/$lib" \
-    "${macabi_args[@]}" \
+    -library "$macabi_lib_root/$lib" \
     -output "$out"
 done
 
