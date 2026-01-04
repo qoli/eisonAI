@@ -13,11 +13,7 @@ Safari popup 內使用 **WebLLM（WebGPU + WebWorker）** 本機推理 `Qwen3-0.
 項目展示：
 https://youtu.be/tC25imOO9GA
 
-## App Store & TestFlight
-
-### TestFlight
-
-https://testflight.apple.com/join/1nfTzlPS
+## App Store
 
 ### App Store
 
