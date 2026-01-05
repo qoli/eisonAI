@@ -16,9 +16,9 @@
 		49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */; };
 		5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */; };
 		CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
-		CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */; };
 		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
 		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
+		EA6721682F0C3D7A00DEC819 /* libmodel_iphone.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
@@ -159,10 +159,10 @@
 				0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */,
 				E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */,
 				49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */,
+				EA6721682F0C3D7A00DEC819 /* libmodel_iphone.xcframework in Frameworks */,
 				5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */,
 				2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */,
 				420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */,
-				CFCFC72D81C8494CB5BD3A8C /* libmodel_iphone.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -896,11 +896,13 @@
 					"$(inherited)",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64/libmodel_iphone.a",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"$(inherited)",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64_x86_64-maccatalyst/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_ffi_static.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64_x86_64-maccatalyst/libmodel_iphone.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
@@ -963,11 +965,13 @@
 					"$(inherited)",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64/libmodel_iphone.a",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"$(inherited)",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64_x86_64-maccatalyst/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_ffi_static.a",
+					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64_x86_64-maccatalyst/libmodel_iphone.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;

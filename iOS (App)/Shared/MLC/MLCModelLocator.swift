@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 struct MLCAppConfig: Decodable {
@@ -31,6 +32,7 @@ enum MLCModelLocatorError: LocalizedError {
     case missingBundledModel(String)
     case missingModelDirectory(String)
     case missingModelFile(String)
+    case missingModelLib(String)
 
     var errorDescription: String? {
         switch self {
@@ -42,6 +44,8 @@ enum MLCModelLocatorError: LocalizedError {
             return "Missing model directory: \(dir). Run `python3 Scripts/download_webllm_assets.py` and rebuild the app to bundle WebLLM assets."
         case let .missingModelFile(path):
             return "Missing model file: \(path). Run `python3 Scripts/download_webllm_assets.py` and rebuild the app to bundle WebLLM assets."
+        case let .missingModelLib(name):
+            return "Missing model lib: \(name). Rebuild MLC xcframeworks and ensure libmodel_iphone.xcframework is linked into the app."
         }
     }
 }
@@ -68,6 +72,7 @@ struct MLCModelLocator {
             let modelDirName = record.modelPath ?? modelID
             if let url = resolveModelDirFromWebLLMAssets(modelDirName: modelDirName) {
                 try validateModelDir(url)
+                try validateModelLib(record.modelLib)
                 return MLCModelSelection(modelID: modelID, modelPath: url.path(), modelLib: record.modelLib)
             }
 
@@ -147,5 +152,22 @@ struct MLCModelLocator {
             .first(where: { $0.bundleIdentifier == embeddedExtensionBundleID })
 
         return extensionBundle?.bundleURL
+    }
+
+    private func validateModelLib(_ modelLib: String) throws {
+        #if targetEnvironment(simulator)
+            _ = modelLib
+        #else
+        let symbolName = "\(modelLib)___tvm_ffi__library_bin"
+        guard let handle = dlopen(nil, RTLD_NOW) else {
+            throw MLCModelLocatorError.missingModelLib(modelLib)
+        }
+        let found = symbolName.withCString { cstr in
+            dlsym(handle, cstr) != nil
+        }
+            guard found else {
+                throw MLCModelLocatorError.missingModelLib(modelLib)
+            }
+        #endif
     }
 }
