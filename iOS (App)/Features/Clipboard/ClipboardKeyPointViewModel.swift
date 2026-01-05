@@ -86,6 +86,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     guard !clip.isEmpty else {
                         self.status = "Empty"
                         self.log("clipboard empty")
+                        output = "clipboard empty"
                         self.isRunning = false
                         return
                     }

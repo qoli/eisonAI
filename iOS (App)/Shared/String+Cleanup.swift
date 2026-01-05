@@ -14,4 +14,9 @@ extension String {
         cleaned = cleaned.replacingOccurrences(of: "</think>", with: "", options: .caseInsensitive)
         return cleaned
     }
+
+    func thinkTags() -> String {
+        replacingOccurrences(of: "<think>", with: "> **Thinking**\n> ")
+            .replacingOccurrences(of: "</think>", with: "\n> **Index**\n> ")
+    }
 }
