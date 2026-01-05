@@ -24,109 +24,17 @@ struct ClipboardKeyPointSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             }
-            .overlay(alignment: .bottom, content: {
-                HStack {
-                    Spacer()
-
-                    VStack(alignment: .trailing, spacing: 4) {
-                        HStack(spacing: 2) {
-                            Text(model.status.isEmpty ? "—" : model.status)
-                                .fontWeight(.bold)
-                                .lineLimit(1)
-
-                            Spacer()
-                        }
-
-                        Divider()
-
-                        HStack(spacing: 2) {
-                            Text("Token")
-                                .opacity(0.5)
-
-                            Spacer()
-
-                            Text(tokenEstimateLabel)
-                                .fontWeight(.bold)
-                        }
-                        .foregroundStyle(.secondary)
-
-                        if model.chunkStatus != "" {
-                            HStack(spacing: 2) {
-                                Text("Chunk")
-                                    .opacity(0.5)
-
-                                Spacer()
-
-                                Text(model.chunkStatus)
-                                    .fontWeight(.bold)
-                            }
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                    .fontDesign(.rounded)
-                    .font(.caption2)
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 86)
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
-                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-                    .opacity(showsTokenOverlay ? 1 : 0)
-                    .animation(.easeInOut(duration: 0.2), value: showsTokenOverlay)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+            .ifMacCatalyst({ view in
+                view.padding(.top, 32)
             })
+            
+            .overlay(alignment: .bottom) { overlayView() }
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .defaultScrollAnchor(.bottom)
             .navigationTitle("Cognitive Index")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        model.cancel()
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Close")
-                }
-
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
-
-                ToolbarItem(placement: .bottomBar) {
-                    Spacer()
-                }
-
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
-
-                ToolbarItem(placement: .bottomBar) {
-                    IridescentOrbView()
-                }
-
-                ToolbarItem(placement: .bottomBar) {
-                    Spacer()
-                }
-
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
-
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showsTokenOverlay.toggle()
-                        }
-                    } label: {
-                        Label(tokenEstimateLabel, systemImage: tokenEstimateLabelImage)
-                    }
-                    .accessibilityLabel("Toggle token estimate")
-                }
-            }
+            .toolbar { toolbarContent() }
             // KEYPOINT_CLIPBOARD_FLOW: auto-starts view model pipeline on sheet appear
             .task {
                 model.run()
@@ -143,6 +51,107 @@ struct ClipboardKeyPointSheet: View {
                     dismiss()
                 }
             }
+        }
+    }
+
+    @ViewBuilder func overlayView() -> some View {
+        HStack {
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                HStack(spacing: 2) {
+                    Text(model.status.isEmpty ? "—" : model.status)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+
+                    Spacer()
+                }
+
+                Divider()
+
+                HStack(spacing: 2) {
+                    Text("Token")
+                        .opacity(0.5)
+
+                    Spacer()
+
+                    Text(tokenEstimateLabel)
+                        .fontWeight(.bold)
+                }
+                .foregroundStyle(.secondary)
+
+                if model.chunkStatus != "" {
+                    HStack(spacing: 2) {
+                        Text("Chunk")
+                            .opacity(0.5)
+
+                        Spacer()
+
+                        Text(model.chunkStatus)
+                            .fontWeight(.bold)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .fontDesign(.rounded)
+            .font(.caption2)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 86)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+            .opacity(showsTokenOverlay ? 1 : 0)
+            .animation(.easeInOut(duration: 0.2), value: showsTokenOverlay)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+    }
+
+    @ToolbarContentBuilder
+    private func toolbarContent() -> some ToolbarContent {
+        ToolbarItem(placement: .bottomBar) {
+            Button {
+                model.cancel()
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .accessibilityLabel("Close")
+        }
+
+        if #available(iOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .bottomBar)
+        }
+
+        ToolbarItem(placement: .bottomBar) {
+            Spacer()
+        }
+
+        if #available(iOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .bottomBar)
+        }
+
+        ToolbarItem(placement: .bottomBar) {
+            IridescentOrbView()
+        }
+
+        ToolbarItem(placement: .bottomBar) {
+            Spacer()
+        }
+
+        if #available(iOS 26.0, *) {
+            ToolbarSpacer(.fixed, placement: .bottomBar)
+        }
+
+        ToolbarItem(placement: .bottomBar) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showsTokenOverlay.toggle()
+                }
+            } label: {
+                Label(tokenEstimateLabel, systemImage: tokenEstimateLabelImage)
+            }
+            .accessibilityLabel("Toggle token estimate")
         }
     }
 
