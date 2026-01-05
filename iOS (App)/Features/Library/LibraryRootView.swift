@@ -370,12 +370,42 @@ struct LibraryRootView: View {
                 Button("Reload") { viewModel.reload() }
             }
         } else if visibleEntries.isEmpty {
-            ContentUnavailableView {
-                Label("No Material", systemImage: "tray.fill")
-            } description: {
-                Text("New materials you save will appear here.")
-            } actions: {
-                //
+            VStack {
+                Spacer()
+                VStack {
+                    HStack {
+                        Image("arrow")
+                            .rotationEffect(.degrees(26), anchor: .center)
+                            .opacity(0.6)
+                        
+                        Spacer()
+                    }
+                    .frame(width: 200)
+                    .padding(.bottom)
+
+                    Text("Add your first material")
+                        .font(.headline)
+                    Text("Turn text or links into structured reading")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Divider()
+                        .frame(width: 260)
+
+                    Text("New materials you save will appear here.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary.opacity(0.6))
+                }
+                .padding(.top)
+
+//                ContentUnavailableView {
+//                    Label("No Material", systemImage: "tray.fill")
+//                } description: {
+//                    Text("New materials you save will appear here.")
+//                } actions: {
+//                    //
+//                }
+                Spacer()
             }
         } else {
             List(visibleEntries) { entry in
@@ -722,5 +752,13 @@ private struct LibraryItemRow: View {
         }
 
         return Self.dateTimeFormatter.string(from: date)
+    }
+}
+
+#Preview("Empty State") {
+    // Render LibraryRootView in its default state; with no user content
+    // the view should present the built-in empty state UI.
+    NavigationStack {
+        LibraryRootView()
     }
 }
