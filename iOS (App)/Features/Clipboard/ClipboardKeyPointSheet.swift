@@ -25,14 +25,33 @@ struct ClipboardKeyPointSheet: View {
                     .padding()
             }
             .ifMacCatalyst({ view in
-                view.padding(.top, 32)
+                view.mask {
+                    LinearGradient(
+                        colors: [.clear, .black, .black, .black, .black],
+                        startPoint: UnitPoint(x: 0.5, y: 0),
+                        endPoint: UnitPoint(x: 0.5, y: 1)
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             })
-            
+            .overlay(alignment: .top) {
+                if platform == .macCatalyst {
+                    Text("Cognitive Index")
+                        .font(.headline)
+                        .padding(.top)
+                }
+            }
             .overlay(alignment: .bottom) { overlayView() }
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .defaultScrollAnchor(.bottom)
-            .navigationTitle("Cognitive Index")
+//            .navigationTitle("Cognitive Index")
+            .ifIPad({ view in
+                view.navigationTitle("Cognitive Index")
+            })
+            .ifIPhone({ view in
+                view.navigationTitle("Cognitive Index")
+            })
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbarContent() }
             // KEYPOINT_CLIPBOARD_FLOW: auto-starts view model pipeline on sheet appear
@@ -99,7 +118,20 @@ struct ClipboardKeyPointSheet: View {
             .frame(width: 86)
             .padding(.horizontal)
             .padding(.vertical, 8)
-            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+            .ifMacCatalyst({ view in
+                view
+                    .background {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(uiColor: UIColor.secondarySystemBackground).opacity(0.86))
+                    }
+            })
+            .ifIPad({ view in
+                view.glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+            })
+            .ifIPhone({ view in
+                view.glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+            })
+//            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
             .opacity(showsTokenOverlay ? 1 : 0)
             .animation(.easeInOut(duration: 0.2), value: showsTokenOverlay)
         }
