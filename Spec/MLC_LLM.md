@@ -71,3 +71,32 @@ EisonAI 的原生 MLC demo 需要 `model_lib`（hash 字串），來源是 `mlc_
 
 - WebLLM assets 路徑：`Shared (Extension)/Resources/webllm-assets/`
 - iOS app 讀取方式：從 Embedded Extension（`.appex`）內唯讀存取 `webllm-assets/models/<model>/resolve/main`
+
+## 常見 Crash 排查（Runtime / Loader）
+
+### 症狀 1：`Cannot find system lib ...`
+代表 `model_lib` 沒有被連結進 App binary。
+
+**檢查 / 修正：**
+- `mlc-app-config.json` 的 `model_lib` 必須與 `libmodel_iphone` 內實際符號一致
+- Xcode target 要 force-load `libmodel_iphone`（避免 dead-strip）
+  - `OTHER_LDFLAGS[sdk=iphoneos*]` 加上  
+    `-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64/libmodel_iphone.a`
+  - `OTHER_LDFLAGS[sdk=macosx*]` 加上  
+    `-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64-maccatalyst/libmodel_iphone.a`
+
+### 症狀 2：`Library binary was created using {relax.VMExecutable} but a loader of that name is not registered`
+代表 **model lib 與 runtime 版本不一致**，或 `libtvm_runtime` 被 dead-strip。
+
+**建議修正：**
+1) 用同一份 `mlc-llm` 重新產生整套 xcframeworks  
+   ```
+   source .venv-mlc312/bin/activate
+   MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm Scripts/build_mlc_xcframeworks.sh
+   ```
+2) Xcode Clean Build Folder 再重編
+3) 強制連結 `libtvm_runtime`（避免 loader 註冊被裁掉）
+   - `OTHER_LDFLAGS[sdk=iphoneos*]` 加上  
+     `-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64/libtvm_runtime.a`
+   - `OTHER_LDFLAGS[sdk=macosx*]` 加上  
+     `-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64-maccatalyst/libtvm_runtime.a`

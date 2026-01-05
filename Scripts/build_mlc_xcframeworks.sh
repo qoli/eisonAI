@@ -23,6 +23,7 @@ XCFRAMEWORK_OUTPUT="${XCFRAMEWORK_OUTPUT:-$ROOT_DIR/dist/xcframeworks}"
 MLC_MACABI_DEPLOYMENT_TARGET="${MLC_MACABI_DEPLOYMENT_TARGET:-18.0}"
 MLC_MACABI_ARCHS="${MLC_MACABI_ARCHS:-arm64}"
 MLC_MACABI_CACHE_ROOT="${MLC_MACABI_CACHE_ROOT:-$ROOT_DIR/.mlc_llm_cache}"
+DID_PATCH_IPHONE_LIB=false
 
 export MLC_LLM_SOURCE_DIR
 export MLC_MACABI_DEPLOYMENT_TARGET
@@ -39,8 +40,11 @@ fix_model_lib_platform() {
   xcrun --sdk macosx clang -c "$tmpdir/dummy.c" \
     -target "${macabi_arch}-apple-ios${MLC_MACABI_DEPLOYMENT_TARGET}-macabi" \
     -o "$tmpdir/dummy_macabi.o"
-  libtool -static -o "$IPHONE_OUTPUT/lib/libmodel_iphone.a" \
-    "$tmpdir/dummy_ios.o" "$IPHONE_OUTPUT/lib/libmodel_iphone.a"
+  if [[ "$DID_PATCH_IPHONE_LIB" == "false" ]]; then
+    libtool -static -o "$IPHONE_OUTPUT/lib/libmodel_iphone.a" \
+      "$tmpdir/dummy_ios.o" "$IPHONE_OUTPUT/lib/libmodel_iphone.a"
+    DID_PATCH_IPHONE_LIB=true
+  fi
   libtool -static -o "$macabi_output/lib/libmodel_iphone.a" \
     "$tmpdir/dummy_macabi.o" "$macabi_output/lib/libmodel_iphone.a"
   rm -rf "$tmpdir"
