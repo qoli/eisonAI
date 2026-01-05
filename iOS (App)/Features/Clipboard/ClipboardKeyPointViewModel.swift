@@ -59,6 +59,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         }
     }
 
+    // KEYPOINT_CLIPBOARD_FLOW: main pipeline entry for clipboard/share inputs
     func run() {
         runTask?.cancel()
         runTask = nil
@@ -222,6 +223,13 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             } catch {
                 self.status = "Error: \(error.localizedDescription)"
                 self.errorMessage = error.localizedDescription
+                print(error)
+                let errorLine = "Error: \(error.localizedDescription)"
+                if self.output.isEmpty {
+                    self.output = errorLine
+                } else {
+                    self.output.append("\n\n\(errorLine)")
+                }
                 self.log("error: \(error.localizedDescription)")
             }
 

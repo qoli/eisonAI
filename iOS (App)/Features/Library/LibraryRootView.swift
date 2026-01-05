@@ -90,6 +90,7 @@ struct LibraryRootView: View {
             .toolbar {
                 toolbarContent
             }
+            // KEYPOINT_CLIPBOARD_FLOW: sheet entry point for .clipboard/.share inputs
             .sheet(item: $activeKeyPointInput, onDismiss: {
                 viewModel.reload()
             }) { input in
@@ -155,6 +156,7 @@ struct LibraryRootView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        // KEYPOINT_CLIPBOARD_FLOW: toolbar "+" sets .clipboard input
         ToolbarItem(placement: .topBarLeading) {
             Button {
                 activeKeyPointInput = .clipboard
@@ -373,7 +375,7 @@ struct LibraryRootView: View {
             } description: {
                 Text("New materials you save will appear here.")
             } actions: {
-                Button("Reload") { viewModel.reload() }
+                //
             }
         } else {
             List(visibleEntries) { entry in

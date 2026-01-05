@@ -127,6 +127,7 @@ struct ClipboardKeyPointSheet: View {
                     .accessibilityLabel("Toggle token estimate")
                 }
             }
+            // KEYPOINT_CLIPBOARD_FLOW: auto-starts view model pipeline on sheet appear
             .task {
                 model.run()
             }

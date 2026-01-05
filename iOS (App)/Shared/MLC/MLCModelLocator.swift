@@ -36,11 +36,11 @@ enum MLCModelLocatorError: LocalizedError {
         switch self {
         case .missingConfig:
             return "Missing `mlc-app-config.json` in app bundle."
-        case .missingBundledModel(let modelID):
+        case let .missingBundledModel(modelID):
             return "Model not found in `mlc-app-config.json`: \(modelID)"
-        case .missingModelDirectory(let dir):
+        case let .missingModelDirectory(dir):
             return "Missing model directory: \(dir). Run `python3 Scripts/download_webllm_assets.py` and rebuild the app to bundle WebLLM assets."
-        case .missingModelFile(let path):
+        case let .missingModelFile(path):
             return "Missing model file: \(path). Run `python3 Scripts/download_webllm_assets.py` and rebuild the app to bundle WebLLM assets."
         }
     }
