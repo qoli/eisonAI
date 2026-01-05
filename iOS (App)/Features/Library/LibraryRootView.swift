@@ -330,33 +330,15 @@ struct LibraryRootView: View {
 
     @ViewBuilder
     private func searchPlacement<Content: View>(_ content: Content) -> some View {
-        #if targetEnvironment(macCatalyst)
+        switch platform {
+        case .macCatalyst:
             content.safeAreaInset(edge: .bottom) {
                 searchBar
             }
-        #else
 
-            // iPad detection and handling: use a wider, non-collapsing search bar on iPad
-            let isPad: Bool = {
-                #if os(iOS)
-                    if UIDevice.current.userInterfaceIdiom == .pad { return true }
-                #endif
-                return false
-            }()
-
-            if #available(iOS 14.0, *), ProcessInfo.processInfo.isiOSAppOnMac {
-                content.safeAreaInset(edge: .bottom) {
-                    searchBar
-                }
-            } else if isPad {
-                // On iPad, keep consistent bottom padding and a wider layout
-                content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
-
-            } else {
-                // On iPhone, adjust bottom padding with focus to avoid jumping with keyboard
-                content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
-            }
-        #endif
+        default:
+            content.searchable(text: $searchText, placement: .toolbar, prompt: "Search")
+        }
     }
 
     @ViewBuilder
@@ -377,7 +359,7 @@ struct LibraryRootView: View {
                         Image("arrow")
                             .rotationEffect(.degrees(26), anchor: .center)
                             .opacity(0.6)
-                        
+
                         Spacer()
                     }
                     .frame(width: 200)
