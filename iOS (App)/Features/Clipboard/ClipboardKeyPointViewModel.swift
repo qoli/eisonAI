@@ -206,7 +206,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     savedFileURL = fileURL
                 }
 
-                self.status = "Title…"
+                self.status = "Title ..."
                 _ = await GenerationService.shared.generateTitleIfNeeded(
                     force: false,
                     fileURL: savedFileURL,

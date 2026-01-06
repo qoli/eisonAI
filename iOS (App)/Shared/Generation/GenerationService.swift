@@ -87,7 +87,7 @@ final class GenerationService {
         .joined(separator: "\n\n")
 
         let content = pieces.isEmpty ? item.url : pieces
-        return clampText(content, maxChars: 4000)
+        return clampText(content, maxChars: 1400)
     }
 
     private func sanitizeTitle(_ text: String) -> String {
@@ -145,4 +145,3 @@ final class GenerationService {
         #endif
     }
 }
-
