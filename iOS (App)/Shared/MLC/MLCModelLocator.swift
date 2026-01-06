@@ -1,5 +1,47 @@
 import Darwin
 import Foundation
+import os
+
+private enum MLCLog {
+    private static let logger = Logger(subsystem: "com.qoli.eisonAI", category: "MLC")
+    private static let groupID = "group.com.qoli.eisonAI"
+    private static let dateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static var logFileURL: URL? {
+        guard let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID) else {
+            return nil
+        }
+        return containerURL
+            .appending(path: "Library")
+            .appending(path: "Caches")
+            .appending(path: "mlc_locator.log")
+    }
+
+    static func write(_ message: String) {
+        logger.info("\(message, privacy: .public)")
+        guard let url = logFileURL else { return }
+        let timestamp = dateFormatter.string(from: Date())
+        let line = "[\(timestamp)] \(message)\n"
+        guard let data = line.data(using: .utf8) else { return }
+
+        let dirURL = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
+
+        if FileManager.default.fileExists(atPath: url.path()) {
+            if let handle = try? FileHandle(forWritingTo: url) {
+                try? handle.seekToEnd()
+                try? handle.write(contentsOf: data)
+                try? handle.close()
+            }
+        } else {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+}
 
 struct MLCAppConfig: Decodable {
     struct ModelRecord: Decodable {
@@ -60,8 +102,10 @@ struct MLCModelLocator {
 
     func resolveSelection() throws -> MLCModelSelection {
         guard let configURL = resolveMLCAppConfigURL() else {
+            MLCLog.write("MLC config missing in app bundle.")
             throw MLCModelLocatorError.missingConfig
         }
+        MLCLog.write("MLC config url: \(configURL.path())")
 
         let data = try Data(contentsOf: configURL)
         let config = try JSONDecoder().decode(MLCAppConfig.self, from: data)
@@ -76,9 +120,11 @@ struct MLCModelLocator {
                 return MLCModelSelection(modelID: modelID, modelPath: url.path(), modelLib: record.modelLib)
             }
 
+            MLCLog.write("MLC model directory not found: \(modelDirName)")
             throw MLCModelLocatorError.missingModelDirectory(modelDirName)
         }
 
+        MLCLog.write("MLC model not found in config. candidates=\(modelIDCandidates.joined(separator: ","))")
         throw MLCModelLocatorError.missingBundledModel(modelIDCandidates.first ?? "(unknown)")
     }
 
@@ -95,11 +141,13 @@ struct MLCModelLocator {
     private func validateModelDir(_ url: URL) throws {
         let config = url.appending(path: "mlc-chat-config.json")
         guard FileManager.default.fileExists(atPath: config.path()) else {
+            MLCLog.write("MLC missing model file: \(config.path())")
             throw MLCModelLocatorError.missingModelFile(config.path())
         }
 
         let tokenizer = url.appending(path: "tokenizer.json")
         guard FileManager.default.fileExists(atPath: tokenizer.path()) else {
+            MLCLog.write("MLC missing model file: \(tokenizer.path())")
             throw MLCModelLocatorError.missingModelFile(tokenizer.path())
         }
 
@@ -107,6 +155,7 @@ struct MLCModelLocator {
             let items = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil),
             items.contains(where: { $0.lastPathComponent.hasPrefix("params_shard_") && $0.pathExtension == "bin" })
         else {
+            MLCLog.write("MLC missing model shard files under: \(url.path())")
             throw MLCModelLocatorError.missingModelFile(url.appending(path: "params_shard_*.bin").path())
         }
     }
@@ -116,6 +165,12 @@ struct MLCModelLocator {
         let embeddedResourceURL = embeddedBundleURL.flatMap { Bundle(url: $0)?.resourceURL }
         let mainBundleURL = Bundle.main.bundleURL
         let mainResourceURL = Bundle.main.resourceURL
+
+        MLCLog.write(
+            "MLC resolve model dir=\(modelDirName) embeddedBundleURL=\(embeddedBundleURL?.path() ?? "nil") " +
+                "embeddedResourceURL=\(embeddedResourceURL?.path() ?? "nil") " +
+                "mainBundleURL=\(mainBundleURL.path()) mainResourceURL=\(mainResourceURL?.path() ?? "nil")"
+        )
 
         let modelDirCandidates = [
             URL(fileURLWithPath: "webllm-assets/models/\(modelDirName)/resolve/main", relativeTo: embeddedResourceURL),
@@ -130,7 +185,9 @@ struct MLCModelLocator {
 
         for url in modelDirCandidates {
             var isDir: ObjCBool = false
-            if FileManager.default.fileExists(atPath: url.path(), isDirectory: &isDir), isDir.boolValue {
+            let exists = FileManager.default.fileExists(atPath: url.path(), isDirectory: &isDir)
+            MLCLog.write("MLC candidate path: \(url.path()) exists=\(exists) isDir=\(isDir.boolValue)")
+            if exists, isDir.boolValue {
                 return url
             }
         }
@@ -151,6 +208,9 @@ struct MLCModelLocator {
             .compactMap(Bundle.init(url:))
             .first(where: { $0.bundleIdentifier == embeddedExtensionBundleID })
 
+        if extensionBundle == nil {
+            MLCLog.write("MLC embedded extension not found. bundleID=\(embeddedExtensionBundleID)")
+        }
         return extensionBundle?.bundleURL
     }
 
@@ -159,6 +219,7 @@ struct MLCModelLocator {
             _ = modelLib
         #else
         let symbolName = "\(modelLib)___tvm_ffi__library_bin"
+        MLCLog.write("MLC validate model lib: \(symbolName)")
         guard let handle = dlopen(nil, RTLD_NOW) else {
             throw MLCModelLocatorError.missingModelLib(modelLib)
         }
@@ -166,6 +227,7 @@ struct MLCModelLocator {
             dlsym(handle, cstr) != nil
         }
             guard found else {
+                MLCLog.write("MLC model lib missing in process: \(symbolName)")
                 throw MLCModelLocatorError.missingModelLib(modelLib)
             }
         #endif
