@@ -85,6 +85,25 @@ EisonAI 的原生 MLC demo 需要 `model_lib`（hash 字串），來源是 `mlc_
   - `OTHER_LDFLAGS[sdk=macosx*]` 加上  
     `-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64-maccatalyst/libmodel_iphone.a`
 
+### 症狀 1b（TestFlight / Archive 才出現）：`Missing model lib ...`
+代表 **Archive/Export strip 掉 global symbol**，`dlsym` 找不到 model lib。
+
+修正重點（Release target）：
+- 保留 symbol（linker flags）
+  - `-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin`
+  - `-Wl,-exported_symbols_list,$(PROJECT_DIR)/Scripts/mlc_exported_symbols.txt`
+  - `-Wl,-export_dynamic`
+  - `-Wl,-exported_symbol,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin`
+- 避免 archive 時把 global symbol 全剝掉
+  - `STRIP_STYLE = non-global`
+  - `STRIP_INSTALLED_PRODUCT = NO`
+- 強制硬引用（防止 link 被移除）
+  - 新增 `iOS (App)/Shared/MLC/MLCModelLibKeep.m`
+
+驗證：
+- fastlane 打包後自動檢查 IPA/PKG 是否含有 symbol  
+  `fastlane/Fastfile` 的 `verify_model_lib_symbol!` 會解包並 `nm -gU` 搜索 symbol。  
+
 ### 症狀 2：`Library binary was created using {relax.VMExecutable} but a loader of that name is not registered`
 代表 **model lib 與 runtime 版本不一致**，或 `libtvm_runtime` 被 dead-strip。
 
