@@ -31,7 +31,7 @@ private enum MLCLog {
         let dirURL = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
 
-        if FileManager.default.fileExists(atPath: url.path()) {
+        if FileManager.default.fileExists(atPath: fileSystemPath(url)) {
             if let handle = try? FileHandle(forWritingTo: url) {
                 try? handle.seekToEnd()
                 try? handle.write(contentsOf: data)
@@ -117,7 +117,7 @@ struct MLCModelLocator {
             if let url = resolveModelDirFromWebLLMAssets(modelDirName: modelDirName) {
                 try validateModelDir(url)
                 try validateModelLib(record.modelLib)
-                return MLCModelSelection(modelID: modelID, modelPath: url.path(), modelLib: record.modelLib)
+                return MLCModelSelection(modelID: modelID, modelPath: fileSystemPath(url), modelLib: record.modelLib)
             }
 
             MLCLog.write("MLC model directory not found: \(modelDirName)")
@@ -140,9 +140,10 @@ struct MLCModelLocator {
 
     private func validateModelDir(_ url: URL) throws {
         let config = url.appending(path: "mlc-chat-config.json")
-        guard FileManager.default.fileExists(atPath: config.path()) else {
-            MLCLog.write("MLC missing model file: \(config.path())")
-            throw MLCModelLocatorError.missingModelFile(fileSystemPath(config))
+        let configPath = fileSystemPath(config)
+        guard FileManager.default.fileExists(atPath: configPath) else {
+            MLCLog.write("MLC missing model file: \(configPath)")
+            throw MLCModelLocatorError.missingModelFile(configPath)
         }
 
         let tokenizer = url.appending(path: "tokenizer.json")
@@ -207,8 +208,7 @@ struct MLCModelLocator {
     }
 
     private func fileSystemPath(_ url: URL) -> String {
-        let path = url.path()
-        return path.removingPercentEncoding ?? path
+        url.path(percentEncoded: false)
     }
 
     private func resolveEmbeddedExtensionBundleURL() -> URL? {
