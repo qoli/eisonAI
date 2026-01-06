@@ -61,6 +61,7 @@ struct UnevenRoundedRectangle: Shape {
 
 struct OnboardingView: View {
     let onGetLifetimeAccess: () -> Void
+    let dismissOnCompletion: Bool
     private struct BionicLine: Equatable {
         let text: String
         let boldParts: [String]
@@ -161,15 +162,21 @@ struct OnboardingView: View {
     @State private var purchaseErrorMessage: String?
     @State private var hasLoadedStore = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
 
     private var currentCopy: OnboardingCopy {
         onboardingCopy(for: selectedPage)
     }
 
-    init(defaultPage: Int = 0, onGetLifetimeAccess: @escaping () -> Void = {}) {
+    init(
+        defaultPage: Int = 0,
+        dismissOnCompletion: Bool = false,
+        onGetLifetimeAccess: @escaping () -> Void = {}
+    ) {
         let clamped = max(0, min(defaultPage, onboardingCopies.count - 1))
         _selectedPage = State(initialValue: clamped)
         self.onGetLifetimeAccess = onGetLifetimeAccess
+        self.dismissOnCompletion = dismissOnCompletion
     }
 
     var body: some View {
@@ -232,7 +239,7 @@ struct OnboardingView: View {
             Button {
                 if selectedPage == 3 {
                     if isPurchased {
-                        onGetLifetimeAccess()
+                        handleLifetimeAccessCompletion()
                     } else {
                         Task { await purchaseLifetimeAccess() }
                     }
@@ -242,7 +249,7 @@ struct OnboardingView: View {
             } label: {
                 HStack {
                     Text(selectedPage == 0 ? "Get started" :
-                        selectedPage == 3 ? "Get Lifetime Access" : "Continue")
+                        selectedPage == 3 ? completionButtonTitle : "Continue")
                 }
                 .padding(.vertical, 6)
                 .frame(width: 180)
@@ -359,27 +366,29 @@ struct OnboardingView: View {
                     .disabled(isPurchasing || isPurchased || lifetimeProduct == nil)
 
                     // Paywall-Button
-                    Button {
-                        Task { await restorePurchases() }
-                    } label: {
-                        HStack {
-                            ZStack {
-                                Image(systemName: "purchased")
+                    if !isPurchased {
+                        Button {
+                            Task { await restorePurchases() }
+                        } label: {
+                            HStack {
+                                ZStack {
+                                    Image(systemName: "purchased")
+                                }
+                                .frame(width: 18, height: 18)
+                                .padding(.trailing, 8)
+                                .fontWeight(.bold)
+
+                                Text("Restore Purchases")
+                                    .font(.headline)
+
+                                Spacer()
                             }
-                            .frame(width: 18, height: 18)
-                            .padding(.trailing, 8)
-                            .fontWeight(.bold)
-
-                            Text("Restore Purchases")
-                                .font(.headline)
-
-                            Spacer()
+                            .padding(.all, 20)
                         }
-                        .padding(.all, 20)
+                        .buttonStyle(.plain)
+                        .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
+                        .padding(.horizontal)
                     }
-                    .buttonStyle(.plain)
-                    .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
-                    .padding(.horizontal)
 
                     #if DEBUG
                         Button {
@@ -753,6 +762,20 @@ struct OnboardingView: View {
         return "Loading..."
     }
 
+    private var completionButtonTitle: String {
+        if isPurchased && dismissOnCompletion { return "Back to About" }
+        return "Get Lifetime Access"
+    }
+
+    @MainActor
+    private func handleLifetimeAccessCompletion() {
+        if dismissOnCompletion {
+            dismiss()
+        } else {
+            onGetLifetimeAccess()
+        }
+    }
+
     @MainActor
     private func configureStoreIfNeeded() async {
         guard !hasLoadedStore else { return }
@@ -791,7 +814,7 @@ struct OnboardingView: View {
             if transaction.productID == AppConfig.lifetimeAccessProductId {
                 await MainActor.run {
                     isPurchased = true
-                    onGetLifetimeAccess()
+                    handleLifetimeAccessCompletion()
                 }
             }
             await transaction.finish()
@@ -802,7 +825,7 @@ struct OnboardingView: View {
     private func purchaseLifetimeAccess() async {
         if isPurchased {
             showDrop(title: "Already Unlocked", subtitle: "Lifetime access is active.")
-            onGetLifetimeAccess()
+            handleLifetimeAccessCompletion()
             return
         }
         guard let product = lifetimeProduct else {
@@ -823,7 +846,7 @@ struct OnboardingView: View {
                     await transaction.finish()
                     await refreshPurchasedState()
                     showDrop(title: "Purchase Successful", subtitle: "Lifetime access unlocked.")
-                    onGetLifetimeAccess()
+                    handleLifetimeAccessCompletion()
                 case .unverified:
                     purchaseErrorMessage = "Purchase could not be verified."
                 }

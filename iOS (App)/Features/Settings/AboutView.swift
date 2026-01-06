@@ -124,7 +124,7 @@ struct AboutView: View {
 
             Section {
                 NavigationLink("View onboarding again") {
-                    OnboardingView(defaultPage: 0)
+                    OnboardingView(defaultPage: 0, dismissOnCompletion: true)
                 }
             } header: {
                 Text("Experience")
