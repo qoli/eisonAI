@@ -19,6 +19,7 @@ https://youtu.be/B-NtdpZH9_o
 ### App Store
 
 https://apps.apple.com/us/app/eison-ai/id6484502399
+( app store 正在審核，所以下載的版本是 1.0 版本)
 
 ## Product Concept
 
