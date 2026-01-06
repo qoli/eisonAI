@@ -31,7 +31,7 @@ private enum MLCLog {
         let dirURL = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dirURL, withIntermediateDirectories: true)
 
-        if FileManager.default.fileExists(atPath: fileSystemPath(url)) {
+        if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
             if let handle = try? FileHandle(forWritingTo: url) {
                 try? handle.seekToEnd()
                 try? handle.write(contentsOf: data)
