@@ -380,13 +380,6 @@ struct LibraryRootView: View {
                 }
                 .padding(.top)
 
-//                ContentUnavailableView {
-//                    Label("No Material", systemImage: "tray.fill")
-//                } description: {
-//                    Text("New materials you save will appear here.")
-//                } actions: {
-//                    //
-//                }
                 Spacer()
             }
         } else {
