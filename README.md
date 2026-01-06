@@ -8,10 +8,9 @@ Safari popup 內使用 **WebLLM（WebGPU + WebWorker）** 本機推理 `Qwen3-0.
 
 ![EisonAI Screenshot](https://raw.githubusercontent.com/qoli/eisonAI/refs/heads/main/assets/iPhone-Medata-Preview.jpg)
 
-## Building a Safari Extension with a Fully Local LLM (WebLLM)
+## eisonAI 2.0 is a complete rewrite.
 
-項目展示：
-https://youtu.be/tC25imOO9GA
+https://youtu.be/B-NtdpZH9_o
 
 ## App Store
 
@@ -42,15 +41,6 @@ https://apps.apple.com/us/app/eison-ai/id6484502399
 - iOS / iPadOS 18+
 - Apple Intelligence（可選）：iOS 26+ 且已啟用
 - 建議至少 iPhone 14 以上機型體驗較佳
-
-## 架構概覽
-
-- 內容擷取：`Shared (Extension)/Resources/contentReadability.js` + `Shared (Extension)/Resources/content.js`
-- 推理入口：`Shared (Extension)/Resources/webllm/popup.html`（`action.default_popup`）
-- WebLLM runtime：`Shared (Extension)/Resources/webllm/webllm.js`
-- 模型/wasm（需下載後放入）：`Shared (Extension)/Resources/webllm-assets/`
-- Native bridge（設定/儲存/Apple Intelligence）：`Shared (Extension)/SafariWebExtensionHandler.swift`
-- App Library & Sync：App Group RawLibrary + CloudKit（詳見 `iOS (App)/Shared`）
 
 ## License
 
