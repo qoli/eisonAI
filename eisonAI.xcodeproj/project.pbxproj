@@ -963,6 +963,7 @@
 				);
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
+					"-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64/libtvm_runtime.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
@@ -970,6 +971,7 @@
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"$(inherited)",
+					"-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64_x86_64-maccatalyst/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_runtime.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_ffi_static.a",
