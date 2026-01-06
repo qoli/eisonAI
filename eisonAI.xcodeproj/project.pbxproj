@@ -520,7 +520,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -564,6 +564,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				STRIP_STYLE = non-global;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -578,7 +579,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -753,7 +754,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -802,7 +803,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Extension (iOS).entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -854,7 +855,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -925,7 +926,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = iOS.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_INCOMING_NETWORK_CONNECTIONS = NO;
 				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
@@ -964,6 +965,9 @@
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
 					"-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
+					"-Wl,-export_dynamic",
+					"-Wl,-exported_symbol,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
+					"-Wl,-exported_symbols_list,$(PROJECT_DIR)/Scripts/mlc_exported_symbols.txt",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64/libtvm_runtime.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
@@ -972,6 +976,9 @@
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"$(inherited)",
 					"-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
+					"-Wl,-export_dynamic",
+					"-Wl,-exported_symbol,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
+					"-Wl,-exported_symbols_list,$(PROJECT_DIR)/Scripts/mlc_exported_symbols.txt",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64_x86_64-maccatalyst/libmlc_llm.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_runtime.a",
 					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_ffi_static.a",
@@ -997,7 +1004,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Share Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = shareExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = shareExtension;
@@ -1031,7 +1038,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "eisonAI Share Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 25;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = shareExtension/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = shareExtension;
