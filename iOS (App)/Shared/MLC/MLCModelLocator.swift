@@ -218,14 +218,14 @@ struct MLCModelLocator {
         #if targetEnvironment(simulator)
             _ = modelLib
         #else
-        let symbolName = "\(modelLib)___tvm_ffi__library_bin"
-        MLCLog.write("MLC validate model lib: \(symbolName)")
-        guard let handle = dlopen(nil, RTLD_NOW) else {
-            throw MLCModelLocatorError.missingModelLib(modelLib)
-        }
-        let found = symbolName.withCString { cstr in
-            dlsym(handle, cstr) != nil
-        }
+            let symbolName = "\(modelLib)___tvm_ffi__library_bin"
+            MLCLog.write("MLC validate model lib: \(symbolName)")
+            guard let handle = dlopen(nil, RTLD_NOW) else {
+                throw MLCModelLocatorError.missingModelLib(modelLib)
+            }
+            let found = symbolName.withCString { cstr in
+                dlsym(handle, cstr) != nil
+            }
             guard found else {
                 MLCLog.write("MLC model lib missing in process: \(symbolName)")
                 throw MLCModelLocatorError.missingModelLib(modelLib)
