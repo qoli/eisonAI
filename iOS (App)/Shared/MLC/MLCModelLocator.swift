@@ -105,7 +105,7 @@ struct MLCModelLocator {
             MLCLog.write("MLC config missing in app bundle.")
             throw MLCModelLocatorError.missingConfig
         }
-        MLCLog.write("MLC config url: \(configURL.path())")
+        MLCLog.write("MLC config url: \(fileSystemPath(configURL))")
 
         let data = try Data(contentsOf: configURL)
         let config = try JSONDecoder().decode(MLCAppConfig.self, from: data)
@@ -142,21 +142,25 @@ struct MLCModelLocator {
         let config = url.appending(path: "mlc-chat-config.json")
         guard FileManager.default.fileExists(atPath: config.path()) else {
             MLCLog.write("MLC missing model file: \(config.path())")
-            throw MLCModelLocatorError.missingModelFile(config.path())
+            throw MLCModelLocatorError.missingModelFile(fileSystemPath(config))
         }
 
         let tokenizer = url.appending(path: "tokenizer.json")
-        guard FileManager.default.fileExists(atPath: tokenizer.path()) else {
-            MLCLog.write("MLC missing model file: \(tokenizer.path())")
-            throw MLCModelLocatorError.missingModelFile(tokenizer.path())
+        let tokenizerPath = fileSystemPath(tokenizer)
+        guard FileManager.default.fileExists(atPath: tokenizerPath) else {
+            MLCLog.write("MLC missing model file: \(tokenizerPath)")
+            throw MLCModelLocatorError.missingModelFile(tokenizerPath)
         }
 
         guard
             let items = try? FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil),
             items.contains(where: { $0.lastPathComponent.hasPrefix("params_shard_") && $0.pathExtension == "bin" })
         else {
-            MLCLog.write("MLC missing model shard files under: \(url.path())")
-            throw MLCModelLocatorError.missingModelFile(url.appending(path: "params_shard_*.bin").path())
+            let modelPath = fileSystemPath(url)
+            MLCLog.write("MLC missing model shard files under: \(modelPath)")
+            throw MLCModelLocatorError.missingModelFile(
+                fileSystemPath(url.appending(path: "params_shard_*.bin"))
+            )
         }
     }
 
@@ -166,10 +170,14 @@ struct MLCModelLocator {
         let mainBundleURL = Bundle.main.bundleURL
         let mainResourceURL = Bundle.main.resourceURL
 
+        let embeddedBundlePath = embeddedBundleURL.map(fileSystemPath) ?? "nil"
+        let embeddedResourcePath = embeddedResourceURL.map(fileSystemPath) ?? "nil"
+        let mainBundlePath = fileSystemPath(mainBundleURL)
+        let mainResourcePath = mainResourceURL.map(fileSystemPath) ?? "nil"
         MLCLog.write(
-            "MLC resolve model dir=\(modelDirName) embeddedBundleURL=\(embeddedBundleURL?.path() ?? "nil") " +
-                "embeddedResourceURL=\(embeddedResourceURL?.path() ?? "nil") " +
-                "mainBundleURL=\(mainBundleURL.path()) mainResourceURL=\(mainResourceURL?.path() ?? "nil")"
+            "MLC resolve model dir=\(modelDirName) embeddedBundleURL=\(embeddedBundlePath) " +
+                "embeddedResourceURL=\(embeddedResourcePath) " +
+                "mainBundleURL=\(mainBundlePath) mainResourceURL=\(mainResourcePath)"
         )
 
         let modelDirCandidates = [
@@ -185,13 +193,22 @@ struct MLCModelLocator {
 
         for url in modelDirCandidates {
             var isDir: ObjCBool = false
-            let exists = FileManager.default.fileExists(atPath: url.path(), isDirectory: &isDir)
-            MLCLog.write("MLC candidate path: \(url.path()) exists=\(exists) isDir=\(isDir.boolValue)")
+            let rawPath = url.path()
+            let fsPath = fileSystemPath(url)
+            let exists = FileManager.default.fileExists(atPath: fsPath, isDirectory: &isDir)
+            MLCLog.write(
+                "MLC candidate path: raw=\(rawPath) fs=\(fsPath) exists=\(exists) isDir=\(isDir.boolValue)"
+            )
             if exists, isDir.boolValue {
                 return url
             }
         }
         return nil
+    }
+
+    private func fileSystemPath(_ url: URL) -> String {
+        let path = url.path()
+        return path.removingPercentEncoding ?? path
     }
 
     private func resolveEmbeddedExtensionBundleURL() -> URL? {
