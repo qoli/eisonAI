@@ -123,8 +123,8 @@ struct AboutView: View {
             }
 
             Section {
-                Button("View onboarding again") {
-                    showOnboarding = true
+                NavigationLink("View onboarding again") {
+                    OnboardingView(defaultPage: 0)
                 }
             } header: {
                 Text("Experience")
@@ -162,9 +162,6 @@ struct AboutView: View {
             #endif
         }
         .navigationTitle("About")
-        .sheet(isPresented: $showOnboarding) {
-            OnboardingView(defaultPage: 0)
-        }
     }
 }
 
