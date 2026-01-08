@@ -31,11 +31,8 @@ enum AppConfig {
     static let lifetimeAccessProductId = "eisonai.unlock"
 
     static let defaultSystemPrompt: String = {
-        if
-            let url = Bundle.main.url(forResource: "default_system_prompt", withExtension: "txt"),
-            let text = try? String(contentsOf: url, encoding: .utf8) {
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed }
+        if let text = BundledTextResource.loadUTF8(name: "default_system_prompt", ext: "txt") {
+            return text
         }
 
         return """
