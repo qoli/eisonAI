@@ -10,7 +10,7 @@
   <img src="https://raw.githubusercontent.com/qoli/eisonAI/refs/heads/main/assets/iPhone-Medata-Preview.jpg" alt="EisonAI Screenshot" width="600">
 </p>
 
-**EisonAI** is an iOS/iPadOS Safari Web Extension + App that turns “structure” into a visible entry point for reading. You don’t have to follow the author’s linear narrative—see the key points and structure first, then decide where to dive in.
+**EisonAI** is an macOS / iOS / iPadOS Safari Web Extension + App that turns “structure” into a visible entry point for reading. You don’t have to follow the author’s linear narrative—see the key points and structure first, then decide where to dive in.
 
 The Safari popup uses **WebLLM (WebGPU + WebWorker)** for on-device inference with `Qwen3-0.6B`. The app uses **MLCSwift** (and optional Apple Intelligence) for summaries and long-document processing.
 
@@ -58,44 +58,44 @@ This project adopts a **bundled assets** strategy: models and wasm are packaged 
 
 ---
 
-## 🧠 eisonAI 是什麼？
+## 🧠 What is eisonAI?
 
-想像一下：你在看書、看網頁、看資料的時候，是不是常常會遇到這種情況：
+Imagine this: You are reading a book, a webpage, or some documents, and you often find yourself thinking:
 
-> 「咦？我剛剛看到那個重點放哪裡了？」  
-> 「這個東西我明明看過，但忘記存在哪裡了。」  
-> 「我腦袋裡有很多想法，但一寫就亂掉。」
+> "Wait, where did I see that key point just now?"  
+> "I know I've seen this before, but I forgot where I saved it."  
+> "I have so many ideas in my head, but they get messy as soon as I try to write them down."
 
-**eisonAI** 就是來幫你記住東西、整理東西、找回東西的小幫手。
+**eisonAI** is the assistant that helps you remember, organize, and retrieve these things.
 
-### 什麼是 Cognitive Index™（認知索引）？
+### What is Cognitive Index™?
 
-這個名字聽起來很難，其實意思很簡單：
+The name sounds complex, but the meaning is simple:
 
-> **不是只記住「內容」，而是記住「這個東西是幹嘛用的」。**
+> **It's not just about remembering the "content", but remembering "what this is used for".**
 
-舉例：
-- 不是只存一篇文章
-- 而是知道：
-    - 它是「靈感」
-    - 還是「背景資料」
-    - 還是「之後要用的引用」
+For example:
+- Not just saving an article.
+- But knowing whether:
+    - It is an "inspiration".
+    - It is "background material".
+    - Or it is a "citation for later use".
 
-這就像：**圖書館不是把書亂堆，而是知道小說區、工具書區、漫畫區在哪裡。**  
-eisonAI 就是在幫你建這個「腦內圖書館」。
+It's like: **A library doesn't just pile books up randomly; it knows where the fiction, reference, and comic sections are.**  
+eisonAI is here to help you build this "library in your brain".
 
-### eisonAI 的核心目標：保護你的心流
+### Core Goal: Protecting Your Flow
 
-心流是什麼？就是：
+What is Flow? It means:
 
-> **你正在順順地想事情，而不是一直被打斷。**
+> **You are thinking smoothly without constant interruptions.**
 
-eisonAI 想做的是：
-1. 你看到好東西 → 丟給 eisonAI
-2. 你繼續想 → 不用管分類、不用整理
-3. 之後要用 → 一下就找得到
+What eisonAI wants to do:
+1. You see something good → Throw it to eisonAI.
+2. You keep thinking → No need to worry about categorizing or organizing.
+3. You need it later → Find it instantly.
 
-> 🛟 它像一個「幫你收東西的助理」，讓你的大腦可以專心想重要的事。
+> 🛟 It acts like an "assistant that tidies up for you", allowing your brain to focus on the important thinking tasks.
 
 ---
 
