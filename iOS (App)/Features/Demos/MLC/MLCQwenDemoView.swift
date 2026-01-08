@@ -8,9 +8,9 @@
 import SwiftUI
 
 #if !targetEnvironment(simulator)
-#if canImport(MLCSwift)
-    import MLCSwift
-#endif
+    #if canImport(MLCSwift)
+        import MLCSwift
+    #endif
 #endif
 
 @MainActor
@@ -25,9 +25,9 @@ final class MLCQwenDemoViewModel: ObservableObject {
     private var generateTask: Task<Void, Never>?
 
     #if !targetEnvironment(simulator)
-    #if canImport(MLCSwift)
-        private let engine = MLCEngine()
-    #endif
+        #if canImport(MLCSwift)
+            private let engine = MLCEngine()
+        #endif
     #endif
     private let modelIDCandidates = [
         "Qwen3-0.6B-q4f16_1-MLC",
@@ -43,17 +43,17 @@ final class MLCQwenDemoViewModel: ObservableObject {
         loadTask = Task { [weak self] in
             guard let self else { return }
             #if !targetEnvironment(simulator)
-            #if canImport(MLCSwift)
-                do {
-                    let selected = try self.resolveBundledModel()
-                    try await self.loadEngine(modelPath: selected.modelPath, modelLib: selected.modelLib)
-                    self.status = "Ready (\(selected.modelID))"
-                } catch {
-                    self.status = "Error: \(error.localizedDescription)"
-                }
-            #else
-                self.status = "MLCSwift not integrated."
-            #endif
+                #if canImport(MLCSwift)
+                    do {
+                        let selected = try self.resolveBundledModel()
+                        try await self.loadEngine(modelPath: selected.modelPath, modelLib: selected.modelLib)
+                        self.status = "Ready (\(selected.modelID))"
+                    } catch {
+                        self.status = "Error: \(error.localizedDescription)"
+                    }
+                #else
+                    self.status = "MLCSwift not integrated."
+                #endif
             #else
                 self.status = "MLC is disabled on Simulator."
             #endif
@@ -69,11 +69,11 @@ final class MLCQwenDemoViewModel: ObservableObject {
         status = "Cleared."
         isGenerating = false
         #if !targetEnvironment(simulator)
-        #if canImport(MLCSwift)
-            Task { [engine] in
-                await engine.reset()
-            }
-        #endif
+            #if canImport(MLCSwift)
+                Task { [engine] in
+                    await engine.reset()
+                }
+            #endif
         #endif
     }
 
@@ -92,27 +92,27 @@ final class MLCQwenDemoViewModel: ObservableObject {
         generateTask = Task { [weak self] in
             guard let self else { return }
             #if !targetEnvironment(simulator)
-            #if canImport(MLCSwift)
-                await self.engine.reset()
-                let stream = await self.engine.chat.completions.create(
-                    messages: [
-                        ChatCompletionMessage(role: .user, content: text),
-                    ]
-                )
-                for await res in stream {
-                    if Task.isCancelled { break }
-                    if let delta = res.choices.first?.delta.content?.asText() {
-                        self.output.append(delta)
+                #if canImport(MLCSwift)
+                    await self.engine.reset()
+                    let stream = await self.engine.chat.completions.create(
+                        messages: [
+                            ChatCompletionMessage(role: .user, content: text),
+                        ]
+                    )
+                    for await res in stream {
+                        if Task.isCancelled { break }
+                        if let delta = res.choices.first?.delta.content?.asText() {
+                            self.output.append(delta)
+                        }
                     }
-                }
-                if Task.isCancelled {
-                    self.status = "Canceled"
-                } else {
-                    self.status = "Done"
-                }
-            #else
-                self.status = "MLCSwift not integrated."
-            #endif
+                    if Task.isCancelled {
+                        self.status = "Canceled"
+                    } else {
+                        self.status = "Done"
+                    }
+                #else
+                    self.status = "MLCSwift not integrated."
+                #endif
             #else
                 self.status = "MLC is disabled on Simulator."
             #endif
@@ -121,11 +121,11 @@ final class MLCQwenDemoViewModel: ObservableObject {
     }
 
     #if !targetEnvironment(simulator)
-    #if canImport(MLCSwift)
-        private func loadEngine(modelPath: String, modelLib: String) async throws {
-            await engine.reload(modelPath: modelPath, modelLib: modelLib)
-        }
-    #endif
+        #if canImport(MLCSwift)
+            private func loadEngine(modelPath: String, modelLib: String) async throws {
+                await engine.reload(modelPath: modelPath, modelLib: modelLib)
+            }
+        #endif
     #endif
 
     private struct BundledModel {

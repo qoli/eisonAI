@@ -22,6 +22,7 @@ private enum MLCLog {
     }
 
     static func write(_ message: String) {
+        print("> MLCLog ->", message)
         logger.info("\(message, privacy: .public)")
         guard let url = logFileURL else { return }
         let timestamp = dateFormatter.string(from: Date())
