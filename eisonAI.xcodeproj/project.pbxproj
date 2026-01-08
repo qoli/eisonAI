@@ -106,7 +106,6 @@
 			membershipExceptions = (
 				contentReadability.js,
 				default_system_prompt.txt,
-				"webllm-assets",
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
@@ -114,6 +113,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Config/AppConfig.swift,
+				Web/BundledTextResource.swift,
 			);
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;
 		};
@@ -127,6 +127,7 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A0E1BB5A9BFF44F9AE37F0E9 /* Resources/webllm-assets */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = "Resources/webllm-assets"; sourceTree = "<group>"; };
 		EA6F9B5C2EFC0742008DD834 /* SwiftikToken */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SwiftikToken; sourceTree = "<group>"; };
 		EA886F352EF7D254003B59A9 /* shareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EA886F422EF7D254003B59A9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = shareExtension; sourceTree = "<group>"; };
 		EAF756ED2EF3D23700CA34C3 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = App; sourceTree = "<group>"; };
@@ -134,7 +135,7 @@
 		EAF756F32EF3D23700CA34C3 /* Config */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 9DDBBB27833B4BD296E4C98C /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Config; sourceTree = "<group>"; };
 		EAF756FE2EF3D23700CA34C3 /* Features */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Features; sourceTree = "<group>"; };
 		EAF757042EF3D23700CA34C3 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
-		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (_locales, images, webllm, "webllm-assets", ); path = Resources; sourceTree = "<group>"; };
+		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (_locales, images, webllm, ); path = Resources; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -227,6 +228,7 @@
 			children = (
 				EA7726252BC5B6B3005A194D /* SafariWebExtensionHandler.swift */,
 				EAF7571C2EF3D24F00CA34C3 /* Resources */,
+				A0E1BB5A9BFF44F9AE37F0E9 /* Resources/webllm-assets */,
 			);
 			path = "Shared (Extension)";
 			sourceTree = "<group>";
@@ -340,6 +342,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				A0E1BB5A9BFF44F9AE37F0E9 /* Resources/webllm-assets */,
 				EAF7571C2EF3D24F00CA34C3 /* Resources */,
 			);
 			name = "eisonAI Extension (iOS)";
