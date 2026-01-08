@@ -1,61 +1,44 @@
-# X (Twitter) Premium Post Drafts
+# X (Twitter) Article Draft (Chinese Only)
 
-## 🇺🇸 English Version
+# eisonAI 2.0：讓閱讀回歸思考，而非單純的接收
 
-Ever feel lost in a long article? Or find yourself skimming content but missing the actual point? 📉
+你是否發現，我們在閱讀長篇文章時，大腦往往在做兩件截然不同的事：
+1. **理解內容**：判斷這句話是什麼意思。
+2. **尋找結構**：猜測這段話跟上一段有什麼關係，作者現在講到哪裡了。
 
-We often read linearly, from top to bottom, even when 80% of the value is hidden in the middle.
+這第二件事——**維護上下文 (Context Maintenance)**——消耗了我們大量的認知能量。這就是為什麼讀長文會累的原因：我們把力氣花在了「找路」，而不是「看風景」。
 
-**Introducing eisonAI: Turning structure into a visible entry point.**
+**eisonAI 的誕生，就是為了把「找路」這件事交給 AI。**
 
-eisonAI isn't just a bookmark manager. It uses on-device AI to generate a **Cognitive Index™** for your web reading.
+## 什麼是 Cognitive Index™ (認知索引)？
 
-**What does that mean?**
-Instead of facing a wall of text, you see the *skeleton* of the article first.
-✨ **Summaries:** Get the gist instantly.
-🗝️ **Key Points:** Jump straight to the arguments that matter.
-🧠 **Structure:** Navigate content non-linearly, just like you think.
+這不是另一個「稍後閱讀」清單，也不是單純的書籤工具。eisonAI 利用本地 AI (Local LLM)，在瀏覽器中直接為文章建立**結構化索引**。
 
-**Privacy First & Offline**
-Powered by WebLLM and MLCSwift, all inference happens locally on your iPhone or Mac. Your reading history never leaves your device.
+當你打開一篇文章時，eisonAI 會先告訴你：
+*   🗺️ **結構地圖**：這篇文章的邏輯骨架是什麼？
+*   🗝️ **關鍵節點**：哪些段落承載了核心論點？
+*   ✨ **摘要概覽**：如果不讀細節，我能帶走什麼？
 
-Stop reading blindly. Start reading with a map. 🗺️
+這讓你能夠進行**非線性閱讀 (Non-linear Reading)**。你不必被迫從第一行讀到最後一行，而是可以像查字典一樣，直接跳轉到你感興趣的段落。
 
-📲 **Download on the App Store:**
-https://apps.apple.com/us/app/eison-ai/id6484502399
+## 為什麼要在本地運行？(Local-First)
 
-💻 **Open Source on GitHub:**
-https://github.com/qoli/eisonAI
+eisonAI 的所有 AI 推理，都直接運行在你的 iPhone、iPad 或 Mac 上（基於 WebGPU 與 MLCSwift 技術）。
 
-#eisonAI #KnowledgeManagement #Productivity #iOS #LocalAI #CognitiveIndexing
+這意味著：
+1.  **隱私**：你的閱讀歷史、你的思考路徑，永遠不會離開你的設備。
+2.  **離線**：沒有網路？照樣能生成摘要與結構。
+3.  **速度**：沒有伺服器排隊，隨點隨用。
+
+## 找回你的心流 (Flow)
+
+最好的工具，是讓你感覺不到它的存在。eisonAI 幫你處理了最繁瑣的「整理」與「結構化」工作，留給你最純粹的「思考」空間。
+
+別再盲目地在文字海中游泳。帶上一張地圖吧。
 
 ---
-
-## 🇹🇼 Chinese Version
-
-你是否曾經讀完一長篇文章，卻抓不到重點？或者為了找一個論點，在文字海中迷失方向？📉
-
-傳統的線性閱讀強迫我們從頭讀到尾，但資訊的價值往往藏在細節結構中。
-
-**介紹 eisonAI：將「結構」轉化為閱讀的入口。**
-
-eisonAI 不僅僅是一個書籤工具。它利用本地 AI 為你的網頁閱讀建立 **Cognitive Index™ (認知索引)**。
-
-**這是什麼？**
-它在你不必讀完整篇文章前，就先展示文章的「骨架」。
-✨ **摘要**：瞬間掌握核心大意。
-🗝️ **關鍵點**：直接跳轉到最有價值的論述。
-🧠 **結構化**：打破線性閱讀，讓你像大腦思考一樣自由跳躍。
-
-**隱私優先，完全離線**
-基於 WebLLM 與 MLCSwift 技術，所有 AI 運算都在你的 iPhone 或 Mac 本地完成。你的閱讀數據絕不外洩。
-
-別再盲目閱讀。帶上一張地圖吧。🗺️
-
-📲 **App Store 下載：**
+📥 **App Store 下載**：
 https://apps.apple.com/us/app/eison-ai/id6484502399
 
-💻 **GitHub 開源專案：**
+💻 **GitHub 開源**：
 https://github.com/qoli/eisonAI
-
-#eisonAI #知識管理 #生產力 #iOS #LocalAI #認知索引
