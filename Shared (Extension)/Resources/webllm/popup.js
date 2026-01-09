@@ -152,6 +152,8 @@ function updateEnvSummary(statusText) {
 function setWebGPUStatusDisplay(status) {
   const statusText = buildWebGPUStatusText(status);
   if (webgpuStatusEl) {
+    const summary = getWebGPUStatusLabel(status.state, status);
+    webgpuStatusEl.hidden = summary === "ready";
     webgpuStatusEl.textContent = statusText;
     webgpuStatusEl.classList.remove(...WEBGPU_STATUS_CLASSES);
     const className = WEBGPU_STATUS_STATES[status.state]?.className;
