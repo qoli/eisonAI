@@ -33,26 +33,27 @@ MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package
   - ✅ My Mac (Designed for iPad)
   - ❌ iOS Simulator
 
-## Mac Catalyst（macabi，Apple Silicon）
+## Mac Catalyst（macabi，Apple Silicon + Intel）
 
 在 EisonAI repo 根目錄執行：
 
 ```bash
 MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm \
 MLC_MACABI_DEPLOYMENT_TARGET=18.0 \
+MLC_MACABI_ARCHS="arm64 x86_64" \
 mlc_llm package --package-config mlc-package-config-macabi.json --output dist-maccatalyst
 ```
 
 產物：
 
 - `dist-maccatalyst/lib/`：macabi 靜態庫（arm64）
-- `dist/xcframeworks/`：iphoneos + macabi slices 合併後的 `.xcframework`（供 Xcode link）
+- `dist/xcframeworks/`：iphoneos + macabi（arm64/x86_64） slices 合併後的 `.xcframework`（供 Xcode link）
 
 一鍵腳本（建議使用 Python 3.12 venv 執行）：
 
 ```bash
 source .venv-mlc312/bin/activate
-Scripts/build_mlc_xcframeworks.sh
+MLC_MACABI_ARCHS="arm64 x86_64" Scripts/build_mlc_xcframeworks.sh
 ```
 
 ## iOS app 端的模型設定（model_id / model_lib）
