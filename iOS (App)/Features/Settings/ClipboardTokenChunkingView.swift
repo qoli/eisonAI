@@ -3,7 +3,7 @@ import UIKit
 
 struct ClipboardTokenChunkingView: View {
     @State private var inputText = ""
-    @State private var tokensPerChunk = 2600
+    @State private var tokensPerChunk = 2000
     @State private var chunks: [String] = []
     @State private var chunkTokenCounts: [Int] = []
     @State private var tokenCount = 0
@@ -58,7 +58,7 @@ struct ClipboardTokenChunkingView: View {
 
                 HStack(spacing: 12) {
                     Text("Tokens per chunk")
-                    TextField("2600", value: $tokensPerChunk, format: .number)
+                    TextField("2000", value: $tokensPerChunk, format: .number)
                         .keyboardType(.numberPad)
                         .multilineTextAlignment(.trailing)
                         .frame(minWidth: 80, maxWidth: 120)

@@ -2,13 +2,13 @@ import SwiftUI
 
 struct DocumentsSettingsView: View {
     private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
-    private let longDocumentChunkSizeOptions: [Int] = [2200, 2600, 3000, 3200]
+    private let longDocumentChunkSizeOptions: [Int] = [2000, 2200, 2600, 3000, 3200]
     private let longDocumentMaxChunkOptions: [Int] = [4, 5, 6, 7]
     private let tokenEstimatorSettingsStore = TokenEstimatorSettingsStore.shared
     private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
 
     @State private var didLoad = false
-    @State private var longDocumentChunkTokenSize: Int = 2600
+    @State private var longDocumentChunkTokenSize: Int = 2000
     @State private var longDocumentMaxChunkCount: Int = 5
     @State private var tokenEstimatorEncoding: Encoding = .cl100k
 
@@ -45,7 +45,7 @@ struct DocumentsSettingsView: View {
             } header: {
                 Text("Chunk Size")
             } footer: {
-                Text("This size is measured in tokens and also used as the routing threshold.")
+                Text("Chunk size is measured in tokens. Routing threshold is fixed at 2600 tokens.")
             }
 
             Section {

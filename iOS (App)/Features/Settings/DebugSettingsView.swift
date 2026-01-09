@@ -12,10 +12,10 @@ struct DebugSettingsView: View {
                 Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
                     .foregroundStyle(.secondary)
 
-                NavigationLink("Clipboard 2600-Token Splitter") {
+                NavigationLink("Clipboard 2000-Token Splitter") {
                     ClipboardTokenChunkingView()
                 }
-                Text("Paste from clipboard and split long text into 2600-token chunks (using the selected tokenizer).")
+                Text("Paste from clipboard and split long text into 2000-token chunks (using the selected tokenizer).")
                     .foregroundStyle(.secondary)
             }
 

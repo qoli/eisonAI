@@ -45,8 +45,8 @@ readingAnchors: [
 ]
 tokenEstimate: Int        // 原文總 token（tokenEstimator encoding）
 tokenEstimator: String    // 例如 "cl100k_base"
-chunkTokenSize: Int       // 固定（2200/2600/3000/3200，預設 2600；最多段數由設定決定，預設 5）
-routingThreshold: Int     // 同 chunkTokenSize（由設定決定）
+chunkTokenSize: Int       // 固定（2000/2200/2600/3000/3200，預設 2000；最多段數由設定決定，預設 5）
+routingThreshold: Int     // 固定 2600（與 chunkTokenSize 分開）
 isLongDocument: Bool      // 是否走長文 pipeline
 ```
 
@@ -79,7 +79,7 @@ Step 3  展示用摘要生成
 - 使用 **tokenEstimator encoding** 估算 Token（預設 `cl100k_base`）
   - App：`SwiftikToken`
   - Extension：`gpt-tokenizer`
-- 分流門檻：**routingThreshold**（與 chunkTokenSize 同值）
+- 分流門檻：**routingThreshold**（固定 2600）
   - `≤ routingThreshold`：沿用原本單次摘要流程
   - `> routingThreshold`：進入長文 pipeline
 
@@ -95,7 +95,7 @@ Step 3  展示用摘要生成
 
 **實作方式**
 - 使用 **tokenEstimator encoding** 計算 Token（預設 `cl100k_base`）
-- 固定 chunk 大小：`chunkTokenSize` 由設定決定（2200/2600/3000/3200，預設 2600）
+- 固定 chunk 大小：`chunkTokenSize` 由設定決定（2000/2200/2600/3000/3200，預設 2000）
 - 最多段數由設定決定（4/5/6/7，預設 5）；超過則丟棄
 
 **設計理由**

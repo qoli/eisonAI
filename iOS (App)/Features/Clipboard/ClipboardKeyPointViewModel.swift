@@ -126,7 +126,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         )
                         result = longResult
                         effectiveChunkTokenSize = resolvedSize
-                        routingThresholdForSave = resolvedSize
+                        routingThresholdForSave = routingThreshold
                     } else {
                         result = try await self.runLongDocumentPipeline(
                             normalized,
@@ -135,7 +135,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                             useFoundationModels: useFoundationModels
                         )
                         effectiveChunkTokenSize = resolvedChunkTokenSize
-                        routingThresholdForSave = resolvedChunkTokenSize
+                        routingThresholdForSave = routingThreshold
                     }
                 } else {
                     result = try await self.runSingleSummary(

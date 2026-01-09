@@ -4,17 +4,17 @@
 
 ## mlc-llm 專案位置
 
-- 本機路徑：`/Users/ronnie/Github/mlc-llm`
-- Xcode local package（MLC Swift SDK）來源：`/Users/ronnie/Github/mlc-llm/ios/MLCSwift`
+- 本機路徑：`/Volumes/Data/Github/mlc-llm`
+- Xcode local package（MLC Swift SDK）來源：`/Volumes/Data/Github/mlc-llm/ios/MLCSwift`
 - 打包指令使用的 env：
-  - `MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm`
+  - `MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm`
 
 ## 主要指令：產出 iOS 連結用靜態庫（dist/lib）
 
 在 EisonAI repo 根目錄執行：
 
 ```bash
-MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package
+MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm mlc_llm package
 ```
 
 ### 依據的設定檔
@@ -38,7 +38,7 @@ MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm mlc_llm package
 在 EisonAI repo 根目錄執行：
 
 ```bash
-MLC_LLM_SOURCE_DIR=/Users/ronnie/Github/mlc-llm \
+MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm \
 MLC_MACABI_DEPLOYMENT_TARGET=18.0 \
 MLC_MACABI_ARCHS="arm64 x86_64" \
 mlc_llm package --package-config mlc-package-config-macabi.json --output dist-maccatalyst
@@ -72,6 +72,61 @@ EisonAI 的原生 MLC demo 需要 `model_lib`（hash 字串），來源是 `mlc_
 
 - WebLLM assets 路徑：`Shared (Extension)/Resources/webllm-assets/`
 - iOS app 讀取方式：從 Embedded Extension（`.appex`）內唯讀存取 `webllm-assets/models/<model>/resolve/main`
+
+## WebLLM wasm（WebGPU）編譯流程（Qwen3-0.6B cs2k）
+
+目標：產出 `Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm`，供 Safari Extension 使用。
+
+### 1) 安裝 emsdk（建議 3.1.56）
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git /tmp/emsdk
+cd /tmp/emsdk
+./emsdk install 3.1.56
+./emsdk activate 3.1.56
+source /tmp/emsdk/emsdk_env.sh
+```
+
+### 2) 準備 wasm runtime（MLC + TVM）
+
+```bash
+export MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm
+export TVM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm/3rdparty/tvm
+export TVM_HOME=/Volumes/Data/Github/mlc-llm/3rdparty/tvm
+cd /Volumes/Data/Github/mlc-llm
+./web/prep_emcc_deps.sh
+```
+
+### 3) 安裝 mlc-llm CLI（建議用 venv）
+
+```bash
+python3.11 -m venv /tmp/mlc-llm-venv311
+source /tmp/mlc-llm-venv311/bin/activate
+python -m pip install --pre -U -f https://mlc.ai/wheels mlc-llm-nightly-cpu mlc-ai-nightly-cpu
+```
+
+### 4) 編譯 wasm（cs2k）
+
+```bash
+source /tmp/emsdk/emsdk_env.sh
+export MLC_LLM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm
+export TVM_SOURCE_DIR=/Volumes/Data/Github/mlc-llm/3rdparty/tvm
+export TVM_HOME=/Volumes/Data/Github/mlc-llm/3rdparty/tvm
+/tmp/mlc-llm-venv311/bin/python -m mlc_llm compile \
+  "Shared (Extension)/Resources/webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main/mlc-chat-config.json" \
+  --device webgpu \
+  --overrides "context_window_size=4096;prefill_chunk_size=2048" \
+  --output "Shared (Extension)/Resources/webllm-assets/wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"
+```
+
+### 5) Extension 內對應檔名
+
+- `Shared (Extension)/Resources/webllm/popup.js`
+  - `WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"`
+- `Scripts/download_webllm_assets.py`
+  - `WEBLLM_WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"`
+
+> `webllm-assets/wasm/` 為 gitignored；若需多人同步，請自行提供 wasm 下載來源或改用內部分發。
 
 ## 常見 Crash 排查（Runtime / Loader）
 

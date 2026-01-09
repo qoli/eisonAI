@@ -127,6 +127,30 @@ progress::-webkit-progress-value {
   color: var(--link);
 }
 
+.webgpu-status {
+  font-size: 11px;
+  color: var(--link);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.webgpu-status.is-checking {
+  color: var(--muted);
+}
+
+.webgpu-status.is-available {
+  color: var(--status-green);
+}
+
+.webgpu-status.is-limited {
+  color: var(--status-yellow);
+}
+
+.webgpu-status.is-unavailable,
+.webgpu-status.is-error {
+  color: var(--status-red);
+}
+
 .container {
   position: relative;
   overflow: hidden;

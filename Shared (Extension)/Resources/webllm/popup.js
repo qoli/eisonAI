@@ -6,7 +6,8 @@ const MODEL_ID = "Qwen3-0.6B-q4f16_1-MLC";
 const MAX_OUTPUT_TOKENS = 1500;
 const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "No summary text";
-const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2600;
+const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2000;
+const DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD = 2600;
 const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
 const TOKENIZER_GLOBALS = {
@@ -15,12 +16,24 @@ const TOKENIZER_GLOBALS = {
   p50k_base: "GPTTokenizer_p50k_base",
   r50k_base: "GPTTokenizer_r50k_base",
 };
-const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2200, 2600, 3000, 3200]);
+const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2000, 2200, 2600, 3000, 3200]);
 const LONG_DOCUMENT_MAX_CHUNK_OPTIONS = new Set([4, 5, 6, 7]);
 const VISIBILITY_TEXT_LIMIT = 600;
-const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
+const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
+const WEBGPU_REQUIRED_FEATURES = ["shader-f16"];
+const WEBGPU_STATUS_TTL_MS = 15000;
+const WEBGPU_STATUS_STATES = {
+  checking: { text: "checking…", className: "is-checking" },
+  available: { text: "ready", className: "is-available" },
+  limited: { text: "limited", className: "is-limited" },
+  unavailable: { text: "unavailable", className: "is-unavailable" },
+  error: { text: "error", className: "is-error" },
+};
+const WEBGPU_STATUS_CLASSES = Object.values(WEBGPU_STATUS_STATES).map(
+  (state) => state.className,
+);
 
 const modelSelect = document.getElementById("model");
 const loadButton = document.getElementById("load");
@@ -33,6 +46,7 @@ const runButton = document.getElementById("run");
 const stopButton = document.getElementById("stop");
 const statusEl = document.getElementById("status");
 const envEl = document.getElementById("env");
+const webgpuStatusEl = document.getElementById("webgpu-status");
 const progressEl = document.getElementById("progress");
 const progressDotEl = document.querySelector(".progress-dot");
 const aiModelEl = document.querySelector(".ai-model");
@@ -45,6 +59,10 @@ const shareEl = document.getElementById("share");
 
 let lastModelOutputMarkdown = "";
 let markdownParser = null;
+let lastWebGPUStatus = { state: "checking" };
+let lastWebGPUStatusAt = 0;
+let webgpuStatusPromise = null;
+const envProtocols = { model: "", wasm: "" };
 
 const AI_MODEL_WEBLLM_LABEL = "Qwen3 0.6B";
 const AI_MODEL_FM_LABEL = "Apple Intelligence";
@@ -93,6 +111,132 @@ const STATUS_NO_DOT_CHANGE = new Set([
 
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
+}
+
+function getWebGPUStatusLabel(state, { isFallbackAdapter } = {}) {
+  if (state === "available" && isFallbackAdapter) return "fallback";
+  return WEBGPU_STATUS_STATES[state]?.text ?? "unknown";
+}
+
+function buildWebGPUStatusText(status) {
+  const summary = getWebGPUStatusLabel(status.state, status);
+  return `WebGPU: ${summary}`;
+}
+
+function buildWebGPUStatusDetails(status) {
+  const lines = [];
+  if (status.adapterDescription) {
+    lines.push(`Adapter: ${status.adapterDescription}`);
+  }
+  if (typeof status.isFallbackAdapter === "boolean") {
+    lines.push(`Fallback adapter: ${status.isFallbackAdapter ? "yes" : "no"}`);
+  }
+  if (Array.isArray(status.missingFeatures) && status.missingFeatures.length) {
+    lines.push(`Missing features: ${status.missingFeatures.join(", ")}`);
+  } else if (Number.isFinite(status.featureCount)) {
+    lines.push(`Feature count: ${status.featureCount}`);
+  }
+  if (status.reason) {
+    lines.push(`Reason: ${status.reason}`);
+  }
+  return lines.join("\n");
+}
+
+function updateEnvSummary(statusText) {
+  if (!envEl) return;
+  const modelProtocol = envProtocols.model || "unknown";
+  const wasmProtocol = envProtocols.wasm || "unknown";
+  envEl.textContent = `${statusText} · Assets: bundled · model: ${modelProtocol} · wasm: ${wasmProtocol}`;
+}
+
+function setWebGPUStatusDisplay(status) {
+  const statusText = buildWebGPUStatusText(status);
+  if (webgpuStatusEl) {
+    webgpuStatusEl.textContent = statusText;
+    webgpuStatusEl.classList.remove(...WEBGPU_STATUS_CLASSES);
+    const className = WEBGPU_STATUS_STATES[status.state]?.className;
+    if (className) {
+      webgpuStatusEl.classList.add(className);
+    }
+    const details = buildWebGPUStatusDetails(status);
+    webgpuStatusEl.title = details || statusText;
+  }
+  updateEnvSummary(statusText);
+}
+
+async function detectWebGPUStatus() {
+  if (!globalThis.navigator?.gpu) {
+    return { state: "unavailable", reason: "navigator.gpu missing" };
+  }
+
+  let adapter = null;
+  try {
+    adapter = await globalThis.navigator.gpu.requestAdapter();
+  } catch (err) {
+    return { state: "unavailable", reason: getErrorMessage(err) };
+  }
+  if (!adapter) {
+    return { state: "unavailable", reason: "requestAdapter returned null" };
+  }
+
+  let adapterInfo = null;
+  try {
+    if (typeof adapter.requestAdapterInfo === "function") {
+      adapterInfo = await adapter.requestAdapterInfo();
+    } else if (adapter.info) {
+      adapterInfo = adapter.info;
+    }
+  } catch (err) {
+    adapterInfo = null;
+  }
+
+  const adapterDescription =
+    adapterInfo?.description ||
+    adapterInfo?.name ||
+    adapterInfo?.vendor ||
+    "";
+  const featureCount = adapter.features?.size ?? 0;
+  const missingFeatures = WEBGPU_REQUIRED_FEATURES.filter(
+    (feature) => !adapter.features?.has?.(feature),
+  );
+  const state = missingFeatures.length ? "limited" : "available";
+  return {
+    state,
+    adapterDescription,
+    isFallbackAdapter: Boolean(adapter.isFallbackAdapter),
+    missingFeatures,
+    featureCount,
+  };
+}
+
+async function refreshWebGPUStatus({ force = false } = {}) {
+  if (webgpuStatusPromise) return webgpuStatusPromise;
+  const now = Date.now();
+  if (!force && now - lastWebGPUStatusAt < WEBGPU_STATUS_TTL_MS) {
+    setWebGPUStatusDisplay(lastWebGPUStatus);
+    return lastWebGPUStatus;
+  }
+
+  setWebGPUStatusDisplay({ state: "checking" });
+  webgpuStatusPromise = (async () => {
+    try {
+      const status = await detectWebGPUStatus();
+      lastWebGPUStatus = status;
+      lastWebGPUStatusAt = Date.now();
+      setWebGPUStatusDisplay(status);
+      return status;
+    } catch (err) {
+      const fallback = { state: "error", reason: getErrorMessage(err) };
+      lastWebGPUStatus = fallback;
+      lastWebGPUStatusAt = Date.now();
+      setWebGPUStatusDisplay(fallback);
+      return fallback;
+    } finally {
+      webgpuStatusPromise = null;
+    }
+  })();
+
+  return webgpuStatusPromise;
 }
 
 function updateAiModelLabel(info) {
@@ -179,6 +323,11 @@ function setStatusError(value, progress) {
   const message = getErrorMessage(value);
   if (code && message && message !== code) {
     appendErrorMessageToOutput(message);
+  }
+  if (/webgpu|gpudevice|shader-f16/i.test(`${code} ${message}`)) {
+    refreshWebGPUStatus({ force: true }).catch((err) => {
+      console.warn("[WebLLM Demo] Failed to refresh WebGPU status:", err);
+    });
   }
   const text =
     typeof value === "string" ? value : getStatusTextForError(value);
@@ -530,7 +679,7 @@ function getLongDocumentChunkTokenSize(totalTokens) {
 }
 
 function getLongDocumentRoutingThreshold() {
-  return Math.max(1, longDocumentChunkTokenSize);
+  return Math.max(1, DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD);
 }
 
 function getAllowedChunkTokenSizes() {
@@ -930,7 +1079,22 @@ const demoModelUrl = new URL(
   `../webllm-assets/models/${MODEL_ID}/resolve/main/`,
   import.meta.url,
 ).href;
-envEl.textContent = `WebGPU: ${hasWebGPU() ? "available" : "unavailable"} · Assets: bundled · model: ${new URL(demoModelUrl).protocol} · wasm: ${new URL(WASM_URL).protocol}`;
+envProtocols.model = new URL(demoModelUrl).protocol;
+envProtocols.wasm = new URL(WASM_URL).protocol;
+setWebGPUStatusDisplay({
+  state: hasWebGPU() ? "checking" : "unavailable",
+  reason: hasWebGPU() ? "" : "navigator.gpu missing",
+});
+refreshWebGPUStatus({ force: true }).catch((err) => {
+  console.warn("[WebLLM Demo] Failed to refresh WebGPU status:", err);
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    refreshWebGPUStatus().catch((err) => {
+      console.warn("[WebLLM Demo] Failed to refresh WebGPU status:", err);
+    });
+  }
+});
 console.log("[WebLLM Demo] modelUrl =", demoModelUrl);
 console.log("[WebLLM Demo] wasmUrl  =", WASM_URL);
 setShareVisible(false);
@@ -1672,7 +1836,7 @@ function buildSummaryUserPromptFromAnchors(anchors) {
 async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, chunkTokenSize }) {
   const resolvedChunkTokenSize = Math.max(1, Number(chunkTokenSize) || 1);
   lastChunkTokenSize = resolvedChunkTokenSize;
-  lastRoutingThreshold = resolvedChunkTokenSize;
+  lastRoutingThreshold = getLongDocumentRoutingThreshold();
 
   // Step 1: Split the source text into token-sized chunks for per-part reading.
   const chunkInfo = chunkByTokens(ctx.text, resolvedChunkTokenSize);

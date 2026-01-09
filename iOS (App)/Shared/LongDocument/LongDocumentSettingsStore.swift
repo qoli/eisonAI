@@ -4,8 +4,9 @@ final class LongDocumentSettingsStore {
     static let shared = LongDocumentSettingsStore()
 
     private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
-    private let allowedChunkSizes: [Int] = [2200, 2600, 3000, 3200]
-    private let fallbackChunkSize = 2600
+    private let allowedChunkSizes: [Int] = [2000, 2200, 2600, 3000, 3200]
+    private let fallbackChunkSize = 2000
+    private let routingThresholdValue = 2600
     private let allowedMaxChunkCounts: [Int] = [4, 5, 6, 7]
     private let fallbackMaxChunkCount = 5
 
@@ -26,7 +27,7 @@ final class LongDocumentSettingsStore {
     }
 
     func routingThreshold() -> Int {
-        chunkTokenSize()
+        routingThresholdValue
     }
 
     func maxChunkCount() -> Int {

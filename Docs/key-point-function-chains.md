@@ -22,7 +22,7 @@
         - `content.js` 解析正文（見 A2）
         - `estimateTokensWithTokenizer(text)`（見 A3）
      3) 依 token 分流
-        - `tokenEstimate > LONG_DOCUMENT_TOKEN_THRESHOLD` → `runLongDocumentPipeline()`（見 A4）
+        - `tokenEstimate > routingThreshold(2600)` → `runLongDocumentPipeline()`（見 A4）
         - 否則進入短文摘要（見 A5）
      4) `saveRawHistoryItem()` → `saveRawItem`（見 A6）
 
@@ -43,7 +43,7 @@
 長文切段：
 `popup.js` → `chunkByTokens(text, chunkTokenSize)`
 - 以選定 tokenizer 切段（預設 `cl100k_base`）
-- `chunkTokenSize = 設定值`（2200/2600/3000/3200，預設 2600；最多段數由設定決定，超過則丟棄）
+- `chunkTokenSize = 設定值`（2000/2200/2600/3000/3200，預設 2000；最多段數由設定決定，超過則丟棄）
 - tokenizer 未就緒時改用 `chunkByEstimatedTokens()`（heuristic）
 - 不再走 native messaging 的 `token.estimate` / `token.chunk`
 
@@ -128,12 +128,12 @@
 - `tokenEstimator.estimateTokenCount(for:)` → `SwiftikToken`（由設定決定，預設 `cl100k_base`）
 - `SwiftikToken` 由 App main bundle 載入選定 `.tiktoken` 檔
 - `tokenEstimate > longDocumentRoutingThreshold` → 長文 Pipeline
-  - `longDocumentRoutingThreshold = chunkTokenSize`（設定值）
+  - `longDocumentRoutingThreshold = 2600`（固定值）
 - 否則 → 單次摘要
 
 ### B5. 長文 Pipeline（App）
 `ClipboardKeyPointViewModel.runLongDocumentPipeline()`
-1. **Step 1 切段**：`tokenEstimator.chunk(text:chunkTokenSize:)`（`chunkTokenSize = 設定值`，預設 2600；最多段數由設定決定，超過則丟棄）
+1. **Step 1 切段**：`tokenEstimator.chunk(text:chunkTokenSize:)`（`chunkTokenSize = 設定值`，預設 2000；最多段數由設定決定，超過則丟棄）
 2. **Step 2 閱讀錨點**（逐段）
    - `buildReadingAnchorSystemPrompt()`
    - `buildReadingAnchorUserPrompt()`
@@ -193,7 +193,7 @@
 - App：`tokenEstimator.estimateTokenCount()`（`SwiftikToken`）
 
 **Step 1 Chunk 切割**
-- Spec：固定切段（`chunkTokenSize = 設定值`，預設 2600；最多段數由設定決定，超過則丟棄）
+- Spec：固定切段（`chunkTokenSize = 設定值`，預設 2000；最多段數由設定決定，超過則丟棄）
 - Extension：`chunkByTokens()`（popup 內 tokenizer）
 - Extension tokenizer 不可用時改用 `chunkByEstimatedTokens()`
 - App：`tokenEstimator.chunk(text:chunkTokenSize:)`

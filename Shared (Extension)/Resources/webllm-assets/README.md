@@ -5,7 +5,7 @@ This folder is intentionally meant to be **bundled into the Safari Web Extension
 ## Expected layout
 
 - `webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main/*`
-- `webllm-assets/wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm`
+- `webllm-assets/wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm`
 
 ## Fetch (dev)
 

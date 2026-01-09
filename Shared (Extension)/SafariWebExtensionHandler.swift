@@ -280,8 +280,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadLongDocumentChunkTokenSize() -> Int {
-        let fallback = 2600
-        let allowed: Set<Int> = [2200, 2600, 3000, 3200]
+        let fallback = 2000
+        let allowed: Set<Int> = [2000, 2200, 2600, 3000, 3200]
         guard let stored = sharedDefaults()?.object(forKey: longDocumentChunkTokenSizeKey) as? Int else {
             return fallback
         }
