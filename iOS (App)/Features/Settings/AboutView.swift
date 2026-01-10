@@ -147,12 +147,18 @@ struct AboutView: View {
 
                     VStack {
                         Image("ImageLogo")
-                        Image("TextLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 80)
 
-                        Color.clear.frame(height: 6)
+                        Image("TextLogo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 56)
+                            .offset(y: -2)
 
                         Text("Version \(appVersion)")
-                            .font(.footnote)
+                            .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
 
@@ -171,18 +177,18 @@ struct AboutView: View {
             }
 
             Section {
-                NavigationLink("View onboarding again") {
+                NavigationLink("View onboarding") {
                     OnboardingView(defaultPage: 0, dismissOnCompletion: true)
                 }
             } header: {
                 Text("Experience")
             } footer: {
-                Text("Revisit the full onboarding walkthrough anytime.")
+                Text("Revisit the onboarding flow anytime.")
             }
 
             Section {
                 Link(destination: URL(string: "https://github.com/qoli/eisonAI")!) {
-                    Label("GitHub Repository", systemImage: "link")
+                    Label("GitHub", systemImage: "link")
                 }
             } header: {
                 Text("Links")
@@ -191,16 +197,16 @@ struct AboutView: View {
             Section {
                 if let url = feedbackURL {
                     Link(destination: url) {
-                        Label("Report an issue", systemImage: "envelope")
+                        Label("Send feedback", systemImage: "envelope")
                     }
                 } else {
-                    Text("Feedback email is unavailable.")
+                    Text("Email feedback is unavailable.")
                         .foregroundStyle(.secondary)
                 }
             } header: {
                 Text("Feedback")
             } footer: {
-                Text("The email template includes your app version to help us troubleshoot faster.")
+                Text("The email template includes version and device info for faster troubleshooting.")
             }
 
             Section {
