@@ -2,25 +2,39 @@ import SwiftUI
 
 struct GeneralSettingsView: View {
     private let sharePollingStore = SharePollingSettingsStore()
+    private let modelLanguageStore = ModelLanguageStore()
 
     @State private var sharePollingEnabled = true
+    @State private var modelLanguageTag = ""
     @State private var didLoad = false
 
     var body: some View {
         Form {
             Section {
+                Picker("Language", selection: $modelLanguageTag) {
+                    ForEach(ModelLanguage.supported) { language in
+                        Text(language.displayName).tag(language.tag)
+                    }
+                }
+            } header: {
+                Text("Language of Thought")
+            } footer: {
+                Text("Choose the language eisonAI uses to think and write.")
+            }
+
+            Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Safari Extension")
                         .font(.headline)
 
-                    Text("Enable eisonAI in Settings > Safari > Extensions. Summaries run in the extension popup using built-in WebLLM models.")
+                    Text("Enable eisonAI in Settings → Safari → Extensions. Cognitive Index™ renders structure using the model engine selected in AI Models.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             } header: {
                 Text("Extensions")
             } footer: {
-                Text("This lets you summarize pages directly from Safari.")
+                Text("Visualize structure directly inside Safari.")
             }
 
             Section {
@@ -45,7 +59,12 @@ struct GeneralSettingsView: View {
             if !didLoad {
                 didLoad = true
                 sharePollingEnabled = sharePollingStore.isEnabled()
+                modelLanguageTag = modelLanguageStore.loadOrRecommended()
             }
+        }
+        .onChange(of: modelLanguageTag) { _, newValue in
+            guard didLoad else { return }
+            modelLanguageStore.save(newValue)
         }
     }
 }
