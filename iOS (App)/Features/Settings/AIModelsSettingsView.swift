@@ -43,9 +43,9 @@ struct AIModelsSettingsView: View {
     private var backendFooterText: String {
         switch aiStatus {
         case .available:
-            return "Apple Intelligence available on this device."
+            return "Apple Intelligence is available on this device."
         case .notSupported:
-            return "Requires iOS 26+ and Apple Intelligence enabled."
+            return "Requires iOS 26+ with Apple Intelligence enabled."
         case let .unavailable(reason):
             return reason
         }
@@ -53,9 +53,8 @@ struct AIModelsSettingsView: View {
 
     private var byokLongDocFooterText: String {
         """
-        \(byokLongDocPreset.contextLabel)
-        • Chunk Size: \(byokLongDocPreset.chunkSize)
-        • Routing Threshold: \(byokLongDocPreset.routingThreshold)
+        \(byokLongDocPreset.contextLabel) · Chunk \(byokLongDocPreset.chunkSize) · Route \(byokLongDocPreset.routingThreshold)
+        Recommended: Safe (8K)
         """
     }
 
@@ -69,7 +68,7 @@ struct AIModelsSettingsView: View {
                 }
 
             } header: {
-                Text("Generation Backend")
+                Text("Generation Engine")
             } footer: {
                 Text(backendFooterText)
                     .foregroundStyle(.secondary)
@@ -83,20 +82,20 @@ struct AIModelsSettingsView: View {
                         }
                     }
 
-                    TextField("API URL", text: $byokApiURL)
+                    TextField("API Base URL", text: $byokApiURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
 
-                    SecureField("API Key", text: $byokApiKey)
+                    SecureField("API Key (optional)", text: $byokApiKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    TextField("Model", text: $byokModel)
+                    TextField("Model ID", text: $byokModel)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
-                    Text("HTTP Provider")
+                    Text("Provider Settings")
                 } footer: {
                     Text(byokFooterMessage)
                         .foregroundStyle(byokFooterIsError ? .red : .secondary)
@@ -104,7 +103,7 @@ struct AIModelsSettingsView: View {
 
                 Section {
                     HStack {
-                        Text("Connection")
+                        Text("Status")
                         Spacer()
                         Circle()
                             .fill(byokConnectionStatus.color)
@@ -112,23 +111,23 @@ struct AIModelsSettingsView: View {
                             .accessibilityLabel(byokConnectionStatus.accessibilityLabel)
                     }
                 } header: {
-                    Text("Test Connection")
+                    Text("Connection Test")
                 } footer: {
                     if byokConnectionStatus == .failed, !byokConnectionError.isEmpty {
-                        Text(byokConnectionError)
+                        Text("Error: \(byokConnectionError)")
                             .foregroundStyle(.red)
                     }
                 }
 
                 Section {
-                    Picker("Strategy", selection: $byokLongDocPreset) {
+                    Picker("Context Strategy", selection: $byokLongDocPreset) {
                         ForEach(BYOKLongDocumentPreset.allCases) { preset in
                             Text(preset.title).tag(preset)
                         }
                     }
 
                 } header: {
-                    Text("Long Document")
+                    Text("Long-Document Strategy")
                 } footer: {
                     Text(byokLongDocFooterText)
                         .foregroundStyle(.secondary)
@@ -138,10 +137,10 @@ struct AIModelsSettingsView: View {
             if backend != .byok {
                 Section {
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("Long Document Processing")
+                        Text("Long-Document Processing")
                             .font(.headline)
 
-                        Text("eisonAI estimates token count with the selected tokenizer. If a document exceeds the routing threshold, it is split into fixed-size chunks. The app extracts key points per chunk, then generates a short summary from those key points.")
+                        Text("We estimate tokens with the selected tokenizer. If content exceeds the routing threshold, we split it into chunks, summarize each chunk, then combine key points into a final summary.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -151,7 +150,7 @@ struct AIModelsSettingsView: View {
 
                 Section {
                     Picker(
-                        "Chunk size for long documents",
+                        "Chunk Size",
                         selection: Binding(
                             get: { longDocumentChunkTokenSize },
                             set: { newValue in
@@ -167,13 +166,13 @@ struct AIModelsSettingsView: View {
                 } header: {
                     Text("Chunk Size")
                 } footer: {
-                    Text("Chunk size is measured in tokens. Routing threshold is fixed at 2600 tokens.")
+                    Text("Chunk size is in tokens. Routing threshold is fixed at 2,600.")
                 }
             }
 
             Section {
                 Picker(
-                    "Max number of chunks",
+                    "Max Chunks",
                     selection: Binding(
                         get: { longDocumentMaxChunkCount },
                         set: { newValue in
@@ -188,14 +187,14 @@ struct AIModelsSettingsView: View {
                     }
                 }
             } header: {
-                Text("Chunk Limit")
+                Text("Max Chunks")
             } footer: {
-                Text("Chunks beyond the limit are discarded to keep processing time predictable.")
+                Text("Extra chunks are skipped to keep processing time predictable.")
             }
 
             Section {
                 Picker(
-                    "Token counting model",
+                    "Tokenizer",
                     selection: Binding(
                         get: { tokenEstimatorEncoding },
                         set: { newValue in
@@ -210,9 +209,10 @@ struct AIModelsSettingsView: View {
                 }
 
             } header: {
-                Text("Token Counting")
+                Text("Tokenization")
             } footer: {
-                Text("Applies to token estimation and chunking in both the app and Safari extension.")
+                Text("Used for token estimates and chunking in the app and Safari extension.")
+                    .padding(.bottom)
             }
         }
 
@@ -312,7 +312,7 @@ struct AIModelsSettingsView: View {
             byokStore.saveSettings(settings)
         }
         byokFooterIsError = false
-        byokFooterMessage = "Auto-saved."
+        byokFooterMessage = "Saved automatically."
     }
 
     private func applyByokLongDocPreset(
