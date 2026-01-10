@@ -18,7 +18,7 @@ struct LibraryRootView: View {
     @State private var fullReloadToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppConfig.sharePollingEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
-    private var sharePollingEnabled = false
+    private var sharePollingEnabled = true
     @State private var isSyncErrorSheetPresented = false
 
     private let sharePayloadStore = SharePayloadStore()

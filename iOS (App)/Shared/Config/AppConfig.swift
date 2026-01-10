@@ -22,7 +22,7 @@ enum AppConfig {
     static let byokModelKey = "eison.byok.model"
     static let byokLongDocumentChunkTokenSizeKey = "eison.byok.longDocument.chunkTokenSize"
     static let byokLongDocumentRoutingThresholdKey = "eison.byok.longDocument.routingThreshold"
-    static let sharePollingEnabledKey = "eison.share.polling.enabled"
+    static let sharePollingEnabledKey = "eison.share.polling.enabled.v2"
     static let tokenEstimatorEncodingKey = "eison.tokenEstimator.encoding"
     static let longDocumentChunkTokenSizeKey = "eison.longDocument.chunkTokenSize"
     static let longDocumentMaxChunkCountKey = "eison.longDocument.maxChunkCount"
