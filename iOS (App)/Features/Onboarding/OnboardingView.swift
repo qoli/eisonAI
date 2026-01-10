@@ -73,6 +73,12 @@ struct OnboardingView: View {
         let line3: BionicLine
     }
 
+    private enum RamTier {
+        case insufficient
+        case limited
+        case sufficient
+    }
+
     private let onboardingCopies: [OnboardingCopy] = [
         OnboardingCopy(
             line1: BionicLine(
@@ -121,6 +127,11 @@ struct OnboardingView: View {
             line2: BionicLine(text: "", boldParts: []),
             line3: BionicLine(text: "", boldParts: [])
         ),
+        OnboardingCopy(
+            line1: BionicLine(text: "", boldParts: []),
+            line2: BionicLine(text: "", boldParts: []),
+            line3: BionicLine(text: "", boldParts: [])
+        ),
     ]
 
     private let longTextSentences = [
@@ -161,11 +172,88 @@ struct OnboardingView: View {
     @State private var isPurchased = false
     @State private var purchaseErrorMessage: String?
     @State private var hasLoadedStore = false
+    @State private var didApplyRamPreset = false
+    @State private var ramSelectedBackend: GenerationBackend = .mlc
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
     private var currentCopy: OnboardingCopy {
         onboardingCopy(for: selectedPage)
+    }
+
+    private var ramGiB: Double {
+        Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
+    }
+
+    private var ramDisplay: String {
+        String(format: "%.1f GiB", ramGiB)
+    }
+
+    private var ramTier: RamTier {
+        if ramGiB < 6 {
+            return .insufficient
+        }
+        if ramGiB <= 8 {
+            return .limited
+        }
+        return .sufficient
+    }
+
+    private var recommendedBackend: GenerationBackend {
+        if AppleIntelligenceAvailability.currentStatus() == .available {
+            return .appleIntelligence
+        }
+        switch ramTier {
+        case .sufficient:
+            return .mlc
+        case .insufficient, .limited:
+            return .byok
+        }
+    }
+
+    private var ramStatusLabel: String {
+        switch ramTier {
+        case .insufficient:
+            return "Not supported"
+        case .limited:
+            return "Limited"
+        case .sufficient:
+            return "Supported"
+        }
+    }
+
+    private var ramStatusColor: Color {
+        switch ramTier {
+        case .insufficient:
+            return .red
+        case .limited:
+            return .yellow
+        case .sufficient:
+            return .green
+        }
+    }
+
+    private var ramMessage: String {
+        switch ramTier {
+        case .insufficient:
+            return "This device isn't suitable for the local Qwen3 0.6B model. Use Apple Intelligence or BYOK."
+        case .limited:
+            return "Qwen3 0.6B can run, but stability isn't guaranteed. We recommend Apple Intelligence or BYOK."
+        case .sufficient:
+            return "This device can run the local Qwen3 0.6B model."
+        }
+    }
+
+    private var ramBackendOptions: [GenerationBackend] {
+        var options: [GenerationBackend] = []
+        if AppleIntelligenceAvailability.currentStatus() == .available {
+            options.append(.appleIntelligence)
+        }
+        if ramTier != .insufficient {
+            options.append(.mlc)
+        }
+        options.append(.byok)
+        return options
     }
 
     init(
@@ -183,7 +271,7 @@ struct OnboardingView: View {
         ZStack {
             mainView()
 
-            if selectedPage != 3 {
+            if selectedPage < 3 {
                 logoView()
             }
 
@@ -237,7 +325,7 @@ struct OnboardingView: View {
             .padding(.bottom, 4)
 
             Button {
-                if selectedPage == 3 {
+                if selectedPage == 4 {
                     if isPurchased {
                         handleLifetimeAccessCompletion()
                     } else {
@@ -249,7 +337,7 @@ struct OnboardingView: View {
             } label: {
                 HStack {
                     Text(selectedPage == 0 ? "Get started" :
-                        selectedPage == 3 ? completionButtonTitle : "Continue")
+                        selectedPage == 4 ? completionButtonTitle : "Continue")
                 }
                 .padding(.vertical, 6)
                 .frame(width: 180)
@@ -290,6 +378,12 @@ struct OnboardingView: View {
                 }
 
                 if selectedPage == 3 {
+                    ramCheckView()
+                        .transition(pageTransition)
+                        .frame(maxWidth: 460)
+                }
+
+                if selectedPage == 4 {
                     productView()
                         .transition(pageTransition)
                         .padding(.top, -180)
@@ -313,14 +407,17 @@ struct OnboardingView: View {
             )
             .onChange(of: selectedPage) { _, newValue in
                 animateOnboardingTextChange(to: newValue)
+                if newValue == 3 {
+                    applyRamPresetIfNeeded()
+                }
             }
 
-            if selectedPage != 3 {
+            if selectedPage < 3 {
                 OnboardingText(
                     currentCopy,
                     animationToken: textAnimationToken
                 )
-            } else {
+            } else if selectedPage == 4 {
                 VStack {
                     HStack {
                         Text("Unlock Full Access")
@@ -425,6 +522,8 @@ struct OnboardingView: View {
                     .padding(.bottom, 70)
                 }
                 .frame(maxWidth: 480)
+            } else {
+                Color.clear.frame(height: 1)
             }
             Spacer()
         }
@@ -559,6 +658,110 @@ struct OnboardingView: View {
         }
         .frame(width: 320)
         .frame(height: 240)
+    }
+
+    @ViewBuilder private func ramCheckView() -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "memorychip")
+                    .font(.headline)
+                Text("Device Capability Check")
+                    .font(.headline)
+                    .fontWeight(.bold)
+                Spacer()
+            }
+
+            Text("We check memory before purchase to set a safe default.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.bottom)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Installed Memory")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(ramStatusColor)
+                            .frame(width: 10, height: 10)
+                        Text(ramStatusLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Text(ramDisplay)
+                    .font(.title)
+                    .fontWeight(.bold)
+                    .fontDesign(.rounded)
+
+                Text(ramMessage)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recommended Default")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Menu {
+                        ForEach(ramBackendOptions, id: \.self) { backend in
+                            Button {
+                                setRamBackend(backend)
+                            } label: {
+                                Text(backend.displayName)
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(ramSelectedBackend.displayName)
+                                .font(.headline)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
+                                .opacity(0.6)
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.secondary.opacity(0.12))
+                        )
+                    }
+
+                    Text("You can change this later in Settings → AI Models.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(16)
+            .glassedEffect(in: RoundedRectangle(cornerRadius: 20), interactive: true)
+
+            // Option description
+            ZStack(alignment: .leading) {
+                Text("BYOK uses your own provider and API key. You can finish setup later in Settings → AI Models.")
+                    .opacity(ramSelectedBackend == .byok ? 1 : 0)
+                Text("Qwen3 0.6B runs locally on-device. It may be unstable on lower-RAM devices.")
+                    .opacity(ramSelectedBackend == .mlc ? 1 : 0)
+                Text("Apple Intelligence runs through Apple’s on-device models. It requires iOS 26+ with Apple Intelligence enabled.")
+                    .opacity(ramSelectedBackend == .appleIntelligence ? 1 : 0)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 24)
+        .frame(maxWidth: 420)
+        .onAppear {
+            applyRamPresetIfNeeded()
+        }
     }
 
     @ViewBuilder private func modelLanguagePage() -> some View {
@@ -1174,6 +1377,18 @@ struct OnboardingView: View {
         }
         return onboardingCopies[0]
     }
+
+    private func applyRamPresetIfNeeded() {
+        guard !didApplyRamPreset else { return }
+        didApplyRamPreset = true
+        setRamBackend(recommendedBackend)
+    }
+
+    private func setRamBackend(_ backend: GenerationBackend) {
+        ramSelectedBackend = backend
+        let store = GenerationBackendSettingsStore()
+        store.saveSelectedBackend(backend)
+    }
 }
 
 private struct ScrambleText: View {
@@ -1424,6 +1639,12 @@ private struct BorderedTintButtonStyle: ButtonStyle {
 
 #Preview {
     OnboardingView(defaultPage: 3)
+        .environment(\.locale, .init(identifier: "en"))
+        .environment(\.layoutDirection, .leftToRight)
+}
+
+#Preview {
+    OnboardingView(defaultPage: 4)
         .environment(\.locale, .init(identifier: "en"))
         .environment(\.layoutDirection, .leftToRight)
 }
