@@ -115,7 +115,7 @@ struct ClipboardKeyPointSheet: View {
             .fontDesign(.rounded)
             .font(.caption2)
             .multilineTextAlignment(.trailing)
-            .frame(width: 120)
+            .frame(width: 96)
             .padding(.horizontal)
             .padding(.vertical, 8)
             .ifMacCatalyst({ view in

@@ -15,6 +15,9 @@
 		46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 		49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */; };
 		5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */; };
+		7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
+		0B30AC938F36F5E292B932EE /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
+		FDFF207F854238C9A4A5A869 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
 		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
@@ -143,6 +146,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B30AC938F36F5E292B932EE /* AnyLanguageModel in Frameworks */,
 				F859CD0359BA4345930FE1C0 /* Drops in Frameworks */,
 				46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */,
 			);
@@ -152,6 +156,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */,
 				EABCD6822F00650B0013F6F9 /* Drops in Frameworks */,
 				EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */,
 				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
@@ -169,6 +174,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FDFF207F854238C9A4A5A869 /* AnyLanguageModel in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,6 +409,7 @@
 			mainGroup = EA7726162BC5B6B2005A194D;
 			packageReferences = (
 				EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */,
+				19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */,
 				EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */,
 			);
@@ -1153,6 +1160,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../mlc-llm/ios/MLCSwift";
 		};
+		19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../AnyLanguageModel";
+		};
 		EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../mlc-llm/ios/MLCSwift";
@@ -1179,6 +1190,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		371150D3FE8FFDA40696F57E /* AnyLanguageModel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */;
+			productName = AnyLanguageModel;
+		};
 		69E3C302CAE70743D02A6776 /* MLCSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0D648BB9D0960542D5CAB482 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */;

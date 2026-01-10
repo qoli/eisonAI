@@ -5,8 +5,9 @@ final class GenerationService {
     static let shared = GenerationService()
 
     private let defaultMLC = MLCClient()
-    private let defaultFoundationModels = FoundationModelsClient()
-    private let defaultFoundationSettings = FoundationModelsSettingsStore()
+    private let defaultAnyLanguageModels = AnyLanguageModelClient()
+    private let backendSettings = GenerationBackendSettingsStore()
+    private let byokSettingsStore = BYOKSettingsStore()
 
     private let rawLibraryStore = RawLibraryStore()
     private let titlePromptStore = TitlePromptStore()
@@ -19,12 +20,14 @@ final class GenerationService {
         force: Bool,
         fileURL: URL,
         mlc: MLCClient? = nil,
-        foundationModels: FoundationModelsClient? = nil,
-        foundationSettings: FoundationModelsSettingsStore? = nil
+        anyLanguageModels: AnyLanguageModelClient? = nil,
+        backendSettings: GenerationBackendSettingsStore? = nil,
+        byokSettingsStore: BYOKSettingsStore? = nil
     ) async -> RawHistoryItem? {
         let mlc = mlc ?? defaultMLC
-        let foundationModels = foundationModels ?? defaultFoundationModels
-        let foundationSettings = foundationSettings ?? defaultFoundationSettings
+        let anyLanguageModels = anyLanguageModels ?? defaultAnyLanguageModels
+        let backendSettings = backendSettings ?? self.backendSettings
+        let byokSettingsStore = byokSettingsStore ?? self.byokSettingsStore
 
         do {
             let item = try rawLibraryStore.loadItem(fileURL: fileURL)
@@ -36,22 +39,32 @@ final class GenerationService {
             let systemPrompt = titlePromptStore.load()
             let userPrompt = buildTitleUserPrompt(for: item)
 
-            let useFoundationModels = foundationSettings.isAppEnabled()
-                && FoundationModelsAvailability.currentStatus() == .available
-
             let stream: AsyncThrowingStream<String, Error>
-            if useFoundationModels {
+            let backend = backendSettings.effectiveBackend()
+            switch backend {
+            case .mlc:
+                try await mlc.loadIfNeeded()
+                stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+            case .appleIntelligence:
                 let prefix = clampText(userPrompt, maxChars: 800)
-                foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prefix)
-                stream = try await foundationModels.streamChat(
+                anyLanguageModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prefix, backend: backend)
+                stream = try await anyLanguageModels.streamChat(
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
                     temperature: 0.4,
-                    maximumResponseTokens: 128
+                    maximumResponseTokens: 128,
+                    backend: backend
                 )
-            } else {
-                try await mlc.loadIfNeeded()
-                stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+            case .byok:
+                let byokSettings = byokSettingsStore.loadSettings()
+                stream = try await anyLanguageModels.streamChat(
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    temperature: 0.4,
+                    maximumResponseTokens: 128,
+                    backend: backend,
+                    byok: byokSettings
+                )
             }
 
             var output = ""
@@ -61,7 +74,7 @@ final class GenerationService {
             }
             if Task.isCancelled { return nil }
 
-            if !useFoundationModels, isQwen3Model(mlc.loadedModelID) {
+            if backend == .mlc, isQwen3Model(mlc.loadedModelID) {
                 log("title generation stripping <think> tags for qwen3")
                 output = stripThinkTags(output)
             }

@@ -15,7 +15,8 @@
 1. 引入 AnyLanguageModel（含 `mlx` trait）。
 2. 執行一次 refactor，將現有 generation backend 進一步模組化。
 3. 把 `mlc_llm` 的處理路徑併入本次重構範圍。
-4. web-llm（Safari extension）暫時不改動。
+4. web-llm（Safari extension）不做大改；延用既有 `fm.*` 原生通信協議，
+   僅在 native 端改為 AnyLanguageModel backend 分流，JS 端只需 console.log 顯示 HTTP 設定。
 5. **不新增 demo 頁面**；直接完成原生 app 的 `ClipboardKeyPointSheet` 流程。
 6. 若 refactor 影響 Safari Extension 的 Foundation Models 路徑（需要訪問 Apple Foundation Models），必須同步修正。
 
@@ -45,10 +46,11 @@
   - API URL 在「保存時」才提示是否以 `/v1` 結尾。
   - API Key 允許空白（例如本地 Ollama）。
   - 若 URL 未以 `/v1` 結尾，在 Section Footer 顯示**紅色字**提示：`URL 缺乏 /v1 結尾`。
-  - 驗證不通過時，保存按鈕不可點擊；僅在信息完整且通過檢查時才可保存。
+  - 驗證不通過時不會自動保存；僅在信息完整且通過檢查時才會寫入。
 
 ## Provider 策略
-- Provider 由用戶手動選擇。
+- Provider 由用戶手動選擇（BYOK 區塊僅顯示 HTTP providers）。
+- Apple Foundation Models 走 `Generation Backend` 的 Apple Intelligence 選項（不放在 HTTP Provider 下）。
 - AnyLanguageModel 需覆蓋以下 provider（MLX 先隱藏，保留註釋）：
   - Apple Foundation Models
   - MLX models
@@ -57,14 +59,13 @@
   - Google Gemini API
   - OpenAI Chat Completions API
   - OpenAI Responses API
-  - UI Provider 選項順序：
-    - Ollama
-    - Anthropic
-    - Gemini
-    - OpenAI (Chat)
-    - OpenAI (Responses)
-    - Apple Foundation Models
-    - (MLX 先隱藏，寫在註釋)
+- UI Provider 選項順序（HTTP Provider Section）：
+  - Ollama
+  - Anthropic
+  - Gemini
+  - OpenAI (Chat)
+  - OpenAI (Responses)
+  - (MLX 先隱藏，寫在註釋)
 
 ## 長文 pipeline（BYOK）
 - BYOK 使用 **獨立** 的 chunk size / routing threshold 參數。
@@ -73,6 +74,15 @@
   - routing threshold: 7168
 - 以上兩個參數需要在 Settings 可調。
 - maxTokens / think tags 維持與現有處理一致（共用原有策略）。
+
+## Safari Extension 行為（更新）
+- Extension 仍使用既有 `fm.checkAvailability / fm.prewarm / fm.stream.start / fm.stream.poll` 原生通訊。
+- 原生端改為 AnyLanguageModel backend 分流：
+  - backend = `apple` → SystemLanguageModel（Apple Intelligence）
+  - backend = `byok` → HTTP provider（OpenAI/Ollama/Anthropic/Gemini）
+  - backend = `mlc` → 回報不可用（繼續走 WebLLM）
+- Apple Intelligence 仍需 iOS 26+；BYOK 不受此限制（取決於 AnyLanguageModel 支援版本）。
+- JS 端只需 console.log 顯示 HTTP 設定資訊，暫不導入新 backend 流程。
 
 ## BYOK 測試資訊（暫用）
 - API: `http://ronnie-mac-studio.local:1234/v1`

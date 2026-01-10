@@ -1344,6 +1344,57 @@ async function refreshLongDocumentMaxChunksFromNative() {
 
   return longDocumentMaxChunks;
 }
+
+async function logByokSettingsFromNative() {
+  if (typeof browser?.runtime?.sendNativeMessage !== "function") {
+    return;
+  }
+
+  try {
+    const [backendResp, byokResp, byokLongDocResp] = await Promise.all([
+      browser.runtime.sendNativeMessage({ v: 1, command: "getGenerationBackend" }),
+      browser.runtime.sendNativeMessage({ v: 1, command: "getBYOKSettings" }),
+      browser.runtime.sendNativeMessage({ v: 1, command: "getByokLongDocumentSettings" }),
+    ]);
+
+    const backendPayload =
+      backendResp?.payload ??
+      backendResp?.echo?.payload ??
+      backendResp;
+    const backend = backendPayload?.backend ? String(backendPayload.backend) : "unknown";
+
+    const byokPayload =
+      byokResp?.payload ??
+      byokResp?.echo?.payload ??
+      byokResp;
+
+    const provider = byokPayload?.provider ? String(byokPayload.provider) : "";
+    const apiURL = byokPayload?.apiURL ? String(byokPayload.apiURL) : "";
+    const model = byokPayload?.model ? String(byokPayload.model) : "";
+    const apiKey = byokPayload?.apiKey ? String(byokPayload.apiKey) : "";
+
+    const byokLongDocPayload =
+      byokLongDocResp?.payload ??
+      byokLongDocResp?.echo?.payload ??
+      byokLongDocResp;
+    const byokChunkTokenSize = Number(byokLongDocPayload?.chunkTokenSize);
+    const byokRoutingThreshold = Number(byokLongDocPayload?.routingThreshold);
+
+    console.log("[WebLLM Demo] generation backend =", backend);
+    console.log("[WebLLM Demo] BYOK HTTP config =", {
+      provider,
+      apiURL,
+      model,
+      hasApiKey: Boolean(apiKey),
+    });
+    console.log("[WebLLM Demo] BYOK long-doc settings =", {
+      chunkTokenSize: Number.isFinite(byokChunkTokenSize) ? byokChunkTokenSize : null,
+      routingThreshold: Number.isFinite(byokRoutingThreshold) ? byokRoutingThreshold : null,
+    });
+  } catch (err) {
+    console.warn("[WebLLM Demo] Failed to load BYOK settings from native:", err);
+  }
+}
 async function checkFoundationModelsAvailabilityFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     return { enabled: false, available: false, reason: "native messaging unavailable" };
@@ -2540,3 +2591,5 @@ autoSummarizeActiveTab().catch((err) => {
   console.warn("[WebLLM Demo] autoSummarizeActiveTab failed:", err);
   setStatusError(err);
 });
+
+logByokSettingsFromNative();

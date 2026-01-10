@@ -11,9 +11,22 @@ import Foundation
 import os.log
 import SafariServices
 
-#if canImport(FoundationModels)
-    import FoundationModels
+#if canImport(AnyLanguageModel)
+    import AnyLanguageModel
 #endif
+
+enum GenerationBackendSelection: String {
+    case mlc
+    case appleIntelligence = "apple"
+    case byok
+}
+
+struct BYOKSettingsPayload {
+    let provider: String
+    let apiURL: String
+    let apiKey: String
+    let model: String
+}
 
 final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     private static let logSubsystem = "com.qoli.eisonAI"
@@ -288,6 +301,22 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return allowed.contains(stored) ? stored : fallback
     }
 
+    private func loadBYOKLongDocumentChunkTokenSize() -> Int {
+        let fallback = 4096
+        guard let stored = sharedDefaults()?.object(forKey: AppConfig.byokLongDocumentChunkTokenSizeKey) as? Int else {
+            return fallback
+        }
+        return max(1, stored)
+    }
+
+    private func loadBYOKLongDocumentRoutingThreshold() -> Int {
+        let fallback = 7168
+        guard let stored = sharedDefaults()?.object(forKey: AppConfig.byokLongDocumentRoutingThresholdKey) as? Int else {
+            return fallback
+        }
+        return max(1, stored)
+    }
+
     private func loadLongDocumentMaxChunks() -> Int {
         let fallback = 5
         let allowed: Set<Int> = [4, 5, 6, 7]
@@ -431,8 +460,36 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return canonical
     }
 
+    private func loadGenerationBackendSelection() -> GenerationBackendSelection {
+        guard let raw = sharedDefaults()?.string(forKey: AppConfig.generationBackendKey),
+              let selection = GenerationBackendSelection(rawValue: raw)
+        else {
+            return .mlc
+        }
+        return selection
+    }
+
     private func isFoundationModelsExtensionEnabled() -> Bool {
-        sharedDefaults()?.bool(forKey: AppConfig.foundationModelsExtensionEnabledKey) ?? false
+        let backend = loadGenerationBackendSelection()
+        return backend == .appleIntelligence || backend == .byok
+    }
+
+    private func loadBYOKSettings() -> BYOKSettingsPayload {
+        let defaults = sharedDefaults()
+        let provider = defaults?.string(forKey: AppConfig.byokProviderKey) ?? ""
+        let apiURL = defaults?.string(forKey: AppConfig.byokApiURLKey) ?? ""
+        let apiKey = defaults?.string(forKey: AppConfig.byokApiKeyKey) ?? ""
+        let model = defaults?.string(forKey: AppConfig.byokModelKey) ?? ""
+        return BYOKSettingsPayload(provider: provider, apiURL: apiURL, apiKey: apiKey, model: model)
+    }
+
+    private func byokPayloadDict(_ payload: BYOKSettingsPayload) -> [String: Any] {
+        [
+            "provider": payload.provider,
+            "apiURL": payload.apiURL,
+            "apiKey": payload.apiKey,
+            "model": payload.model,
+        ]
     }
 
     private func complete(_ context: NSExtensionContext, responseMessage: [String: Any]) {
@@ -581,6 +638,39 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             ])
             return
 
+        case "getByokLongDocumentSettings":
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "byokLongDocumentSettings",
+                "payload": [
+                    "chunkTokenSize": loadBYOKLongDocumentChunkTokenSize(),
+                    "routingThreshold": loadBYOKLongDocumentRoutingThreshold(),
+                ],
+            ])
+            return
+
+        case "getGenerationBackend":
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "generationBackend",
+                "payload": [
+                    "backend": loadGenerationBackendSelection().rawValue,
+                ],
+            ])
+            return
+
+        case "getBYOKSettings":
+            let byokSettings = loadBYOKSettings()
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "byokSettings",
+                "payload": byokPayloadDict(byokSettings),
+            ])
+            return
+
         case "setSystemPrompt":
             let prompt = dict["prompt"] as? String
             saveSystemPrompt(prompt)
@@ -608,8 +698,12 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
         case "fm.checkAvailability":
             Task {
-                let enabled = isFoundationModelsExtensionEnabled()
-                let payload = await FoundationModelsStreamManager.shared.checkAvailabilityPayload(enabled: enabled)
+                let backend = loadGenerationBackendSelection()
+                let byokSettings = loadBYOKSettings()
+                let payload = await FoundationModelsStreamManager.shared.checkAvailabilityPayload(
+                    backend: backend,
+                    byok: byokSettings
+                )
                 complete(context, responseMessage: [
                     "v": 1,
                     "type": "response",
@@ -621,20 +715,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
         case "fm.prewarm":
             Task {
-                let enabled = isFoundationModelsExtensionEnabled()
-                if !enabled {
-                    complete(context, responseMessage: [
-                        "v": 1,
-                        "type": "error",
-                        "name": "fm.prewarm",
-                        "payload": [
-                            "code": "DISABLED",
-                            "message": "Foundation Models (Safari Extension) is disabled.",
-                        ],
-                    ])
-                    return
-                }
-
+                let backend = loadGenerationBackendSelection()
+                let byokSettings = loadBYOKSettings()
                 let payload = dict["payload"] as? [String: Any]
                 let systemPrompt = (payload?["systemPrompt"] as? String) ?? ""
                 let promptPrefix = payload?["promptPrefix"] as? String
@@ -642,7 +724,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 do {
                     try await FoundationModelsStreamManager.shared.prewarm(
                         systemPrompt: systemPrompt,
-                        promptPrefix: promptPrefix
+                        promptPrefix: promptPrefix,
+                        backend: backend,
+                        byok: byokSettings
                     )
                     complete(context, responseMessage: [
                         "v": 1,
@@ -668,19 +752,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
         case "fm.stream.start":
             Task {
-                let enabled = isFoundationModelsExtensionEnabled()
-                if !enabled {
-                    complete(context, responseMessage: [
-                        "v": 1,
-                        "type": "error",
-                        "name": "fm.stream.start",
-                        "payload": [
-                            "code": "DISABLED",
-                            "message": "Foundation Models (Safari Extension) is disabled.",
-                        ],
-                    ])
-                    return
-                }
+                let backend = loadGenerationBackendSelection()
+                let byokSettings = loadBYOKSettings()
 
                 let payload = dict["payload"] as? [String: Any]
                 let systemPrompt = (payload?["systemPrompt"] as? String) ?? ""
@@ -694,7 +767,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                         systemPrompt: systemPrompt,
                         userPrompt: userPrompt,
                         temperature: temperature,
-                        maximumResponseTokens: maximumResponseTokens
+                        maximumResponseTokens: maximumResponseTokens,
+                        backend: backend,
+                        byok: byokSettings
                     )
                     complete(context, responseMessage: [
                         "v": 1,
@@ -947,7 +1022,7 @@ actor FoundationModelsStreamManager {
         var errorDescription: String? {
             switch self {
             case .notSupported:
-                return "Foundation Models requires iOS 26+ with Apple Intelligence."
+                return "Native models require iOS 26+."
             case let .unavailable(reason):
                 return reason
             case .jobNotFound:
@@ -985,62 +1060,90 @@ actor FoundationModelsStreamManager {
 
     private var jobs: [String: Job] = [:]
 
-    func checkAvailabilityPayload(enabled: Bool) async -> [String: Any] {
-        guard enabled else {
+    func checkAvailabilityPayload(
+        backend: GenerationBackendSelection,
+        byok: BYOKSettingsPayload
+    ) async -> [String: Any] {
+        switch backend {
+        case .mlc:
             return [
                 "enabled": false,
                 "available": false,
-                "reason": "Disabled by user.",
+                "reason": "Using WebLLM backend.",
             ]
-        }
-
-        guard #available(iOS 26.0, macOS 26.0, *) else {
-            return [
-                "enabled": true,
-                "available": false,
-                "reason": "Requires iOS 26+ with Apple Intelligence.",
-            ]
-        }
-
-        #if canImport(FoundationModels)
-            let model = SystemLanguageModel.default
-            switch model.availability {
-            case .available:
-                return [
-                    "enabled": true,
-                    "available": true,
-                    "reason": "",
-                ]
-            case let .unavailable(reason):
-                let message: String
-                switch reason {
-                case .deviceNotEligible:
-                    message = "Device not eligible for Apple Intelligence."
-                case .appleIntelligenceNotEnabled:
-                    message = "Apple Intelligence is not enabled."
-                case .modelNotReady:
-                    message = "Apple Intelligence models are still downloading."
-                @unknown default:
-                    message = "Apple Intelligence is unavailable."
-                }
+        case .byok:
+            if let error = validateBYOK(byok) {
                 return [
                     "enabled": true,
                     "available": false,
-                    "reason": message,
+                    "reason": error,
                 ]
             }
-        #else
             return [
                 "enabled": true,
-                "available": false,
-                "reason": "FoundationModels framework is unavailable.",
+                "available": true,
+                "reason": "",
             ]
-        #endif
+        case .appleIntelligence:
+            guard #available(iOS 26.0, macOS 26.0, *) else {
+                return [
+                    "enabled": true,
+                    "available": false,
+                    "reason": "Requires iOS 26+ with Apple Intelligence.",
+                ]
+            }
+
+            #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+                let model = SystemLanguageModel.default
+                switch model.availability {
+                case .available:
+                    return [
+                        "enabled": true,
+                        "available": true,
+                        "reason": "",
+                    ]
+                case let .unavailable(reason):
+                    let message: String
+                    switch reason {
+                    case .deviceNotEligible:
+                        message = "Device not eligible for Apple Intelligence."
+                    case .appleIntelligenceNotEnabled:
+                        message = "Apple Intelligence is not enabled."
+                    case .modelNotReady:
+                        message = "Apple Intelligence models are still downloading."
+                    @unknown default:
+                        message = "Apple Intelligence is unavailable."
+                    }
+                    return [
+                        "enabled": true,
+                        "available": false,
+                        "reason": message,
+                    ]
+                }
+            #else
+                return [
+                    "enabled": true,
+                    "available": false,
+                    "reason": "Apple Intelligence framework is unavailable.",
+                ]
+            #endif
+        }
     }
 
-    func prewarm(systemPrompt: String, promptPrefix: String?) async throws {
+    func prewarm(
+        systemPrompt: String,
+        promptPrefix: String?,
+        backend: GenerationBackendSelection,
+        byok: BYOKSettingsPayload
+    ) async throws {
+        if backend == .mlc {
+            throw StreamError.notSupported
+        }
+        if backend == .byok {
+            return
+        }
         guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
-        #if canImport(FoundationModels)
+        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
             let availability = SystemLanguageModel.default.availability
             if case let .unavailable(reason) = availability {
                 let message: String
@@ -1080,57 +1183,51 @@ actor FoundationModelsStreamManager {
         systemPrompt: String,
         userPrompt: String,
         temperature: Double?,
-        maximumResponseTokens: Int?
+        maximumResponseTokens: Int?,
+        backend: GenerationBackendSelection,
+        byok: BYOKSettingsPayload
     ) async throws -> String {
-        guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
-        #if canImport(FoundationModels)
-            let availability = SystemLanguageModel.default.availability
-            if case let .unavailable(reason) = availability {
-                let message: String
-                switch reason {
-                case .deviceNotEligible:
-                    message = "Device not eligible for Apple Intelligence."
-                case .appleIntelligenceNotEnabled:
-                    message = "Apple Intelligence is not enabled."
-                case .modelNotReady:
-                    message = "Apple Intelligence models are still downloading."
-                @unknown default:
-                    message = "Apple Intelligence is unavailable."
-                }
-                throw StreamError.unavailable(message)
-            }
-
-            let jobId = UUID().uuidString
-            var job = Job()
-
-            let temp = temperature
-            let maxTok = maximumResponseTokens
-
-            job.task = Task {
-                await self.runJob(
-                    jobId: jobId,
-                    systemPrompt: systemPrompt,
-                    userPrompt: userPrompt,
-                    temperature: temp,
-                    maximumResponseTokens: maxTok
-                )
-            }
-
-            jobs[jobId] = job
-            return jobId
-        #else
+        if backend == .mlc {
             throw StreamError.notSupported
-        #endif
+        }
+        if backend == .byok, let error = validateBYOK(byok) {
+            throw StreamError.unavailable(error)
+        }
+        if backend == .appleIntelligence {
+            guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
+        }
+
+        let jobId = UUID().uuidString
+        var job = Job()
+
+        let temp = temperature
+        let maxTok = maximumResponseTokens
+
+        job.task = Task {
+            await self.runJob(
+                jobId: jobId,
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: temp,
+                maximumResponseTokens: maxTok,
+                backend: backend,
+                byok: byok
+            )
+        }
+
+        jobs[jobId] = job
+        return jobId
     }
 
-    #if canImport(FoundationModels)
-        @available(iOS 26.0, macOS 26.0, *)
+    #if canImport(AnyLanguageModel)
         private func runJob(
             jobId: String,
             systemPrompt: String,
             userPrompt: String,
             temperature: Double?,
-            maximumResponseTokens: Int?
+            maximumResponseTokens: Int?,
+            backend: GenerationBackendSelection,
+            byok: BYOKSettingsPayload
         ) async {
             let options = GenerationOptions(
                 sampling: nil,
@@ -1139,17 +1236,15 @@ actor FoundationModelsStreamManager {
             )
 
             do {
+                let model = try buildModel(backend: backend, byok: byok)
                 let session = takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
-                    ?? LanguageModelSession(
-                        model: SystemLanguageModel(useCase: .general, guardrails: .default),
-                        instructions: Instructions(systemPrompt)
-                    )
+                    ?? LanguageModelSession(model: model, instructions: Instructions(systemPrompt))
                 let stream = session.streamResponse(to: Prompt(userPrompt), options: options)
 
                 var previous = ""
                 for try await partial in stream {
                     if Task.isCancelled { break }
-                    let current = partial.content
+                    let current = String(partial.content)
                     let delta: String
                     if current.hasPrefix(previous) {
                         delta = String(current.dropFirst(previous.count))
@@ -1173,8 +1268,7 @@ actor FoundationModelsStreamManager {
         }
     #endif
 
-    #if canImport(FoundationModels)
-        @available(iOS 26.0, macOS 26.0, *)
+    #if canImport(AnyLanguageModel)
         private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
             guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
                   prewarmSystemPrompt == systemPrompt else {
@@ -1191,6 +1285,116 @@ actor FoundationModelsStreamManager {
             prewarmSystemPrompt = nil
             prewarmPromptPrefix = nil
             return prewarmedSession
+        }
+    #endif
+
+    private func validateBYOK(_ byok: BYOKSettingsPayload) -> String? {
+        let trimmedURL = byok.apiURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedURL.isEmpty {
+            return "API URL 必填"
+        }
+        let lower = trimmedURL.lowercased()
+        if !(lower.hasSuffix("/v1") || lower.hasSuffix("/v1/")) {
+            return "URL 缺乏 /v1 結尾"
+        }
+        if URL(string: trimmedURL) == nil {
+            return "API URL 無效"
+        }
+        if byok.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Model 必填"
+        }
+        return nil
+    }
+
+    #if canImport(AnyLanguageModel)
+        private enum BYOKHTTPProvider: String {
+            case ollama
+            case anthropic
+            case gemini
+            case openAIChat = "openai.chat"
+            case openAIResponses = "openai.responses"
+        }
+
+        private func buildModel(
+            backend: GenerationBackendSelection,
+            byok: BYOKSettingsPayload
+        ) throws -> any LanguageModel {
+            switch backend {
+            case .mlc:
+                throw StreamError.notSupported
+            case .appleIntelligence:
+                guard #available(iOS 26.0, macOS 26.0, *) else {
+                    throw StreamError.notSupported
+                }
+                #if canImport(FoundationModels)
+                    let availability = SystemLanguageModel.default.availability
+                    if case let .unavailable(reason) = availability {
+                        let message: String
+                        switch reason {
+                        case .deviceNotEligible:
+                            message = "Device not eligible for Apple Intelligence."
+                        case .appleIntelligenceNotEnabled:
+                            message = "Apple Intelligence is not enabled."
+                        case .modelNotReady:
+                            message = "Apple Intelligence models are still downloading."
+                        @unknown default:
+                            message = "Apple Intelligence is unavailable."
+                        }
+                        throw StreamError.unavailable(message)
+                    }
+                    return SystemLanguageModel(useCase: .general, guardrails: .default)
+                #else
+                    throw StreamError.notSupported
+                #endif
+            case .byok:
+                if let error = validateBYOK(byok) {
+                    throw StreamError.unavailable(error)
+                }
+                let provider = BYOKHTTPProvider(rawValue: byok.provider) ?? .openAIChat
+                let baseURL = try resolveBaseURL(for: provider, rawValue: byok.apiURL)
+                let modelID = byok.model.trimmingCharacters(in: .whitespacesAndNewlines)
+                switch provider {
+                case .openAIChat:
+                    return OpenAILanguageModel(
+                        baseURL: baseURL,
+                        apiKey: byok.apiKey,
+                        model: modelID,
+                        apiVariant: .chatCompletions
+                    )
+                case .openAIResponses:
+                    return OpenAILanguageModel(
+                        baseURL: baseURL,
+                        apiKey: byok.apiKey,
+                        model: modelID,
+                        apiVariant: .responses
+                    )
+                case .ollama:
+                    return OllamaLanguageModel(baseURL: baseURL, model: modelID)
+                case .anthropic:
+                    return AnthropicLanguageModel(baseURL: baseURL, apiKey: byok.apiKey, model: modelID)
+                case .gemini:
+                    return GeminiLanguageModel(baseURL: baseURL, apiKey: byok.apiKey, model: modelID)
+                }
+            }
+        }
+
+        private func resolveBaseURL(for provider: BYOKHTTPProvider, rawValue: String) throws -> URL {
+            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let url = URL(string: trimmed) else {
+                throw StreamError.unavailable("API URL 無效")
+            }
+
+            var resolved = url
+            let lowercasedPath = resolved.path.lowercased()
+            if provider != .openAIChat && provider != .openAIResponses {
+                if lowercasedPath.hasSuffix("/v1") || lowercasedPath.hasSuffix("/v1/") {
+                    resolved.deleteLastPathComponent()
+                }
+            }
+            if !resolved.path.hasSuffix("/") {
+                resolved.appendPathComponent("")
+            }
+            return resolved
         }
     #endif
 
@@ -1244,35 +1448,31 @@ actor FoundationModelsStreamManager {
     }
 
     private func resolveFoundationModelsErrorCode(_ error: Error) -> String? {
-        #if canImport(FoundationModels)
-            var pending: [Error] = [error]
-            var seenDescriptions = Set<String>()
+        var pending: [Error] = [error]
+        var seenDescriptions = Set<String>()
 
-            while let current = pending.popLast() {
-                let description = String(describing: current)
-                if !description.isEmpty, !seenDescriptions.insert(description).inserted {
-                    continue
-                }
-
-                if #available(iOS 26.0, macOS 26.0, *),
-                   let generationError = current as? LanguageModelSession.GenerationError {
-                    return FoundationModelsStreamManager.mapFoundationModelsGenerationErrorCode(generationError)
-                }
-
-                let nsError = current as NSError
-                if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
-                    pending.append(underlying)
-                }
-                if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
-                    pending.append(contentsOf: underlyingErrors)
-                }
+        while let current = pending.popLast() {
+            let description = String(describing: current)
+            if !description.isEmpty, !seenDescriptions.insert(description).inserted {
+                continue
             }
-        #endif
+
+            if let generationError = current as? LanguageModelSession.GenerationError {
+                return FoundationModelsStreamManager.mapFoundationModelsGenerationErrorCode(generationError)
+            }
+
+            let nsError = current as NSError
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                pending.append(underlying)
+            }
+            if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
+                pending.append(contentsOf: underlyingErrors)
+            }
+        }
         return nil
     }
 
-    #if canImport(FoundationModels)
-        @available(iOS 26.0, macOS 26.0, *)
+    #if canImport(AnyLanguageModel)
         fileprivate static func mapFoundationModelsGenerationErrorCode(
             _ generationError: LanguageModelSession.GenerationError
         ) -> String {

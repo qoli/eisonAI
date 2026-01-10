@@ -1,9 +1,6 @@
+import AnyLanguageModel
 import Foundation
 import UIKit
-
-#if canImport(FoundationModels)
-    import FoundationModels
-#endif
 
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
@@ -31,8 +28,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     /// 如果正在處理 Chunk 2，就顯示文 2/3
 
     private let mlc = MLCClient()
-    private let foundationModels = FoundationModelsClient()
-    private let foundationSettings = FoundationModelsSettingsStore()
+    private let anyLanguageModels = AnyLanguageModelClient()
+    private let backendSettings = GenerationBackendSettingsStore()
+    private let byokSettingsStore = BYOKSettingsStore()
+    private let byokLongDocumentSettings = BYOKLongDocumentSettingsStore.shared
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
     private let tokenEstimator = GPTTokenEstimator.shared
@@ -99,30 +98,49 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 if Task.isCancelled { throw CancellationError() }
                 log("prepared input url=\(normalized.url.isEmpty ? "nil" : normalized.url) titleCount=\(normalized.title.count) textCount=\(normalized.text.count)")
 
-                let useFoundationModels = self.foundationSettings.isAppEnabled()
-                    && FoundationModelsAvailability.currentStatus() == .available
+                let backend = self.backendSettings.effectiveBackend()
+                var byokSettings: BYOKSettings?
+                if backend == .byok {
+                    let settings = self.byokSettingsStore.loadSettings()
+                    if let error = self.byokSettingsStore.validationError(for: settings) {
+                        self.status = "Invalid BYOK"
+                        self.errorMessage = error.message
+                        self.isRunning = false
+                        return
+                    }
+                    byokSettings = settings
+                }
 
-                let routingThreshold = longDocumentSettings.routingThreshold()
+                let routingThreshold =
+                    backend == .byok
+                    ? byokLongDocumentSettings.routingThreshold()
+                    : longDocumentSettings.routingThreshold()
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 self.tokenEstimate = tokenEstimate
                 let isLongDocument = tokenEstimate > routingThreshold
-                let chunkTokenSize = isLongDocument ? longDocumentSettings.chunkTokenSize() : nil
+                let chunkTokenSize =
+                    isLongDocument
+                    ? (backend == .byok
+                        ? byokLongDocumentSettings.chunkTokenSize()
+                        : longDocumentSettings.chunkTokenSize())
+                    : nil
                 self.pipelineStatus = isLongDocument ? "ON" : "Off"
                 self.chunkStatus = isLongDocument ? self.chunkStatus : ""
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
-                self.log("useFoundationModels=\(useFoundationModels)")
+                self.log("backend=\(backend.rawValue)")
 
                 let result: PipelineResult
                 var effectiveChunkTokenSize: Int?
                 var routingThresholdForSave = routingThreshold
                 if isLongDocument {
                     let resolvedChunkTokenSize = max(1, chunkTokenSize ?? 1)
-                    if useFoundationModels {
+                    if backend == .appleIntelligence {
                         let (longResult, resolvedSize) = try await self.runLongDocumentPipelineWithFallback(
                             normalized,
                             tokenEstimate: tokenEstimate,
                             chunkTokenSize: resolvedChunkTokenSize,
-                            useFoundationModels: useFoundationModels
+                            backend: backend,
+                            byok: byokSettings
                         )
                         result = longResult
                         effectiveChunkTokenSize = resolvedSize
@@ -132,7 +150,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                             normalized,
                             tokenEstimate: tokenEstimate,
                             chunkTokenSize: resolvedChunkTokenSize,
-                            useFoundationModels: useFoundationModels
+                            backend: backend,
+                            byok: byokSettings
                         )
                         effectiveChunkTokenSize = resolvedChunkTokenSize
                         routingThresholdForSave = routingThreshold
@@ -140,7 +159,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 } else {
                     result = try await self.runSingleSummary(
                         normalized,
-                        useFoundationModels: useFoundationModels
+                        backend: backend,
+                        byok: byokSettings
                     )
                 }
 
@@ -211,8 +231,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     force: false,
                     fileURL: savedFileURL,
                     mlc: self.mlc,
-                    foundationModels: self.foundationModels,
-                    foundationSettings: self.foundationSettings
+                    anyLanguageModels: self.anyLanguageModels,
+                    backendSettings: self.backendSettings,
+                    byokSettingsStore: self.byokSettingsStore
                 )
 
                 self.status = "Done"
@@ -303,32 +324,51 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private func runSingleSummary(
         _ input: PreparedInput,
-        useFoundationModels: Bool
+        backend: GenerationBackend,
+        byok: BYOKSettings?
     ) async throws -> PipelineResult {
         let systemPrompt = loadKeyPointSystemPrompt()
         let userPrompt = Self.buildUserPrompt(title: input.title, text: input.text)
 
         let modelId: String
         let summary: String
-        if useFoundationModels {
-            let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
-            foundationModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prewarmPrefix)
-            status = "Generating"
-            let stream = try await foundationModels.streamChat(
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                temperature: 0.4,
-                maximumResponseTokens: 2048
-            )
-            summary = try await collectStream(stream, updateOutput: true)
-            modelId = "foundation-models"
-        } else {
+        switch backend {
+        case .mlc:
             status = "Model…"
             try await mlc.loadIfNeeded()
             status = "Generating"
             let stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
             summary = try await collectStream(stream, updateOutput: true)
             modelId = mlc.loadedModelID ?? ""
+        case .appleIntelligence:
+            let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
+            anyLanguageModels.prewarm(
+                systemPrompt: systemPrompt,
+                promptPrefix: prewarmPrefix,
+                backend: backend
+            )
+            status = "Generating"
+            let stream = try await anyLanguageModels.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: 0.4,
+                maximumResponseTokens: 2048,
+                backend: backend
+            )
+            summary = try await collectStream(stream, updateOutput: true)
+            modelId = "apple-intelligence"
+        case .byok:
+            status = "Generating"
+            let stream = try await anyLanguageModels.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: 0.4,
+                maximumResponseTokens: 2048,
+                backend: backend,
+                byok: byok
+            )
+            summary = try await collectStream(stream, updateOutput: true)
+            modelId = byok?.trimmedModel ?? "byok"
         }
 
         return PipelineResult(
@@ -344,9 +384,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         _ input: PreparedInput,
         tokenEstimate: Int,
         chunkTokenSize: Int,
-        useFoundationModels: Bool
+        backend: GenerationBackend,
+        byok: BYOKSettings?
     ) async throws -> PipelineResult {
-        log("longdoc:start useFoundationModels=\(useFoundationModels)")
+        log("longdoc:start backend=\(backend.rawValue)")
         status = "Chunk…"
         let resolvedChunkSize = max(1, chunkTokenSize)
         let chunks = await tokenEstimator.chunk(
@@ -363,7 +404,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             )
         }
 
-        if !useFoundationModels {
+        if backend == .mlc {
             status = "Model…"
             try await mlc.loadIfNeeded()
         }
@@ -399,19 +440,22 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             )
             let anchorUserPrompt = buildReadingAnchorUserPrompt(text: resolvedChunkText)
             log("chunk[\(chunk.index)] anchorUserPromptCount=\(anchorUserPrompt.count)")
-            log("longdoc:anchor-generate backend=\(useFoundationModels ? "foundation" : "mlc")")
+            log("longdoc:anchor-generate backend=\(backend.rawValue)")
 
             let anchorText: String
-            if useFoundationModels {
-                let stream = try await foundationModels.streamChat(
+            switch backend {
+            case .mlc:
+                let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
+                anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
+            case .appleIntelligence, .byok:
+                let stream = try await anyLanguageModels.streamChat(
                     systemPrompt: anchorSystemPrompt,
                     userPrompt: anchorUserPrompt,
                     temperature: 0.4,
-                    maximumResponseTokens: Self.readingAnchorMaxResponseTokens
+                    maximumResponseTokens: Self.readingAnchorMaxResponseTokens,
+                    backend: backend,
+                    byok: byok
                 )
-                anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
-            } else {
-                let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
                 anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
             }
 
@@ -436,24 +480,41 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
         status = "Summary"
         // output = ""
-        log("longdoc:summary-generate backend=\(useFoundationModels ? "foundation" : "mlc")")
+        log("longdoc:summary-generate backend=\(backend.rawValue)")
         let summary: String
         let modelId: String
-        if useFoundationModels {
-            let prewarmPrefix = Self.clampText(summaryUserPrompt, maxChars: Self.prewarmPrefixMaxChars)
-            foundationModels.prewarm(systemPrompt: summarySystemPrompt, promptPrefix: prewarmPrefix)
-            let stream = try await foundationModels.streamChat(
-                systemPrompt: summarySystemPrompt,
-                userPrompt: summaryUserPrompt,
-                temperature: 0.4,
-                maximumResponseTokens: 2048
-            )
-            summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
-            modelId = "foundation-models"
-        } else {
+        switch backend {
+        case .mlc:
             let stream = try await mlc.streamChat(systemPrompt: summarySystemPrompt, userPrompt: summaryUserPrompt)
             summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
             modelId = mlc.loadedModelID ?? ""
+        case .appleIntelligence:
+            let prewarmPrefix = Self.clampText(summaryUserPrompt, maxChars: Self.prewarmPrefixMaxChars)
+            anyLanguageModels.prewarm(
+                systemPrompt: summarySystemPrompt,
+                promptPrefix: prewarmPrefix,
+                backend: backend
+            )
+            let stream = try await anyLanguageModels.streamChat(
+                systemPrompt: summarySystemPrompt,
+                userPrompt: summaryUserPrompt,
+                temperature: 0.4,
+                maximumResponseTokens: 2048,
+                backend: backend
+            )
+            summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
+            modelId = "apple-intelligence"
+        case .byok:
+            let stream = try await anyLanguageModels.streamChat(
+                systemPrompt: summarySystemPrompt,
+                userPrompt: summaryUserPrompt,
+                temperature: 0.4,
+                maximumResponseTokens: 2048,
+                backend: backend,
+                byok: byok
+            )
+            summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
+            modelId = byok?.trimmedModel ?? "byok"
         }
         log("longdoc:summary-done count=\(summary.count)")
 
@@ -470,7 +531,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         _ input: PreparedInput,
         tokenEstimate: Int,
         chunkTokenSize: Int,
-        useFoundationModels: Bool
+        backend: GenerationBackend,
+        byok: BYOKSettings?
     ) async throws -> (PipelineResult, Int) {
         var currentChunkSize = max(1, chunkTokenSize)
         let allowedSizes = longDocumentSettings.allowedChunkTokenSizes().sorted()
@@ -481,20 +543,20 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     input,
                     tokenEstimate: tokenEstimate,
                     chunkTokenSize: currentChunkSize,
-                    useFoundationModels: useFoundationModels
+                    backend: backend,
+                    byok: byok
                 )
                 return (result, currentChunkSize)
             } catch {
-                if #available(iOS 26.0, *),
-                   let genError = error as? LanguageModelSession.GenerationError {
-                    print("=== FoundationModels GenerationError ===")
+                if let genError = error as? LanguageModelSession.GenerationError {
+                    print("=== AnyLanguageModel GenerationError ===")
                     print(String(reflecting: genError))
                     print("=======================================")
                 } else {
-                    print("Non-FoundationModels error:", error)
+                    print("Non-AnyLanguageModel error:", error)
                 }
 
-                if !useFoundationModels || !isContextWindowExceeded(error) {
+                if backend != .appleIntelligence || !isContextWindowExceeded(error) {
                     throw error
                 }
 
@@ -569,35 +631,29 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func isContextWindowExceeded(_ error: Error) -> Bool {
-        isFoundationModelsContextWindowExceeded(error)
-    }
+        var pending: [Error] = [error]
+        var seenDescriptions = Set<String>()
 
-    private func isFoundationModelsContextWindowExceeded(_ error: Error) -> Bool {
-        #if canImport(FoundationModels)
-            var pending: [Error] = [error]
-            var seenDescriptions = Set<String>()
+        while let current = pending.popLast() {
+            let description = String(describing: current)
+            if !description.isEmpty, !seenDescriptions.insert(description).inserted {
+                continue
+            }
 
-            while let current = pending.popLast() {
-                let description = String(describing: current)
-                if !description.isEmpty, !seenDescriptions.insert(description).inserted {
-                    continue
-                }
-
-                if #available(iOS 26.0, *), let generationError = current as? LanguageModelSession.GenerationError {
-                    if case .exceededContextWindowSize = generationError {
-                        return true
-                    }
-                }
-
-                let nsError = current as NSError
-                if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
-                    pending.append(underlying)
-                }
-                if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
-                    pending.append(contentsOf: underlyingErrors)
+            if let generationError = current as? LanguageModelSession.GenerationError {
+                if case .exceededContextWindowSize = generationError {
+                    return true
                 }
             }
-        #endif
+
+            let nsError = current as NSError
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                pending.append(underlying)
+            }
+            if let underlyingErrors = nsError.userInfo[NSMultipleUnderlyingErrorsKey] as? [Error] {
+                pending.append(contentsOf: underlyingErrors)
+            }
+        }
         return false
     }
 
