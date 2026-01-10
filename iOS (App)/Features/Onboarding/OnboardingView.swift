@@ -62,6 +62,7 @@ struct UnevenRoundedRectangle: Shape {
 struct OnboardingView: View {
     let onGetLifetimeAccess: () -> Void
     let dismissOnCompletion: Bool
+    let ramGiBOverride: Double?
     private struct BionicLine: Equatable {
         let text: String
         let boldParts: [String]
@@ -182,7 +183,10 @@ struct OnboardingView: View {
     }
 
     private var ramGiB: Double {
-        Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
+        if let override = ramGiBOverride {
+            return override
+        }
+        return Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
     }
 
     private var ramDisplay: String {
@@ -211,26 +215,17 @@ struct OnboardingView: View {
         }
     }
 
-    private var ramStatusLabel: String {
-        switch ramTier {
-        case .insufficient:
-            return "Not supported"
-        case .limited:
-            return "Limited"
-        case .sufficient:
-            return "Supported"
+    private var ramLevelColors: [Color] {
+        if ramGiB < 6 {
+            return [.gray, .gray, .red]
         }
-    }
-
-    private var ramStatusColor: Color {
-        switch ramTier {
-        case .insufficient:
-            return .red
-        case .limited:
-            return .yellow
-        case .sufficient:
-            return .green
+        if ramGiB < 8 {
+            return [.gray, .yellow, .green]
         }
+        if ramGiB < 16 {
+            return [.gray, .green, .green]
+        }
+        return [.green, .green, .green]
     }
 
     private var ramMessage: String {
@@ -259,19 +254,21 @@ struct OnboardingView: View {
     init(
         defaultPage: Int = 0,
         dismissOnCompletion: Bool = false,
+        ramGiBOverride: Double? = nil,
         onGetLifetimeAccess: @escaping () -> Void = {}
     ) {
         let clamped = max(0, min(defaultPage, onboardingCopies.count - 1))
         _selectedPage = State(initialValue: clamped)
         self.onGetLifetimeAccess = onGetLifetimeAccess
         self.dismissOnCompletion = dismissOnCompletion
+        self.ramGiBOverride = ramGiBOverride
     }
 
     var body: some View {
         ZStack {
             mainView()
 
-            if selectedPage < 3 {
+            if selectedPage < 4 {
                 logoView()
             }
 
@@ -380,6 +377,7 @@ struct OnboardingView: View {
                 if selectedPage == 3 {
                     ramCheckView()
                         .transition(pageTransition)
+                        .padding(.top, -80)
                         .frame(maxWidth: 460)
                 }
 
@@ -662,42 +660,49 @@ struct OnboardingView: View {
 
     @ViewBuilder private func ramCheckView() -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Image(systemName: "memorychip")
-                    .font(.headline)
-                Text("Device Capability Check")
-                    .font(.headline)
-                    .fontWeight(.bold)
-                Spacer()
-            }
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: "memorychip")
+                        .font(.headline)
+                    Text("Device Capability Check")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                    Spacer()
+                }
 
-            Text("We check memory before purchase to set a safe default.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .padding(.bottom)
+                Text("We check memory before purchase to set a safe default.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.bottom, 6)
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Installed Memory")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fontWeight(.semibold)
+
+                    Spacer()
+                }
+
+                HStack {
+                    Text(ramDisplay)
+                        .font(.title)
+                        .fontWeight(.bold)
+                        .fontDesign(.rounded)
 
                     Spacer()
 
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(ramStatusColor)
-                            .frame(width: 10, height: 10)
-                        Text(ramStatusLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    // Ram LEVEL
+                    VStack(spacing: 2) {
+                        ForEach(0 ..< 3, id: \.self) { index in
+                            Capsule()
+                                .fill(ramLevelColors[index])
+                                .frame(width: 16, height: 5)
+                        }
                     }
                 }
-
-                Text(ramDisplay)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .fontDesign(.rounded)
 
                 Text(ramMessage)
                     .font(.footnote)
@@ -709,6 +714,7 @@ struct OnboardingView: View {
                     Text("Recommended Default")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fontWeight(.semibold)
 
                     Menu {
                         ForEach(ramBackendOptions, id: \.self) { backend in
@@ -1637,13 +1643,25 @@ private struct BorderedTintButtonStyle: ButtonStyle {
     }
 }
 
-#Preview {
-    OnboardingView(defaultPage: 3)
+#Preview("RAM 4 GiB") {
+    OnboardingView(defaultPage: 3, ramGiBOverride: 4)
         .environment(\.locale, .init(identifier: "en"))
         .environment(\.layoutDirection, .leftToRight)
 }
 
-#Preview {
+#Preview("RAM 7 GiB") {
+    OnboardingView(defaultPage: 3, ramGiBOverride: 7)
+        .environment(\.locale, .init(identifier: "en"))
+        .environment(\.layoutDirection, .leftToRight)
+}
+
+#Preview("RAM 10 GiB") {
+    OnboardingView(defaultPage: 3, ramGiBOverride: 10)
+        .environment(\.locale, .init(identifier: "en"))
+        .environment(\.layoutDirection, .leftToRight)
+}
+
+#Preview("Paywall") {
     OnboardingView(defaultPage: 4)
         .environment(\.locale, .init(identifier: "en"))
         .environment(\.layoutDirection, .leftToRight)
