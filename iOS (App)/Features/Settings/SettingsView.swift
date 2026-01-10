@@ -23,14 +23,8 @@ struct SettingsView: View {
                     Label("AI Models", systemImage: "sparkles")
                         .foregroundStyle(.primary)
                 }
-                NavigationLink {
-                    DocumentsSettingsView()
-                } label: {
-                    Label("Documents", systemImage: "doc.text")
-                        .foregroundStyle(.primary)
-                }
             } header: {
-                Text("Models & Documents")
+                Text("Models")
             } footer: {
                 Text("Control model choices and long‑document chunking.")
             }

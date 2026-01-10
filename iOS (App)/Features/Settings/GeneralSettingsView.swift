@@ -3,7 +3,7 @@ import SwiftUI
 struct GeneralSettingsView: View {
     private let sharePollingStore = SharePollingSettingsStore()
 
-    @State private var sharePollingEnabled = false
+    @State private var sharePollingEnabled = true
     @State private var didLoad = false
 
     var body: some View {

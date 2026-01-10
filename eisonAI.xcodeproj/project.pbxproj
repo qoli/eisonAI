@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B30AC938F36F5E292B932EE /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */; };
 		2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 294E0FEFBA424690A81535DA /* libtokenizers_c.xcframework */; };
 		2BDA4184F6F345EA88F54044 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
@@ -16,8 +17,6 @@
 		49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */; };
 		5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */; };
 		7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
-		0B30AC938F36F5E292B932EE /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
-		FDFF207F854238C9A4A5A869 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
 		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
 		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
@@ -33,6 +32,7 @@
 		EAD9D7922F080B7600DA6923 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAD9D7912F080B7600DA6923 /* Assets.xcassets */; };
 		EAD9D7932F080B7600DA6923 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAD9D7912F080B7600DA6923 /* Assets.xcassets */; };
 		F859CD0359BA4345930FE1C0 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
+		FDFF207F854238C9A4A5A869 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1162,7 +1162,7 @@
 		};
 		19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../AnyLanguageModel";
+			relativePath = ../AnyLanguageModel;
 		};
 		EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */ = {
 			isa = XCLocalSwiftPackageReference;
