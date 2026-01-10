@@ -78,11 +78,14 @@
 ## Safari Extension 行為（更新）
 - Extension 仍使用既有 `fm.checkAvailability / fm.prewarm / fm.stream.start / fm.stream.poll` 原生通訊。
 - 原生端改為 AnyLanguageModel backend 分流：
-  - backend = `apple` → SystemLanguageModel（Apple Intelligence）
-  - backend = `byok` → HTTP provider（OpenAI/Ollama/Anthropic/Gemini）
-  - backend = `mlc` → 回報不可用（繼續走 WebLLM）
+- backend = `apple` → SystemLanguageModel（Apple Intelligence）
+- backend = `byok` → HTTP provider（OpenAI/Ollama/Anthropic/Gemini）
+- backend = `mlc` → 回報不可用（繼續走 WebLLM）
 - Apple Intelligence 仍需 iOS 26+；BYOK 不受此限制（取決於 AnyLanguageModel 支援版本）。
-- JS 端只需 console.log 顯示 HTTP 設定資訊，暫不導入新 backend 流程。
+- JS 端會讀取 `getGenerationBackend / getBYOKSettings / getByokLongDocumentSettings`：
+  - backend = `byok` 時，長文 chunk size / routing threshold 使用 BYOK 設定。
+  - `.ai-model` 顯示 BYOK model 名稱（否則維持 Apple Intelligence / WebLLM label）。
+  - 仍保留 console.log 方便檢查 HTTP 設定資訊。
 
 ## BYOK 測試資訊（暫用）
 - API: `http://ronnie-mac-studio.local:1234/v1`
