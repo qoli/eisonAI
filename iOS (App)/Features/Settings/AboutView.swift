@@ -149,7 +149,7 @@ struct AboutView: View {
                         Image("ImageLogo")
                         Image("TextLogo")
 
-                        Color.clear.frame(height: 12)
+                        Color.clear.frame(height: 6)
 
                         Text("Version \(appVersion)")
                             .font(.footnote)
@@ -162,93 +162,12 @@ struct AboutView: View {
             }
 
             Section {
-                HStack {
-                    Image(systemName: "viewfinder.circle")
-                        .padding(.trailing, 6)
+                HighlightsListView()
 
-                    VStack(alignment: .leading) {
-                        Text("Cognitive Index")
-                        Text("Make structure visible at a glance.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Image(systemName: "viewfinder.circle")
-                        .padding(.trailing, 6)
-
-                    VStack(alignment: .leading) {
-                        Text("Cognitive Index")
-                        Text("Make structure visible at a glance.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .padding(.trailing, 6)
-
-                    VStack(alignment: .leading) {
-                        Text("Long Document")
-                        Text("Chunked processing keeps long reads stable.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Image(systemName: "puzzlepiece.extension")
-                        .padding(.trailing, 6)
-
-                    VStack(alignment: .leading) {
-                        Text("Safari Extension")
-                        Text("Summarize and read right inside Safari.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Image(systemName: "lock.square")
-                        .padding(.trailing, 6)
-
-                    VStack(alignment: .leading) {
-                        Text("Local-First")
-                        Text("On-device processing keeps your data private.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Image(systemName: "checkmark.seal.fill")
-                        .padding(.trailing, 6)
-
-                    VStack(alignment: .leading) {
-                        Text("Source Trust")
-                        Text("Verify sources, not slogans.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                HStack {
-                    Image(systemName: "books.vertical")
-                        .padding(.trailing, 6)
-
-                    VStack(alignment: .leading) {
-                        Text("Library & Tags")
-                        Text("Save, tag, and revisit what matters.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
             } header: {
                 Text("Highlights")
             } footer: {
-                Text("Highlights are designed to keep reading fast, clear, and reliable.")
+                Text("Built to keep reading fast, clear, and reliable.")
             }
 
             Section {
@@ -306,6 +225,63 @@ struct AboutView: View {
             #endif
         }
         .navigationTitle("About")
+    }
+}
+
+private struct HighlightsListView: View {
+    var body: some View {
+        highlightRow(
+            symbol: "viewfinder.circle",
+            title: "Cognitive Index",
+            subtitle: "Make structure visible."
+        )
+        highlightRow(
+            symbol: "doc.text.magnifyingglass",
+            title: "Long-Document",
+            subtitle: "Chunked reading keeps long texts stable."
+        )
+        highlightRow(
+            symbol: "puzzlepiece.extension",
+            title: "Safari Extension",
+            subtitle: "Summaries, right inside Safari."
+        )
+        highlightRow(
+            symbol: "lock.square",
+            title: "Local-First",
+            subtitle: "On-device by default."
+        )
+        highlightRow(
+            symbol: "checkmark.seal",
+            title: "Source Trust",
+            subtitle: "Verify sources, not slogans."
+        )
+        highlightRow(
+            symbol: "book.pages",
+            title: "Library & Tags",
+            subtitle: "Organize what matters."
+        )
+    }
+
+    @ViewBuilder
+    private func highlightRow(symbol: String, title: String, subtitle: String) -> some View {
+        HStack {
+            ZStack {
+                Image(systemName: symbol)
+                    .offset(x: -4)
+            }
+            .frame(width: 42)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+
+                Text(subtitle)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+        }
     }
 }
 
