@@ -8,36 +8,38 @@ struct DataSyncSettingsView: View {
     @State private var rawLibraryItemCount: Int = 0
     @State private var rawLibraryStatus: String = ""
     @State private var rawLibraryCleanupStatus: String = ""
+    @State private var showCloudOverwriteAlert = false
 
     var body: some View {
         Form {
-            Section("History") {
+            Section {
                 HStack {
-                    Text("History inbox limit")
+                    Text("History storage limit")
                     Spacer()
                     Text("\(AppConfig.rawLibraryMaxItems) items")
                         .foregroundStyle(.secondary)
                 }
 
                 HStack {
-                    Text("Currently used")
+                    Text("In use")
                     Spacer()
                     Text("\(rawLibraryItemCount) items")
                         .foregroundStyle(.secondary)
                 }
-
-                Text("Oldest items are removed automatically when the limit is exceeded.")
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("History")
+            } footer: {
+                Text("When the limit is reached, the oldest items are removed automatically.")
             }
 
-            Section("Maintenance") {
-                Button("Remove unused tags") {
+            Section {
+                Button("Clean unused tags") {
                     do {
                         rawLibraryCleanupStatus = ""
                         let result = try rawLibraryStore.cleanUnusedTags()
-                        rawLibraryCleanupStatus = "Removed \(result.removed) unused tag(s) (\(result.kept) remaining)."
+                        rawLibraryCleanupStatus = "Removed \(result.removed) unused tags. \(result.kept) remaining."
                     } catch {
-                        rawLibraryCleanupStatus = "Cleanup failed: \(error.localizedDescription)"
+                        rawLibraryCleanupStatus = "Cleanup failed. \(error.localizedDescription)"
                     }
                 }
 
@@ -50,40 +52,51 @@ struct DataSyncSettingsView: View {
                     Text(rawLibraryStatus)
                         .foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("Maintenance")
             }
 
-            Section("CloudKit") {
-                Button(isCloudSyncing ? "Syncing..." : "Replace CloudKit data with local data") {
-                    isCloudSyncing = true
-                    cloudSyncStatus = ""
-                    Task {
-                        do {
-                            try await RawLibrarySyncService.shared.overwriteRemoteWithLocal()
-                            cloudSyncStatus = "Sync complete."
-                        } catch {
-                            cloudSyncStatus = "Failed: \(error.localizedDescription)"
-                        }
-                        isCloudSyncing = false
-                    }
+            Section {
+                Button(isCloudSyncing ? "Syncing..." : "Overwrite CloudKit with local data") {
+                    showCloudOverwriteAlert = true
                 }
                 .disabled(isCloudSyncing)
-
-                Text("This deletes all CloudKit records and re-uploads your local data.")
-                    .foregroundStyle(.secondary)
 
                 if !cloudSyncStatus.isEmpty {
                     Text(cloudSyncStatus)
                         .foregroundStyle(.secondary)
                 }
+            } header: {
+                Text("CloudKit")
+            } footer: {
+                Text("This deletes all CloudKit records and uploads your local data again.")
             }
         }
         .navigationTitle("Data & Sync")
+        .alert("Overwrite CloudKit data?", isPresented: $showCloudOverwriteAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Overwrite", role: .destructive) {
+                isCloudSyncing = true
+                cloudSyncStatus = ""
+                Task {
+                    do {
+                        try await RawLibrarySyncService.shared.overwriteRemoteWithLocal()
+                        cloudSyncStatus = "Sync completed."
+                    } catch {
+                        cloudSyncStatus = "Sync failed. \(error.localizedDescription)"
+                    }
+                    isCloudSyncing = false
+                }
+            }
+        } message: {
+            Text("This will delete all CloudKit records and re-upload your local data.")
+        }
         .onAppear {
             do {
                 rawLibraryStatus = ""
                 rawLibraryItemCount = try rawLibraryStore.countItems()
             } catch {
-                rawLibraryStatus = "Failed to load RawLibrary: \(error.localizedDescription)"
+                rawLibraryStatus = "Failed to load history: \(error.localizedDescription)"
                 rawLibraryItemCount = 0
             }
         }
