@@ -231,11 +231,11 @@ struct OnboardingView: View {
     private var ramMessage: String {
         switch ramTier {
         case .insufficient:
-            return "This device isn't suitable for the local Qwen3 0.6B model. Use Apple Intelligence or BYOK."
+            return "This device isn’t suited for local models. We recommend Apple Intelligence or BYOK."
         case .limited:
-            return "Qwen3 0.6B can run, but stability isn't guaranteed. We recommend Apple Intelligence or BYOK."
+            return "Local Qwen3 0.6B may run but can be unstable. Apple Intelligence or BYOK is recommended."
         case .sufficient:
-            return "This device can run the local Qwen3 0.6B model."
+            return "This device can run Qwen3 0.6B locally."
         }
     }
 
@@ -670,7 +670,7 @@ struct OnboardingView: View {
                     Spacer()
                 }
 
-                Text("We check memory before purchase to set a safe default.")
+            Text("We check memory before purchase to set a safe default.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -711,7 +711,7 @@ struct OnboardingView: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Recommended Default")
+                    Text("Default Model Engine")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fontWeight(.semibold)
@@ -751,11 +751,11 @@ struct OnboardingView: View {
 
             // Option description
             ZStack(alignment: .leading) {
-                Text("BYOK uses your own provider and API key. You can finish setup later in Settings → AI Models.")
+                Text("BYOK uses your own provider and API key. Finish setup later in Settings → AI Models.")
                     .opacity(ramSelectedBackend == .byok ? 1 : 0)
-                Text("Qwen3 0.6B runs locally on-device. It may be unstable on lower-RAM devices.")
+                Text("Qwen3 0.6B runs on-device. Performance depends on available memory.")
                     .opacity(ramSelectedBackend == .mlc ? 1 : 0)
-                Text("Apple Intelligence runs through Apple’s on-device models. It requires iOS 26+ with Apple Intelligence enabled.")
+                Text("Apple Intelligence uses Apple’s on-device models. Requires iOS 26+ and Apple Intelligence enabled.")
                     .opacity(ramSelectedBackend == .appleIntelligence ? 1 : 0)
             }
             .font(.footnote)
