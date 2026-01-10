@@ -37,22 +37,22 @@ struct GeneralSettingsView: View {
                 Text("Visualize structure directly inside Safari.")
             }
 
-            Section {
-                Toggle(
-                    "Share Polling",
-                    isOn: Binding(
-                        get: { sharePollingEnabled },
-                        set: { newValue in
-                            sharePollingEnabled = newValue
-                            sharePollingStore.setEnabled(newValue)
-                        }
-                    )
-                )
-            } header: {
-                Text("Share Extension")
-            } footer: {
-                Text("When enabled, the app checks every 2 seconds while it is in the foreground.")
-            }
+//            Section {
+//                Toggle(
+//                    "Share Polling",
+//                    isOn: Binding(
+//                        get: { sharePollingEnabled },
+//                        set: { newValue in
+//                            sharePollingEnabled = newValue
+//                            sharePollingStore.setEnabled(newValue)
+//                        }
+//                    )
+//                )
+//            } header: {
+//                Text("Share Extension")
+//            } footer: {
+//                Text("When enabled, the app checks every 2 seconds while it is in the foreground.")
+//            }
         }
         .navigationTitle("General")
         .onAppear {
