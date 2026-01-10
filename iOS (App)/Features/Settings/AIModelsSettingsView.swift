@@ -19,6 +19,9 @@ struct AIModelsSettingsView: View {
     @State private var byokModel = ""
     @State private var byokFooterMessage = ""
     @State private var byokFooterIsError = false
+    @State private var byokConnectionStatus: BYOKConnectionStatus = .idle
+    @State private var byokConnectionError = ""
+    @State private var byokConnectionTask: Task<Void, Never>?
 
     @State private var byokLongDocPreset: BYOKLongDocumentPreset = .safe
     @State private var longDocumentChunkTokenSize: Int = 2000
@@ -64,7 +67,7 @@ struct AIModelsSettingsView: View {
                         Text(backend.displayName).tag(backend)
                     }
                 }
-                .pickerStyle(.menu)
+
             } header: {
                 Text("Generation Backend")
             } footer: {
@@ -79,7 +82,6 @@ struct AIModelsSettingsView: View {
                             Text(provider.displayName).tag(provider)
                         }
                     }
-                    .pickerStyle(.menu)
 
                     TextField("API URL", text: $byokApiURL)
                         .textInputAutocapitalization(.never)
@@ -102,33 +104,29 @@ struct AIModelsSettingsView: View {
 
                 Section {
                     HStack {
-                        Text("Strategy")
-                            .font(.headline)
-
+                        Text("Connection")
                         Spacer()
+                        Circle()
+                            .fill(byokConnectionStatus.color)
+                            .frame(width: 10, height: 10)
+                            .accessibilityLabel(byokConnectionStatus.accessibilityLabel)
+                    }
+                } header: {
+                    Text("Test Connection")
+                } footer: {
+                    if byokConnectionStatus == .failed, !byokConnectionError.isEmpty {
+                        Text(byokConnectionError)
+                            .foregroundStyle(.red)
+                    }
+                }
 
-                        Menu {
-                            ForEach(BYOKLongDocumentPreset.allCases) { preset in
-                                Button {
-                                    byokLongDocPreset = preset
-                                } label: {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(preset.title)
-                                        Text(preset.subtitle)
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        } label: {
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text(byokLongDocPreset.title)
-                                Text(byokLongDocPreset.subtitle)
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
+                Section {
+                    Picker("Strategy", selection: $byokLongDocPreset) {
+                        ForEach(BYOKLongDocumentPreset.allCases) { preset in
+                            Text(preset.title).tag(preset)
                         }
                     }
+
                 } header: {
                     Text("Long Document")
                 } footer: {
@@ -217,6 +215,7 @@ struct AIModelsSettingsView: View {
                 Text("Applies to token estimation and chunking in both the app and Safari extension.")
             }
         }
+
         .navigationTitle("AI Models")
         .onAppear {
             loadStateIfNeeded()
@@ -224,18 +223,35 @@ struct AIModelsSettingsView: View {
         .onChange(of: backend) { _, newValue in
             guard didLoad else { return }
             backendStore.saveSelectedBackend(newValue)
+            if newValue == .byok {
+                scheduleByokConnectionTest()
+            } else {
+                resetByokConnectionTest()
+            }
         }
         .onChange(of: byokProvider) { _, _ in
-            if didLoad { validateAndSaveBYOK() }
+            if didLoad {
+                validateAndSaveBYOK()
+                scheduleByokConnectionTest()
+            }
         }
         .onChange(of: byokApiURL) { _, _ in
-            if didLoad { validateAndSaveBYOK() }
+            if didLoad {
+                validateAndSaveBYOK()
+                scheduleByokConnectionTest()
+            }
         }
         .onChange(of: byokApiKey) { _, _ in
-            if didLoad { validateAndSaveBYOK() }
+            if didLoad {
+                validateAndSaveBYOK()
+                scheduleByokConnectionTest()
+            }
         }
         .onChange(of: byokModel) { _, _ in
-            if didLoad { validateAndSaveBYOK() }
+            if didLoad {
+                validateAndSaveBYOK()
+                scheduleByokConnectionTest()
+            }
         }
         .onChange(of: byokLongDocPreset) { _, newValue in
             if didLoad { applyByokLongDocPreset(newValue) }
@@ -273,6 +289,9 @@ struct AIModelsSettingsView: View {
 
         validateAndSaveBYOK(updateStorage: false)
         applyByokLongDocPreset(byokLongDocPreset, updateStorage: false)
+        if backend == .byok {
+            scheduleByokConnectionTest()
+        }
     }
 
     private func validateAndSaveBYOK(updateStorage: Bool = true) {
@@ -293,7 +312,7 @@ struct AIModelsSettingsView: View {
             byokStore.saveSettings(settings)
         }
         byokFooterIsError = false
-        byokFooterMessage = "自動保存完畢"
+        byokFooterMessage = "Auto-saved."
     }
 
     private func applyByokLongDocPreset(
@@ -303,6 +322,75 @@ struct AIModelsSettingsView: View {
         if updateStorage {
             byokLongDocStore.setChunkTokenSize(preset.chunkSize)
             byokLongDocStore.setRoutingThreshold(preset.routingThreshold)
+        }
+    }
+
+    private func resetByokConnectionTest() {
+        byokConnectionTask?.cancel()
+        byokConnectionTask = nil
+        byokConnectionStatus = .idle
+        byokConnectionError = ""
+    }
+
+    private func scheduleByokConnectionTest() {
+        byokConnectionTask?.cancel()
+        byokConnectionTask = nil
+
+        guard backend == .byok else {
+            resetByokConnectionTest()
+            return
+        }
+
+        let settings = BYOKSettings(
+            provider: byokProvider,
+            apiURL: byokApiURL,
+            apiKey: byokApiKey,
+            model: byokModel
+        )
+        let trimmedURL = settings.trimmedApiURL
+        let trimmedModel = settings.trimmedModel
+        guard !trimmedURL.isEmpty, !trimmedModel.isEmpty else {
+            byokConnectionStatus = .idle
+            byokConnectionError = ""
+            return
+        }
+
+        if let error = byokStore.validationError(for: settings) {
+            byokConnectionStatus = .failed
+            byokConnectionError = error.message
+            return
+        }
+
+        byokConnectionStatus = .testing
+        byokConnectionError = ""
+        byokConnectionTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 350000000)
+                try Task.checkCancellation()
+                try await performByokConnectionTest(settings)
+                byokConnectionStatus = .success
+                byokConnectionError = ""
+            } catch is CancellationError {
+                return
+            } catch {
+                byokConnectionStatus = .failed
+                byokConnectionError = error.localizedDescription
+            }
+        }
+    }
+
+    private func performByokConnectionTest(_ settings: BYOKSettings) async throws {
+        let client = AnyLanguageModelClient()
+        let stream = try await client.streamChat(
+            systemPrompt: "You are a connection test.",
+            userPrompt: "ping",
+            temperature: 0,
+            maximumResponseTokens: 1,
+            backend: .byok,
+            byok: settings
+        )
+        for try await _ in stream {
+            break
         }
     }
 }
@@ -367,6 +455,31 @@ private enum BYOKLongDocumentPreset: String, CaseIterable, Identifiable {
             }
         }
         return .safe
+    }
+}
+
+private enum BYOKConnectionStatus {
+    case idle
+    case testing
+    case success
+    case failed
+
+    var color: Color {
+        switch self {
+        case .idle: return .gray
+        case .testing: return .yellow
+        case .success: return .green
+        case .failed: return .red
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .idle: return "Connection idle"
+        case .testing: return "Connection testing"
+        case .success: return "Connection passed"
+        case .failed: return "Connection failed"
+        }
     }
 }
 

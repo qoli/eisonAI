@@ -45,13 +45,13 @@ enum BYOKValidationError: Equatable {
     var message: String {
         switch self {
         case .apiURLMissing:
-            return "API URL 必填"
+            return "API URL is required."
         case .apiURLMissingV1:
-            return "URL 缺乏 /v1 結尾"
+            return "API URL must end with /v1."
         case .apiURLInvalid:
-            return "API URL 無效"
+            return "API URL is invalid."
         case .modelMissing:
-            return "Model 必填"
+            return "Model is required."
         }
     }
 }
