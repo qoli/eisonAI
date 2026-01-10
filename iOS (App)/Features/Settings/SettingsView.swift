@@ -7,7 +7,7 @@ struct SettingsView: View {
                 NavigationLink {
                     GeneralSettingsView()
                 } label: {
-                    Label("General", systemImage: "gearshape")
+                    Label("General", systemImage: "slider.horizontal.3")
                         .foregroundStyle(.primary)
                 }
             } header: {
@@ -20,7 +20,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AIModelsSettingsView()
                 } label: {
-                    Label("AI Models", systemImage: "sparkles")
+                    Label("AI Models", systemImage: "cpu")
                         .foregroundStyle(.primary)
                 }
             } header: {
@@ -33,7 +33,7 @@ struct SettingsView: View {
                 NavigationLink {
                     DataSyncSettingsView()
                 } label: {
-                    Label("Data & Sync", systemImage: "arrow.triangle.2.circlepath")
+                    Label("Data & Sync", systemImage: "icloud.and.arrow.up")
                         .foregroundStyle(.primary)
                 }
             } header: {
@@ -46,7 +46,7 @@ struct SettingsView: View {
                 NavigationLink {
                     AboutView()
                 } label: {
-                    Label("About", systemImage: "info.circle")
+                    Label("About", systemImage: "questionmark.circle")
                         .foregroundStyle(.primary)
                 }
             } header: {
