@@ -129,7 +129,15 @@ final class AnyLanguageModelClient {
                 if let error = store.validationError(for: byok) {
                     throw ClientError.invalidConfiguration(error.message)
                 }
-                let baseURL = try resolveBaseURL(for: byok.provider, rawValue: byok.apiURL)
+                let baseURL: URL
+                do {
+                    baseURL = try BYOKURLResolver.resolveBaseURL(
+                        for: byok.provider,
+                        rawValue: byok.apiURL
+                    )
+                } catch {
+                    throw ClientError.invalidConfiguration("API URL 無效")
+                }
                 let modelID = byok.trimmedModel
 
                 switch byok.provider {
@@ -201,37 +209,5 @@ final class AnyLanguageModelClient {
             return prewarmedSession
         }
 
-        private func resolveBaseURL(for provider: BYOKProvider, rawValue: String) throws -> URL {
-            let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let url = URL(string: trimmed) else {
-                throw ClientError.invalidConfiguration("API URL 無效")
-            }
-
-            let normalized = normalizeBaseURL(url, removingTrailingV1: shouldStripV1(provider))
-            return normalized
-        }
-
-        private func shouldStripV1(_ provider: BYOKProvider) -> Bool {
-            switch provider {
-            case .openAIChat, .openAIResponses:
-                return false
-            case .ollama, .anthropic, .gemini:
-                return true
-            }
-        }
-
-        private func normalizeBaseURL(_ url: URL, removingTrailingV1: Bool) -> URL {
-            var resolved = url
-            if removingTrailingV1 {
-                let lowercasedPath = resolved.path.lowercased()
-                if lowercasedPath.hasSuffix("/v1") || lowercasedPath.hasSuffix("/v1/") {
-                    resolved.deleteLastPathComponent()
-                }
-            }
-            if !resolved.path.hasSuffix("/") {
-                resolved.appendPathComponent("")
-            }
-            return resolved
-        }
     #endif
 }

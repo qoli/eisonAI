@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct AIModelsSettingsView: View {
@@ -9,11 +10,18 @@ struct AIModelsSettingsView: View {
     private let longDocumentChunkSizeOptions: [Int] = [2000, 2200, 2600, 3000, 3200]
     private let longDocumentMaxChunkOptions: [Int] = [4, 5, 6, 7]
     private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
+    private static let modelPickerPlaceholderTag = "__byok_model_placeholder__"
+    private static let modelPickerCustomTag = "__byok_model_custom__"
 
     @State private var didLoad = false
     @State private var backend: GenerationBackend = .mlc
 
     @State private var byokProvider: BYOKProvider = .openAIChat
+    @State private var byokProviderOptionID = ""
+    @State private var lastConfirmedProviderOptionID = ""
+    @State private var pendingProviderOptionID: String?
+    @State private var showOverwriteAPIAlert = false
+    @State private var suppressProviderOptionChange = false
     @State private var byokApiURL = ""
     @State private var byokApiKey = ""
     @State private var byokModel = ""
@@ -21,7 +29,15 @@ struct AIModelsSettingsView: View {
     @State private var byokFooterIsError = false
     @State private var byokConnectionStatus: BYOKConnectionStatus = .idle
     @State private var byokConnectionError = ""
+    @State private var byokConnectionMessage = ""
     @State private var byokConnectionTask: Task<Void, Never>?
+    @State private var byokAvailableModels: [String] = []
+    @State private var showCustomModelPrompt = false
+    @State private var customModelDraft = ""
+    @State private var byokPingStatus: BYOKPingStatus = .idle
+    @State private var byokPingResponse = ""
+    @State private var byokPingError = ""
+    @State private var byokPingTask: Task<Void, Never>?
 
     @State private var byokLongDocPreset: BYOKLongDocumentPreset = .safe
     @State private var longDocumentChunkTokenSize: Int = 2000
@@ -58,6 +74,51 @@ struct AIModelsSettingsView: View {
         """
     }
 
+    private var selectedProviderOption: BYOKProvider.ProviderOption? {
+        BYOKProvider.httpOptions.first { $0.id == byokProviderOptionID }
+    }
+
+    private var pendingProviderOption: BYOKProvider.ProviderOption? {
+        guard let pendingProviderOptionID else { return nil }
+        return BYOKProvider.httpOptions.first { $0.id == pendingProviderOptionID }
+    }
+
+    private var selectedProviderDocsURL: URL? {
+        selectedProviderOption?.preset?.docsURL
+    }
+
+    private var byokModelPickerOptions: [ModelPickerOption] {
+        var options: [ModelPickerOption] = []
+        let trimmedModel = byokModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seen = Set<String>()
+
+        if trimmedModel.isEmpty {
+            options.append(ModelPickerOption(
+                value: Self.modelPickerPlaceholderTag,
+                label: "Select a model"
+            ))
+        }
+
+        let sortedModels = byokAvailableModels.sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+        }
+        for model in sortedModels {
+            let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, seen.insert(trimmed).inserted else { continue }
+            options.append(ModelPickerOption(value: trimmed, label: trimmed))
+        }
+
+        if !trimmedModel.isEmpty, seen.insert(trimmedModel).inserted {
+            options.append(ModelPickerOption(value: trimmedModel, label: "Custom: \(trimmedModel)"))
+        }
+
+        options.append(ModelPickerOption(
+            value: Self.modelPickerCustomTag,
+            label: "Enter Model ID"
+        ))
+        return options
+    }
+
     var body: some View {
         Form {
             Section {
@@ -76,9 +137,9 @@ struct AIModelsSettingsView: View {
 
             if backend == .byok {
                 Section {
-                    Picker("Provider", selection: $byokProvider) {
-                        ForEach(BYOKProvider.httpOptions, id: \.self) { provider in
-                            Text(provider.displayName).tag(provider)
+                    Picker("Provider", selection: $byokProviderOptionID) {
+                        ForEach(BYOKProvider.httpOptions) { option in
+                            Text(option.displayName).tag(option.id)
                         }
                     }
 
@@ -91,31 +152,101 @@ struct AIModelsSettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    TextField("Model ID", text: $byokModel)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                    Picker(
+                        "Model",
+                        selection: Binding(
+                            get: {
+                                let trimmed = byokModel.trimmingCharacters(in: .whitespacesAndNewlines)
+                                return trimmed.isEmpty ? Self.modelPickerPlaceholderTag : trimmed
+                            },
+                            set: { newValue in
+                                switch newValue {
+                                case Self.modelPickerCustomTag:
+                                    customModelDraft = byokModel
+                                    showCustomModelPrompt = true
+                                case Self.modelPickerPlaceholderTag:
+                                    break
+                                default:
+                                    byokModel = newValue
+                                }
+                            }
+                        )
+                    ) {
+                        ForEach(byokModelPickerOptions) { option in
+                            Text(option.label).tag(option.value)
+                        }
+                    }
                 } header: {
-                    Text("Provider Settings")
+                    Text("Provider Configuration")
                 } footer: {
-                    Text(byokFooterMessage)
-                        .foregroundStyle(byokFooterIsError ? .red : .secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let docsURL = selectedProviderDocsURL {
+                            Link("Documentation", destination: docsURL)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if byokFooterIsError, !byokFooterMessage.isEmpty {
+                            Text(byokFooterMessage)
+                                .foregroundStyle(.red)
+                        } else {
+                            Text("Saved after Verify & Save.")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 Section {
                     HStack {
-                        Text("Status")
+                        Text("Connection")
                         Spacer()
+
                         Circle()
                             .fill(byokConnectionStatus.color)
                             .frame(width: 10, height: 10)
                             .accessibilityLabel(byokConnectionStatus.accessibilityLabel)
                     }
+
+                    HStack {
+                        Text("Verify")
+                        Spacer()
+                        Button {
+                            runByokPingAndSave()
+                        } label: {
+                            HStack(spacing: 12) {
+                                Text("Verify & Save")
+                                if byokPingStatus == .testing {
+                                    ProgressView()
+                                }
+                            }
+                        }
+                        .disabled(byokPingStatus == .testing)
+                    }
+
                 } header: {
-                    Text("Connection Test")
+                    Text("Verify")
                 } footer: {
-                    if byokConnectionStatus == .failed, !byokConnectionError.isEmpty {
-                        Text("Error: \(byokConnectionError)")
-                            .foregroundStyle(.red)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Model list first; otherwise ping.")
+                            .foregroundStyle(.secondary)
+                        if !byokConnectionMessage.isEmpty {
+                            Text("Connection: \(byokConnectionMessage)")
+                                .foregroundStyle(.secondary)
+                        }
+                        if byokConnectionStatus == .failed, !byokConnectionError.isEmpty {
+                            Text("Connection error: \(byokConnectionError)")
+                                .foregroundStyle(.red)
+                        }
+                        Text("Verify status: \(byokPingStatus.label)")
+                            .foregroundStyle(.secondary)
+                        if !byokPingResponse.isEmpty {
+                            Text("Response: \(byokPingResponse)")
+                                .foregroundStyle(.secondary)
+                        }
+                        if !byokPingError.isEmpty {
+                            Text("Error: \(byokPingError)")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
 
@@ -217,6 +348,37 @@ struct AIModelsSettingsView: View {
         }
 
         .navigationTitle("AI Models")
+        .alert("Replace API URL?", isPresented: $showOverwriteAPIAlert) {
+            Button("Replace", role: .destructive) {
+                guard let option = pendingProviderOption else { return }
+                applyProviderOption(option)
+                pendingProviderOptionID = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingProviderOptionID = nil
+            }
+        } message: {
+            if let presetURL = pendingProviderOption?.preset?.apiURL {
+                Text("This will replace the current API URL with:\n\(presetURL)")
+            } else {
+                Text("This will replace the current API URL.")
+            }
+        }
+        .alert("Enter Model ID", isPresented: $showCustomModelPrompt) {
+            TextField("Model ID", text: $customModelDraft)
+            Button("Save") {
+                let trimmed = customModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    byokModel = trimmed
+                }
+                customModelDraft = ""
+            }
+            Button("Cancel", role: .cancel) {
+                customModelDraft = ""
+            }
+        } message: {
+            Text("Use a custom model ID that isn't in the list.")
+        }
         .onAppear {
             loadStateIfNeeded()
         }
@@ -227,29 +389,54 @@ struct AIModelsSettingsView: View {
                 scheduleByokConnectionTest()
             } else {
                 resetByokConnectionTest()
+                resetByokPing()
             }
+        }
+        .onChange(of: byokProviderOptionID) { _, newValue in
+            guard didLoad else { return }
+            guard !suppressProviderOptionChange else { return }
+            guard newValue != lastConfirmedProviderOptionID else { return }
+            guard let option = BYOKProvider.httpOptions.first(where: { $0.id == newValue }) else {
+                return
+            }
+            let trimmedURL = byokApiURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let presetURL = option.preset?.apiURL,
+               !trimmedURL.isEmpty,
+               trimmedURL != presetURL {
+                pendingProviderOptionID = newValue
+                showOverwriteAPIAlert = true
+                suppressProviderOptionChange = true
+                byokProviderOptionID = lastConfirmedProviderOptionID
+                suppressProviderOptionChange = false
+                return
+            }
+            applyProviderOption(option)
         }
         .onChange(of: byokProvider) { _, _ in
             if didLoad {
-                validateAndSaveBYOK()
+                validateBYOK()
+                resetByokPing()
                 scheduleByokConnectionTest()
             }
         }
         .onChange(of: byokApiURL) { _, _ in
             if didLoad {
-                validateAndSaveBYOK()
+                validateBYOK()
+                resetByokPing()
                 scheduleByokConnectionTest()
             }
         }
         .onChange(of: byokApiKey) { _, _ in
             if didLoad {
-                validateAndSaveBYOK()
+                validateBYOK()
+                resetByokPing()
                 scheduleByokConnectionTest()
             }
         }
         .onChange(of: byokModel) { _, _ in
             if didLoad {
-                validateAndSaveBYOK()
+                validateBYOK()
+                resetByokPing()
                 scheduleByokConnectionTest()
             }
         }
@@ -275,6 +462,12 @@ struct AIModelsSettingsView: View {
         byokApiURL = byokSettings.apiURL
         byokApiKey = byokSettings.apiKey
         byokModel = byokSettings.model
+        let optionID = BYOKProvider.ProviderPresets.optionID(
+            provider: byokProvider,
+            apiURL: byokApiURL
+        )
+        byokProviderOptionID = optionID
+        lastConfirmedProviderOptionID = optionID
 
         let storedChunkSize = byokLongDocStore.chunkTokenSize()
         let storedRoutingThreshold = byokLongDocStore.routingThreshold()
@@ -287,14 +480,14 @@ struct AIModelsSettingsView: View {
         longDocumentMaxChunkCount = longDocumentSettingsStore.maxChunkCount()
         tokenEstimatorEncoding = tokenEstimatorSettingsStore.selectedEncoding()
 
-        validateAndSaveBYOK(updateStorage: false)
+        validateBYOK()
         applyByokLongDocPreset(byokLongDocPreset, updateStorage: false)
         if backend == .byok {
             scheduleByokConnectionTest()
         }
     }
 
-    private func validateAndSaveBYOK(updateStorage: Bool = true) {
+    private func validateBYOK() {
         let settings = BYOKSettings(
             provider: byokProvider,
             apiURL: byokApiURL,
@@ -307,12 +500,8 @@ struct AIModelsSettingsView: View {
             byokFooterMessage = error.message
             return
         }
-
-        if updateStorage {
-            byokStore.saveSettings(settings)
-        }
         byokFooterIsError = false
-        byokFooterMessage = "Saved automatically."
+        byokFooterMessage = ""
     }
 
     private func applyByokLongDocPreset(
@@ -325,11 +514,29 @@ struct AIModelsSettingsView: View {
         }
     }
 
+    private func applyProviderOption(_ option: BYOKProvider.ProviderOption) {
+        byokProvider = option.provider
+        if let preset = option.preset {
+            byokApiURL = preset.apiURL
+        }
+        lastConfirmedProviderOptionID = option.id
+    }
+
+    private func resetByokPing() {
+        byokPingTask?.cancel()
+        byokPingTask = nil
+        byokPingStatus = .idle
+        byokPingError = ""
+        byokPingResponse = ""
+    }
+
     private func resetByokConnectionTest() {
         byokConnectionTask?.cancel()
         byokConnectionTask = nil
         byokConnectionStatus = .idle
         byokConnectionError = ""
+        byokConnectionMessage = ""
+        byokAvailableModels = []
     }
 
     private func scheduleByokConnectionTest() {
@@ -349,32 +556,67 @@ struct AIModelsSettingsView: View {
         )
         let trimmedURL = settings.trimmedApiURL
         let trimmedModel = settings.trimmedModel
-        guard !trimmedURL.isEmpty, !trimmedModel.isEmpty else {
+        guard !trimmedURL.isEmpty else {
             byokConnectionStatus = .idle
             byokConnectionError = ""
+            byokConnectionMessage = ""
+            byokAvailableModels = []
             return
         }
 
-        if let error = byokStore.validationError(for: settings) {
+        guard URL(string: trimmedURL) != nil else {
             byokConnectionStatus = .failed
-            byokConnectionError = error.message
+            byokConnectionError = "Invalid URL."
+            byokConnectionMessage = ""
+            byokAvailableModels = []
             return
+        }
+
+        let supportsModelList = settings.provider.supportsModelList
+        if !supportsModelList {
+            byokAvailableModels = []
+        }
+
+        if !supportsModelList, trimmedModel.isEmpty {
+            byokConnectionStatus = .idle
+            byokConnectionError = ""
+            byokConnectionMessage = "Enter a model ID to run the test."
+            return
+        }
+
+        if supportsModelList {
+            byokAvailableModels = []
         }
 
         byokConnectionStatus = .testing
         byokConnectionError = ""
+        byokConnectionMessage = ""
         byokConnectionTask = Task { @MainActor in
             do {
                 try await Task.sleep(nanoseconds: 350000000)
                 try Task.checkCancellation()
-                try await performByokConnectionTest(settings)
-                byokConnectionStatus = .success
+                if supportsModelList {
+                    let models = try await fetchByokModelList(settings)
+                    byokAvailableModels = models
+                    byokConnectionStatus = .success
+                    if models.isEmpty {
+                        byokConnectionMessage = "Model list returned no models."
+                    } else {
+                        byokConnectionMessage = "Model list loaded (\(models.count) models)."
+                    }
+                } else {
+                    try await performByokConnectionTest(settings)
+                    byokConnectionStatus = .success
+                    byokConnectionMessage = "Ping OK."
+                }
                 byokConnectionError = ""
             } catch is CancellationError {
                 return
             } catch {
                 byokConnectionStatus = .failed
                 byokConnectionError = error.localizedDescription
+                byokConnectionMessage = ""
+                byokAvailableModels = supportsModelList ? [] : byokAvailableModels
             }
         }
     }
@@ -392,6 +634,172 @@ struct AIModelsSettingsView: View {
         for try await _ in stream {
             break
         }
+    }
+
+    private func runByokPingAndSave() {
+        byokPingTask?.cancel()
+        byokPingTask = nil
+
+        let settings = BYOKSettings(
+            provider: byokProvider,
+            apiURL: byokApiURL,
+            apiKey: byokApiKey,
+            model: byokModel
+        )
+
+        let hasKey = !settings.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        print("[BYOK] Verify & Save start provider=\(settings.provider.rawValue) apiURL=\(settings.trimmedApiURL) model=\(settings.trimmedModel) hasKey=\(hasKey)")
+
+        if let error = byokStore.validationError(for: settings) {
+            byokPingStatus = .failed
+            byokPingError = error.message
+            byokPingResponse = ""
+            print("[BYOK] Verify & Save validation failed error=\(error.message)")
+            return
+        }
+
+        byokPingStatus = .testing
+        byokPingError = ""
+        byokPingResponse = ""
+        byokPingTask = Task { @MainActor in
+            do {
+                let response = try await performByokPing(settings)
+                byokStore.saveSettings(settings)
+                byokPingStatus = .success
+                byokPingResponse = response.isEmpty ? "No response body." : response
+                byokPingError = ""
+                let preview = response.prefix(200)
+                print("[BYOK] Verify & Save success responsePreview=\(preview)")
+            } catch is CancellationError {
+                print("[BYOK] Verify & Save cancelled")
+                return
+            } catch {
+                byokPingStatus = .failed
+                byokPingError = error.localizedDescription
+                byokPingResponse = ""
+                print("[BYOK] Verify & Save failed error=\(error)")
+            }
+        }
+    }
+
+    private func performByokPing(_ settings: BYOKSettings) async throws -> String {
+        let client = AnyLanguageModelClient()
+        let stream = try await client.streamChat(
+            systemPrompt: "You are a ping.",
+            userPrompt: "ping",
+//            temperature: 0, 部分模型會不認可 temperature = 0
+            backend: .byok,
+            byok: settings
+        )
+        var response = ""
+        for try await delta in stream {
+            response.append(delta)
+        }
+        return response.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func fetchByokModelList(_ settings: BYOKSettings) async throws -> [String] {
+        let baseURL = try BYOKURLResolver.resolveBaseURL(
+            for: settings.provider,
+            rawValue: settings.apiURL
+        )
+
+        switch settings.provider {
+        case .openAIChat, .openAIResponses:
+            return try await fetchOpenAIModelList(baseURL: baseURL, apiKey: settings.apiKey)
+        case .ollama:
+            return try await fetchOllamaModelList(baseURL: baseURL)
+        case .anthropic, .gemini:
+            return []
+        }
+    }
+
+    private func fetchOpenAIModelList(baseURL: URL, apiKey: String) async throws -> [String] {
+        let modelsURL = openAIModelsURL(baseURL: baseURL)
+        var request = URLRequest(url: modelsURL)
+        request.httpMethod = "GET"
+        if !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validateHTTP(response, data: data)
+        let decoded = try JSONDecoder().decode(OpenAIModelListResponse.self, from: data)
+        return decoded.data
+            .map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func fetchOllamaModelList(baseURL: URL) async throws -> [String] {
+        let url = baseURL.appendingPathComponent("api/tags")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        try validateHTTP(response, data: data)
+        let decoded = try JSONDecoder().decode(OllamaTagsResponse.self, from: data)
+        return decoded.models
+            .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func openAIModelsURL(baseURL: URL) -> URL {
+        let lowercasedPath = baseURL.path.lowercased()
+        if lowercasedPath.hasSuffix("/v1") || lowercasedPath.hasSuffix("/v1/") {
+            return baseURL.appendingPathComponent("models")
+        }
+        return baseURL.appendingPathComponent("v1").appendingPathComponent("models")
+    }
+
+    private func validateHTTP(_ response: URLResponse, data: Data) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw BYOKHTTPError(statusCode: nil, body: nil)
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            let body = String(data: data, encoding: .utf8)
+            throw BYOKHTTPError(statusCode: httpResponse.statusCode, body: body)
+        }
+    }
+}
+
+private struct ModelPickerOption: Identifiable {
+    let value: String
+    let label: String
+
+    var id: String { value }
+}
+
+private struct OpenAIModelListResponse: Decodable {
+    struct Model: Decodable {
+        let id: String
+    }
+
+    let data: [Model]
+}
+
+private struct OllamaTagsResponse: Decodable {
+    struct Model: Decodable {
+        let name: String
+    }
+
+    let models: [Model]
+}
+
+private struct BYOKHTTPError: LocalizedError {
+    let statusCode: Int?
+    let body: String?
+
+    var errorDescription: String? {
+        if let statusCode {
+            let trimmedBody = body?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .prefix(200)
+            if let trimmedBody, !trimmedBody.isEmpty {
+                return "HTTP \(statusCode): \(trimmedBody)"
+            }
+            return "HTTP \(statusCode)."
+        }
+        return "Unexpected response."
     }
 }
 
@@ -479,6 +887,22 @@ private enum BYOKConnectionStatus {
         case .testing: return "Connection testing"
         case .success: return "Connection passed"
         case .failed: return "Connection failed"
+        }
+    }
+}
+
+private enum BYOKPingStatus {
+    case idle
+    case testing
+    case success
+    case failed
+
+    var label: String {
+        switch self {
+        case .idle: return "Idle"
+        case .testing: return "Testing"
+        case .success: return "Success"
+        case .failed: return "Failed"
         }
     }
 }
