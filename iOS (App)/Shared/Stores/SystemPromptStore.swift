@@ -15,7 +15,15 @@ struct SystemPromptStore {
         let base = loadBase()
         let languageTag = modelLanguageStore.loadOrRecommended()
         let languageName = ModelLanguage.displayName(forTag: languageTag)
-        return compose(base: base, languageLine: "- 請使用\(languageName)輸出")
+        let languageLineTemplate = PromptTemplates.load(
+            name: "summary_language_line",
+            fallback: "- 請使用{{language}}輸出"
+        )
+        let languageLine = PromptTemplates.render(
+            template: languageLineTemplate,
+            values: ["language": languageName]
+        )
+        return compose(base: base, languageLine: languageLine)
     }
 
     func loadBase() -> String {

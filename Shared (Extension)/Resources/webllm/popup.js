@@ -1114,10 +1114,13 @@ async function getArticleTextFromContentScript() {
 
 function buildSummaryUserPrompt({ title, text, url }) {
   const clippedText = clampText(text, 8000);
-  return [
-    `${title || "(no title)"}`,
-    `Content\n${clippedText || "(empty)"}`,
-  ].join("\n\n");
+  const resolvedTitle = title || "(no title)";
+  const resolvedContent = clippedText || "(empty)";
+  const template = summaryUserPromptTemplate || DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE;
+  return renderPromptTemplate(template, {
+    title: resolvedTitle,
+    content: resolvedContent,
+  });
 }
 
 function buildSummaryMessages({ title, text, url }) {
@@ -1201,23 +1204,87 @@ const DEFAULT_CHUNK_PROMPT =
 - 擷取此文章的關鍵點`;
 
 const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
-let bundledDefaultSystemPrompt = null;
+const DEFAULT_CHUNK_PROMPT_URL = new URL("../default_chunk_prompt.txt", import.meta.url);
+const SUMMARY_USER_PROMPT_TEMPLATE_URL = new URL(
+  "../summary_user_prompt_extension.txt",
+  import.meta.url,
+);
+const READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL = new URL(
+  "../reading_anchor_system_suffix_extension.txt",
+  import.meta.url,
+);
+const READING_ANCHOR_USER_PROMPT_TEMPLATE_URL = new URL(
+  "../reading_anchor_user_prompt_extension.txt",
+  import.meta.url,
+);
+const READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL = new URL(
+  "../reading_anchor_summary_item.txt",
+  import.meta.url,
+);
 
-async function loadBundledDefaultSystemPrompt() {
-  if (typeof bundledDefaultSystemPrompt === "string") return bundledDefaultSystemPrompt;
-  try {
-    const resp = await fetch(DEFAULT_SYSTEM_PROMPT_URL);
-    const text = resp?.ok ? await resp.text() : "";
-    bundledDefaultSystemPrompt = String(text ?? "").trim();
-  } catch {
-    bundledDefaultSystemPrompt = "";
+const DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE = "{{title}}\n\nContent\n{{content}}";
+const DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE =
+  "- 當前這是原文中的一個段落（chunks {{chunk_index}} of {{chunk_total}}）";
+const DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE = "Content\n{{content}}";
+const DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE = "Chunk {{chunk_index}}\n{{chunk_text}}";
+
+const PROMPT_TEMPLATE_CACHE = new Map();
+let summaryUserPromptTemplate = "";
+let readingAnchorSystemSuffixTemplate = "";
+let readingAnchorUserPromptTemplate = "";
+let readingAnchorSummaryItemTemplate = "";
+
+async function loadBundledPromptText(url, fallback = "") {
+  const key = url?.href || String(url || "");
+  if (PROMPT_TEMPLATE_CACHE.has(key)) {
+    return PROMPT_TEMPLATE_CACHE.get(key);
   }
-  return bundledDefaultSystemPrompt;
+  let resolved = "";
+  try {
+    const resp = await fetch(url);
+    const text = resp?.ok ? await resp.text() : "";
+    resolved = String(text ?? "").trim();
+  } catch {
+    resolved = "";
+  }
+  const value = resolved || fallback;
+  PROMPT_TEMPLATE_CACHE.set(key, value);
+  return value;
 }
 
 async function getDefaultSystemPromptFallback() {
-  const bundled = await loadBundledDefaultSystemPrompt();
-  return bundled || DEFAULT_SYSTEM_PROMPT;
+  return loadBundledPromptText(DEFAULT_SYSTEM_PROMPT_URL, DEFAULT_SYSTEM_PROMPT);
+}
+
+async function getDefaultChunkPromptFallback() {
+  return loadBundledPromptText(DEFAULT_CHUNK_PROMPT_URL, DEFAULT_CHUNK_PROMPT);
+}
+
+async function refreshPromptTemplates() {
+  summaryUserPromptTemplate = await loadBundledPromptText(
+    SUMMARY_USER_PROMPT_TEMPLATE_URL,
+    DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE,
+  );
+  readingAnchorSystemSuffixTemplate = await loadBundledPromptText(
+    READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL,
+    DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE,
+  );
+  readingAnchorUserPromptTemplate = await loadBundledPromptText(
+    READING_ANCHOR_USER_PROMPT_TEMPLATE_URL,
+    DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE,
+  );
+  readingAnchorSummaryItemTemplate = await loadBundledPromptText(
+    READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL,
+    DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE,
+  );
+}
+
+function renderPromptTemplate(template, values) {
+  const normalized = String(template ?? "");
+  return normalized.replace(/\\{\\{\\s*([a-zA-Z0-9_]+)\\s*\\}\\}/g, (match, key) => {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) return match;
+    return String(values[key] ?? "");
+  });
 }
 
 let systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -1299,7 +1366,7 @@ async function refreshSystemPromptFromNative() {
 
 async function refreshChunkPromptFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
-    chunkPrompt = DEFAULT_CHUNK_PROMPT;
+    chunkPrompt = await getDefaultChunkPromptFallback();
     return chunkPrompt;
   }
 
@@ -1318,10 +1385,10 @@ async function refreshChunkPromptFromNative() {
     if (typeof prompt === "string" && prompt.trim()) {
       chunkPrompt = prompt;
     } else {
-      chunkPrompt = DEFAULT_CHUNK_PROMPT;
+      chunkPrompt = await getDefaultChunkPromptFallback();
     }
   } catch (err) {
-    chunkPrompt = DEFAULT_CHUNK_PROMPT;
+    chunkPrompt = await getDefaultChunkPromptFallback();
     console.warn("[WebLLM Demo] Failed to load chunk prompt from native:", err);
   }
 
@@ -1728,6 +1795,7 @@ async function prepareSummaryContext() {
       return null;
     }
 
+    await refreshPromptTemplates();
     await refreshTokenEstimatorFromNative();
     await refreshByokSettingsFromNative();
     await refreshLongDocumentChunkTokenSizeFromNative();
@@ -2022,20 +2090,36 @@ async function generateTextWithFoundationModels({
 
 function buildReadingAnchorSystemPrompt({ index, total }) {
   const base = String(chunkPrompt ?? "").trim();
-  const dynamicLine = `- 當前這是原文中的一個段落（chunks ${index} of ${total}）`;
+  const suffixTemplate =
+    readingAnchorSystemSuffixTemplate || DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE;
+  const dynamicLine = renderPromptTemplate(suffixTemplate, {
+    chunk_index: index,
+    chunk_total: total,
+  });
   if (!base) return dynamicLine;
   return [base, "", dynamicLine].join("\n");
 }
 
 function buildReadingAnchorUserPrompt(text) {
   const trimmed = String(text ?? "").trim();
-  return `Content\\n${trimmed || "(empty)"}`;
+  const template =
+    readingAnchorUserPromptTemplate || DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE;
+  return renderPromptTemplate(template, {
+    content: trimmed || "(empty)",
+  });
 }
 
 function buildSummaryUserPromptFromAnchors(anchors) {
   if (!anchors?.length) return "(empty)";
+  const template =
+    readingAnchorSummaryItemTemplate || DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE;
   return anchors
-    .map((anchor) => `Chunk ${anchor.index + 1}\\n${anchor.text}`.trim())
+    .map((anchor) =>
+      renderPromptTemplate(template, {
+        chunk_index: anchor.index + 1,
+        chunk_text: anchor.text,
+      }).trim(),
+    )
     .join("\\n\\n");
 }
 
@@ -2147,6 +2231,7 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
 async function runLongDocumentPipeline(ctx) {
   // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
   const useFoundation = await shouldUseFoundationModels({ tokenEstimate: totalTokens });
+  await refreshPromptTemplates();
   await refreshTokenEstimatorFromNative();
   await refreshLongDocumentChunkTokenSizeFromNative();
   await refreshLongDocumentMaxChunksFromNative();

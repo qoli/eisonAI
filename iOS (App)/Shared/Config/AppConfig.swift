@@ -41,28 +41,31 @@ enum AppConfig {
     static let lifetimeAccessProductId = "eisonai.unlock"
 
     static let defaultSystemPrompt: String = {
-        if let text = BundledTextResource.loadUTF8(name: "default_system_prompt", ext: "txt") {
-            return text
-        }
-
-        return """
+        let fallback = """
         將內容整理為簡短簡報，包含重點摘要。
 
         輸出要求：
         - 合適的格式結構
         """
+        return PromptTemplates.load(name: "default_system_prompt", fallback: fallback)
     }()
 
-    static let defaultChunkPrompt = """
-    你是一個文字整理員。
+    static let defaultChunkPrompt: String = {
+        let fallback = """
+        你是一個文字整理員。
 
-    你目前的任務是，正在協助用戶完整閱讀超長內容。
+        你目前的任務是，正在協助用戶完整閱讀超長內容。
 
-    - 擷取此文章的關鍵點
-    """
+        - 擷取此文章的關鍵點
+        """
+        return PromptTemplates.load(name: "default_chunk_prompt", fallback: fallback)
+    }()
 
-    static let defaultTitlePrompt = """
-    為內容建立一個簡短的標題；
-    與輸入語言保持一致，純文本輸出。
-    """
+    static let defaultTitlePrompt: String = {
+        let fallback = """
+        為內容建立一個簡短的標題；
+        與輸入語言保持一致，純文本輸出。
+        """
+        return PromptTemplates.load(name: "default_title_prompt", fallback: fallback)
+    }()
 }

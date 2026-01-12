@@ -570,30 +570,51 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
         let base = ChunkPromptStore().load().trimmingCharacters(in: .whitespacesAndNewlines)
-        let dynamicLine = "- This is a paragraph from the source (chunk \(chunkIndex) of \(chunkTotal))"
-        let prompt: String
-        if base.isEmpty {
-            prompt = dynamicLine
-        } else {
-            prompt = [base, "", dynamicLine].joined(separator: "\n")
-        }
+        let suffixTemplate = PromptTemplates.load(
+            name: "reading_anchor_system_suffix_app",
+            fallback: "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})"
+        )
+        let dynamicLine = PromptTemplates.render(
+            template: suffixTemplate,
+            values: [
+                "chunk_index": String(chunkIndex),
+                "chunk_total": String(chunkTotal),
+            ]
+        )
+        let prompt = base.isEmpty ? dynamicLine : [base, "", dynamicLine].joined(separator: "\n")
         log("longdoc:anchor-system-prompt index=\(chunkIndex) total=\(chunkTotal) count=\(prompt.count)")
         return prompt
     }
 
     private func buildReadingAnchorUserPrompt(text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let prompt = "CONTENT\n\(trimmed.isEmpty ? "(empty)" : trimmed)"
+        let template = PromptTemplates.load(
+            name: "reading_anchor_user_prompt_app",
+            fallback: "CONTENT\n{{content}}"
+        )
+        let prompt = PromptTemplates.render(
+            template: template,
+            values: ["content": trimmed.isEmpty ? "(empty)" : trimmed]
+        )
         log("longdoc:anchor-user-prompt textCount=\(text.count) trimmedCount=\(trimmed.count) promptCount=\(prompt.count)")
         return prompt
     }
 
     private func buildSummaryUserPrompt(from anchors: [ReadingAnchorChunk]) -> String {
         if anchors.isEmpty { return "(empty)" }
+        let itemTemplate = PromptTemplates.load(
+            name: "reading_anchor_summary_item",
+            fallback: "Chunk {{chunk_index}}\n{{chunk_text}}"
+        )
         let prompt = anchors
             .map { chunk in
-                let label = "Chunk \(chunk.index + 1)"
-                return "\(label)\n\(chunk.text)"
+                PromptTemplates.render(
+                    template: itemTemplate,
+                    values: [
+                        "chunk_index": String(chunk.index + 1),
+                        "chunk_text": chunk.text,
+                    ]
+                )
             }
             .joined(separator: "\n\n")
         log("longdoc:summary-user-prompt anchors=\(anchors.count) promptCount=\(prompt.count)")
@@ -676,10 +697,17 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private static func buildUserPrompt(title: String, text: String) -> String {
         let clippedText = clampText(text, maxChars: 8000)
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return [
-            normalizedTitle.isEmpty ? "(no title)" : normalizedTitle,
-            "CONTENT\n\(clippedText.isEmpty ? "(empty)" : clippedText)",
-        ].joined(separator: "\n\n")
+        let template = PromptTemplates.load(
+            name: "summary_user_prompt_app",
+            fallback: "{{title}}\n\nCONTENT\n{{content}}"
+        )
+        return PromptTemplates.render(
+            template: template,
+            values: [
+                "title": normalizedTitle.isEmpty ? "(no title)" : normalizedTitle,
+                "content": clippedText.isEmpty ? "(empty)" : clippedText,
+            ]
+        )
     }
 
     private static func clampText(_ text: String, maxChars: Int) -> String {

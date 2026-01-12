@@ -108,7 +108,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				contentReadability.js,
-				default_system_prompt.txt,
 				"webllm-assets",
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
@@ -117,6 +116,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Config/AppConfig.swift,
+				Prompts/PromptTemplates.swift,
 				Web/BundledTextResource.swift,
 			);
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;
