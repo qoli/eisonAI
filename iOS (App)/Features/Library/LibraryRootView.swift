@@ -390,7 +390,12 @@ struct LibraryRootView: View {
                         entry: entry
                     )
                 } label: {
-                    LibraryItemRow(entry: entry, isFavorite: viewModel.isFavorited(entry))
+                    LibraryItemRow(
+                        entry: entry,
+                        isFavorite: viewModel.isFavorited(entry),
+                        onToggleFavorite: { viewModel.toggleFavorite(entry) },
+                        onDelete: { viewModel.delete(entry) }
+                    )
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button {
@@ -640,6 +645,8 @@ private struct CircleProgressForeverView: View, Equatable {
 private struct LibraryItemRow: View {
     var entry: RawHistoryEntry
     var isFavorite: Bool
+    var onToggleFavorite: () -> Void
+    var onDelete: () -> Void
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
@@ -706,6 +713,19 @@ private struct LibraryItemRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .opacity(0.6)
+            }
+        }
+        .contextMenu {
+            Button {
+                onToggleFavorite()
+            } label: {
+                Text(isFavorite ? "Unfavorite" : "Favorite")
+            }
+
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Text("Delete")
             }
         }
     }
