@@ -8,8 +8,8 @@ const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "No summary text";
 const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2000;
 const DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD = 2600;
-const DEFAULT_BYOK_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 4096;
-const DEFAULT_BYOK_LONG_DOCUMENT_ROUTING_THRESHOLD = 7168;
+const DEFAULT_AUTO_STRATEGY_THRESHOLD = 7168;
+const DEFAULT_AUTO_LOCAL_PREFERENCE = "appleIntelligence";
 const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
 const TOKENIZER_GLOBALS = {
@@ -65,11 +65,14 @@ let lastWebGPUStatus = { state: "checking" };
 let lastWebGPUStatusAt = 0;
 let webgpuStatusPromise = null;
 const envProtocols = { model: "", wasm: "" };
-let nativeBackendSelection = "mlc";
+let nativeBackendSelection = "local";
 let byokModelName = "";
-let byokLongDocumentChunkTokenSize = DEFAULT_BYOK_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
-let byokLongDocumentRoutingThreshold = DEFAULT_BYOK_LONG_DOCUMENT_ROUTING_THRESHOLD;
+let autoStrategyThreshold = DEFAULT_AUTO_STRATEGY_THRESHOLD;
+let autoLocalPreference = DEFAULT_AUTO_LOCAL_PREFERENCE;
+let autoQwenEnabled = false;
+let autoAppleAvailability = null;
 let lastFoundationAvailability = null;
+let lastExecutionBackend = "";
 
 const AI_MODEL_WEBLLM_LABEL = "Qwen3 0.6B";
 const AI_MODEL_FM_LABEL = "Apple Intelligence";
@@ -248,27 +251,78 @@ async function refreshWebGPUStatus({ force = false } = {}) {
   return webgpuStatusPromise;
 }
 
+function normalizeLocalPreference(value) {
+  return value === "qwen3" ? "qwen3" : "appleIntelligence";
+}
+
+function hasLocalAvailability() {
+  return Boolean(autoAppleAvailability?.available) || Boolean(autoQwenEnabled);
+}
+
+function resolveExecutionBackendType(tokenEstimate) {
+  const selection = String(nativeBackendSelection || "auto");
+  if (selection === "byok") return "byok";
+  if (selection === "local") {
+    return hasLocalAvailability() ? "local" : "byok";
+  }
+  if (selection === "auto") {
+    const threshold = Number(autoStrategyThreshold);
+    const resolvedThreshold =
+      Number.isFinite(threshold) && threshold > 0
+        ? threshold
+        : DEFAULT_AUTO_STRATEGY_THRESHOLD;
+    const count = Number.isFinite(tokenEstimate) ? Number(tokenEstimate) : 0;
+    const type = count <= resolvedThreshold ? "local" : "byok";
+    return type === "local" && !hasLocalAvailability() ? "byok" : type;
+  }
+  return "byok";
+}
+
+function resolveLocalBackend() {
+  const prefer = normalizeLocalPreference(autoLocalPreference);
+  const appleAvailable = Boolean(autoAppleAvailability?.available);
+  const qwenAvailable = Boolean(autoQwenEnabled);
+  if (prefer === "appleIntelligence") {
+    if (appleAvailable) return "apple";
+    if (qwenAvailable) return "webllm";
+  } else {
+    if (qwenAvailable) return "webllm";
+    if (appleAvailable) return "apple";
+  }
+  return null;
+}
+
+function resolveExecutionBackend(tokenEstimate) {
+  const type = resolveExecutionBackendType(tokenEstimate);
+  if (type === "byok") {
+    return { type, backend: "byok", useFoundation: true };
+  }
+  const localBackend = resolveLocalBackend();
+  if (localBackend === "apple") {
+    return { type, backend: "apple", useFoundation: true };
+  }
+  if (localBackend === "webllm") {
+    return { type, backend: "webllm", useFoundation: false };
+  }
+  return { type: "byok", backend: "byok", useFoundation: true };
+}
+
 function updateAiModelLabel(info) {
   if (!aiModelEl) return;
   if (info) {
     lastFoundationAvailability = info;
   }
-  const availability = info ?? lastFoundationAvailability;
-  if (nativeBackendSelection === "byok") {
+  const resolved = resolveExecutionBackend(lastTokenEstimate);
+  lastExecutionBackend = resolved.backend;
+  if (resolved.backend === "byok") {
     const label = String(byokModelName ?? "").trim();
     aiModelEl.textContent = label || "BYOK";
     return;
   }
-
-  const useFoundation = availability
-    ? Boolean(availability.enabled && availability.available)
-    : nativeBackendSelection === "apple";
-
-  if (useFoundation) {
+  if (resolved.backend === "apple") {
     aiModelEl.textContent = AI_MODEL_FM_LABEL;
     return;
   }
-
   aiModelEl.textContent = AI_MODEL_WEBLLM_LABEL;
 }
 
@@ -702,28 +756,10 @@ function estimateTokensWithTokenizer(text) {
 function getLongDocumentChunkTokenSize(totalTokens, { useFoundation } = {}) {
   const value = Number(totalTokens) || 0;
   if (value <= 0) return 1;
-  if (
-    nativeBackendSelection === "byok" &&
-    (useFoundation ?? generationBackend === "foundation-models")
-  ) {
-    const byokSize = Number(byokLongDocumentChunkTokenSize);
-    if (Number.isFinite(byokSize) && byokSize > 0) {
-      return Math.max(1, byokSize);
-    }
-  }
   return Math.max(1, longDocumentChunkTokenSize);
 }
 
 function getLongDocumentRoutingThreshold({ useFoundation } = {}) {
-  if (
-    nativeBackendSelection === "byok" &&
-    (useFoundation ?? generationBackend === "foundation-models")
-  ) {
-    const byokThreshold = Number(byokLongDocumentRoutingThreshold);
-    if (Number.isFinite(byokThreshold) && byokThreshold > 0) {
-      return Math.max(1, byokThreshold);
-    }
-  }
   return Math.max(1, DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD);
 }
 
@@ -1394,17 +1430,20 @@ async function refreshByokSettingsFromNative({ log = false } = {}) {
   }
 
   try {
-    const [backendResp, byokResp, byokLongDocResp] = await Promise.all([
+    const [backendResp, byokResp, autoResp] = await Promise.all([
       browser.runtime.sendNativeMessage({ v: 1, command: "getGenerationBackend" }),
       browser.runtime.sendNativeMessage({ v: 1, command: "getBYOKSettings" }),
-      browser.runtime.sendNativeMessage({ v: 1, command: "getByokLongDocumentSettings" }),
+      browser.runtime.sendNativeMessage({ v: 1, command: "getAutoStrategySettings" }),
     ]);
 
     const backendPayload =
       backendResp?.payload ??
       backendResp?.echo?.payload ??
       backendResp;
-    const backend = backendPayload?.backend ? String(backendPayload.backend) : "unknown";
+    let backend = backendPayload?.backend ? String(backendPayload.backend) : "unknown";
+    if (backend === "mlc" || backend === "apple") {
+      backend = "local";
+    }
     nativeBackendSelection = backend;
 
     const byokPayload =
@@ -1417,22 +1456,34 @@ async function refreshByokSettingsFromNative({ log = false } = {}) {
     const model = byokPayload?.model ? String(byokPayload.model) : "";
     const apiKey = byokPayload?.apiKey ? String(byokPayload.apiKey) : "";
 
-    const byokLongDocPayload =
-      byokLongDocResp?.payload ??
-      byokLongDocResp?.echo?.payload ??
-      byokLongDocResp;
-    const byokChunkTokenSize = Number(byokLongDocPayload?.chunkTokenSize);
-    const byokRoutingThreshold = Number(byokLongDocPayload?.routingThreshold);
+    const autoPayload =
+      autoResp?.payload ??
+      autoResp?.echo?.payload ??
+      autoResp;
+    const autoThresholdRaw =
+      autoPayload?.strategyThreshold ??
+      autoPayload?.threshold;
+    const autoThreshold = Number(autoThresholdRaw);
+    const autoPreferenceRaw =
+      typeof autoPayload?.localPreference === "string"
+        ? autoPayload.localPreference
+        : typeof autoPayload?.preference === "string"
+          ? autoPayload.preference
+          : "";
+    const autoQwenRaw = autoPayload?.qwenEnabled;
+    const autoApplePayload = autoPayload?.appleAvailability;
 
     byokModelName = String(model ?? "").trim();
-    byokLongDocumentChunkTokenSize =
-      Number.isFinite(byokChunkTokenSize) && byokChunkTokenSize > 0
-        ? byokChunkTokenSize
-        : DEFAULT_BYOK_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
-    byokLongDocumentRoutingThreshold =
-      Number.isFinite(byokRoutingThreshold) && byokRoutingThreshold > 0
-        ? byokRoutingThreshold
-        : DEFAULT_BYOK_LONG_DOCUMENT_ROUTING_THRESHOLD;
+    autoStrategyThreshold =
+      Number.isFinite(autoThreshold) && [2600, 7168].includes(autoThreshold)
+        ? autoThreshold
+        : DEFAULT_AUTO_STRATEGY_THRESHOLD;
+    autoLocalPreference = normalizeLocalPreference(autoPreferenceRaw);
+    autoQwenEnabled = Boolean(autoQwenRaw);
+    autoAppleAvailability =
+      autoApplePayload && typeof autoApplePayload === "object"
+        ? autoApplePayload
+        : null;
 
     if (log) {
       console.log("[WebLLM Demo] generation backend =", backend);
@@ -1442,9 +1493,11 @@ async function refreshByokSettingsFromNative({ log = false } = {}) {
         model,
         hasApiKey: Boolean(apiKey),
       });
-      console.log("[WebLLM Demo] BYOK long-doc settings =", {
-        chunkTokenSize: Number.isFinite(byokChunkTokenSize) ? byokChunkTokenSize : null,
-        routingThreshold: Number.isFinite(byokRoutingThreshold) ? byokRoutingThreshold : null,
+      console.log("[WebLLM Demo] Auto strategy settings =", {
+        strategyThreshold: autoStrategyThreshold,
+        localPreference: autoLocalPreference,
+        qwenEnabled: autoQwenEnabled,
+        appleAvailability: autoAppleAvailability,
       });
     }
 
@@ -1457,7 +1510,7 @@ async function refreshByokSettingsFromNative({ log = false } = {}) {
 async function logByokSettingsFromNative() {
   await refreshByokSettingsFromNative({ log: true });
 }
-async function checkFoundationModelsAvailabilityFromNative() {
+async function checkFoundationModelsAvailabilityFromNative({ backend } = {}) {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     return { enabled: false, available: false, reason: "native messaging unavailable" };
   }
@@ -1466,6 +1519,7 @@ async function checkFoundationModelsAvailabilityFromNative() {
     const resp = await browser.runtime.sendNativeMessage({
       v: 1,
       command: "fm.checkAvailability",
+      payload: backend ? { backend: String(backend) } : undefined,
     });
 
     const payload =
@@ -1492,20 +1546,34 @@ async function checkFoundationModelsAvailabilityFromNative() {
   }
 }
 
-async function shouldUseFoundationModels() {
+async function shouldUseFoundationModels({ tokenEstimate } = {}) {
   await refreshByokSettingsFromNative();
-  const info = await checkFoundationModelsAvailabilityFromNative();
+  const resolved = resolveExecutionBackend(tokenEstimate ?? lastTokenEstimate);
+  if (resolved.backend === "webllm") {
+    updateAiModelLabel();
+    return false;
+  }
+  const info = await checkFoundationModelsAvailabilityFromNative({
+    backend: resolved.backend,
+  });
   updateAiModelLabel(info);
   return Boolean(info.enabled && info.available);
 }
 
-async function prewarmFoundationModels({ systemPrompt, promptPrefix }) {
+async function prewarmFoundationModels({
+  systemPrompt,
+  promptPrefix,
+  tokenEstimate,
+  backend,
+}) {
   const resp = await browser.runtime.sendNativeMessage({
     v: 1,
     command: "fm.prewarm",
     payload: {
       systemPrompt: String(systemPrompt ?? ""),
       promptPrefix: String(promptPrefix ?? ""),
+      tokenEstimate: Number.isFinite(tokenEstimate) ? Number(tokenEstimate) : 0,
+      backend: backend ? String(backend) : "",
     },
   });
 
@@ -1523,13 +1591,20 @@ async function prewarmFoundationModels({ systemPrompt, promptPrefix }) {
   return { ok: Boolean(payload?.ok) };
 }
 
-async function startFoundationModelsStream({ systemPrompt, userPrompt }) {
+async function startFoundationModelsStream({
+  systemPrompt,
+  userPrompt,
+  tokenEstimate,
+  backend,
+}) {
   const resp = await browser.runtime.sendNativeMessage({
     v: 1,
     command: "fm.stream.start",
     payload: {
       systemPrompt: String(systemPrompt ?? ""),
       userPrompt: String(userPrompt ?? ""),
+      tokenEstimate: Number.isFinite(tokenEstimate) ? Number(tokenEstimate) : 0,
+      backend: backend ? String(backend) : "",
       options: {
         temperature: 0.4,
         maximumResponseTokens: MAX_OUTPUT_TOKENS,
@@ -1882,10 +1957,22 @@ async function generateTextWithWebLLM(messages, { renderOutput = false } = {}) {
   return acc;
 }
 
-async function generateTextWithFoundationModels({ systemPrompt, userPrompt, renderOutput = false }) {
+async function generateTextWithFoundationModels({
+  systemPrompt,
+  userPrompt,
+  renderOutput = false,
+  tokenEstimate,
+}) {
   const prewarmPrefix = String(userPrompt ?? "").slice(0, FOUNDATION_PREWARM_PREFIX_LIMIT);
+  const resolved = resolveExecutionBackend(tokenEstimate ?? lastTokenEstimate);
+  const backend = resolved.backend === "webllm" ? "" : resolved.backend;
   try {
-    await prewarmFoundationModels({ systemPrompt, promptPrefix: prewarmPrefix });
+    await prewarmFoundationModels({
+      systemPrompt,
+      promptPrefix: prewarmPrefix,
+      tokenEstimate,
+      backend,
+    });
   } catch (err) {
     console.warn("[WebLLM Demo] fm.prewarm failed:", err);
   }
@@ -1893,6 +1980,8 @@ async function generateTextWithFoundationModels({ systemPrompt, userPrompt, rend
   const started = await startFoundationModelsStream({
     systemPrompt,
     userPrompt,
+    tokenEstimate,
+    backend,
   });
 
   foundationJobId = started.jobId;
@@ -1998,6 +2087,7 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
           systemPrompt,
           userPrompt,
           renderOutput: true,
+          tokenEstimate: totalTokens,
         })
       : await generateTextWithWebLLM(
           [
@@ -2040,6 +2130,7 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
         systemPrompt: summarySystemPrompt,
         userPrompt: summaryUserPrompt,
         renderOutput: true,
+        tokenEstimate: totalTokens,
       })
     : await generateTextWithWebLLM(
         [
@@ -2055,7 +2146,7 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
 
 async function runLongDocumentPipeline(ctx) {
   // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
-  const useFoundation = await shouldUseFoundationModels();
+  const useFoundation = await shouldUseFoundationModels({ tokenEstimate: totalTokens });
   await refreshTokenEstimatorFromNative();
   await refreshLongDocumentChunkTokenSizeFromNative();
   await refreshLongDocumentMaxChunksFromNative();
@@ -2169,6 +2260,10 @@ async function streamSummaryWithFoundationModels(ctx) {
   preparedMessagesForTokenEstimate = buildSummaryMessages(ctx);
   setInputTokenEstimate(estimateTokensForMessages(preparedMessagesForTokenEstimate));
 
+  const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
+  const resolved = resolveExecutionBackend(tokenEstimate);
+  const backend = resolved.backend === "webllm" ? "" : resolved.backend;
+
   generationInterrupted = false;
   generating = true;
   runButton.disabled = true;
@@ -2190,7 +2285,12 @@ async function streamSummaryWithFoundationModels(ctx) {
   try {
     const prewarmPrefix = String(cachedUserPrompt ?? "").slice(0, FOUNDATION_PREWARM_PREFIX_LIMIT);
     try {
-      await prewarmFoundationModels({ systemPrompt, promptPrefix: prewarmPrefix });
+      await prewarmFoundationModels({
+        systemPrompt,
+        promptPrefix: prewarmPrefix,
+        tokenEstimate,
+        backend,
+      });
     } catch (err) {
       console.warn("[WebLLM Demo] fm.prewarm failed:", err);
     }
@@ -2199,6 +2299,8 @@ async function streamSummaryWithFoundationModels(ctx) {
     const started = await startFoundationModelsStream({
       systemPrompt,
       userPrompt: cachedUserPrompt,
+      tokenEstimate,
+      backend,
     });
 
     foundationJobId = started.jobId;
@@ -2304,9 +2406,10 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-    const useFoundation = await shouldUseFoundationModels();
+    const useFoundation = await shouldUseFoundationModels({ tokenEstimate });
+    const executionType = resolveExecutionBackendType(tokenEstimate);
     await refreshLongDocumentChunkTokenSizeFromNative();
-    if (tokenEstimate > getLongDocumentRoutingThreshold({ useFoundation })) {
+    if (executionType === "local" && tokenEstimate > getLongDocumentRoutingThreshold()) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
       return;
@@ -2529,8 +2632,9 @@ summarizeButton.addEventListener("click", async () => {
     lastSummarySystemPrompt = "";
     showVisibilityPreview(ctx.text);
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
-    const useFoundation = await shouldUseFoundationModels();
-    if (tokenEstimate > getLongDocumentRoutingThreshold({ useFoundation })) {
+    const useFoundation = await shouldUseFoundationModels({ tokenEstimate });
+    const executionType = resolveExecutionBackendType(tokenEstimate);
+    if (executionType === "local" && tokenEstimate > getLongDocumentRoutingThreshold()) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
       return;

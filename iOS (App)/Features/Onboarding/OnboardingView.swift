@@ -174,7 +174,7 @@ struct OnboardingView: View {
     @State private var purchaseErrorMessage: String?
     @State private var hasLoadedStore = false
     @State private var didApplyRamPreset = false
-    @State private var ramSelectedBackend: GenerationBackend = .byok
+    @State private var ramSelectedBackend: GenerationBackend = .auto
     @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var localQwenEnabled = false
     @Environment(\.openURL) private var openURL
@@ -205,19 +205,25 @@ struct OnboardingView: View {
         return .sufficient
     }
 
+    private var appleAvailable: Bool {
+        AppleIntelligenceAvailability.currentStatus() == .available
+    }
+
+    private var localAvailability: LocalModelAvailability {
+        LocalModelAvailability(
+            isQwenAvailable: localQwenEnabled,
+            isAppleAvailable: appleAvailable
+        )
+    }
+
     private var recommendedBackend: GenerationBackend {
-        if AppleIntelligenceAvailability.currentStatus() == .available {
-            return .appleIntelligence
+        if appleAvailable {
+            return .auto
         }
-        if !localQwenEnabled {
-            return .byok
+        if localQwenEnabled, ramTier == .sufficient {
+            return .auto
         }
-        switch ramTier {
-        case .sufficient:
-            return .mlc
-        case .insufficient, .limited:
-            return .byok
-        }
+        return .byok
     }
 
     private var ramLevelColors: [Color] {
@@ -234,26 +240,26 @@ struct OnboardingView: View {
     }
 
     private var ramMessage: String {
+        if appleAvailable {
+            return "Apple Intelligence is available for local runs."
+        }
         if !localQwenEnabled {
             return "Local models are off. Enable Qwen3 0.6B in Settings → Labs."
         }
         switch ramTier {
         case .insufficient:
-            return "This device isn’t suited for local models. We recommend Apple Intelligence or BYOK."
+            return "This device isn’t suited for local models. We recommend BYOK."
         case .limited:
-            return "Local Qwen3 0.6B may run but can be unstable. Apple Intelligence or BYOK is recommended."
+            return "Local Qwen3 0.6B may run but can be unstable."
         case .sufficient:
             return "This device can run Qwen3 0.6B locally."
         }
     }
 
     private var ramBackendOptions: [GenerationBackend] {
-        var options: [GenerationBackend] = []
-        if AppleIntelligenceAvailability.currentStatus() == .available {
-            options.append(.appleIntelligence)
-        }
-        if localQwenEnabled, ramTier != .insufficient {
-            options.append(.mlc)
+        var options: [GenerationBackend] = [.auto]
+        if appleAvailable || (localQwenEnabled && ramTier != .insufficient) {
+            options.append(.local)
         }
         options.append(.byok)
         return options
@@ -761,10 +767,10 @@ struct OnboardingView: View {
             ZStack(alignment: .leading) {
                 Text("BYOK uses your own provider and API key. Finish setup later in Settings → AI Models.")
                     .opacity(ramSelectedBackend == .byok ? 1 : 0)
-                Text("Qwen3 0.6B runs on-device. Performance depends on available memory.")
-                    .opacity(ramSelectedBackend == .mlc ? 1 : 0)
-                Text("Apple Intelligence uses Apple’s on-device models. Requires iOS 26+ and Apple Intelligence enabled.")
-                    .opacity(ramSelectedBackend == .appleIntelligence ? 1 : 0)
+                Text("Local runs on-device (Apple Intelligence or Qwen3 0.6B).")
+                    .opacity(ramSelectedBackend == .local ? 1 : 0)
+                Text("Auto switches between Local and BYOK based on token count.")
+                    .opacity(ramSelectedBackend == .auto ? 1 : 0)
             }
             .font(.footnote)
             .foregroundStyle(.secondary)

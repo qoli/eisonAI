@@ -30,7 +30,7 @@ final class AnyLanguageModelClient {
     func prewarm(
         systemPrompt: String,
         promptPrefix: String? = nil,
-        backend: GenerationBackend,
+        backend: ExecutionBackend,
         byok: BYOKSettings? = nil
     ) {
         guard backend == .appleIntelligence else { return }
@@ -60,7 +60,7 @@ final class AnyLanguageModelClient {
         userPrompt: String,
         temperature: Double? = 0.4,
         maximumResponseTokens: Int? = 2048,
-        backend: GenerationBackend,
+        backend: ExecutionBackend,
         byok: BYOKSettings? = nil
     ) async throws -> AsyncThrowingStream<String, Error> {
         let model = try buildModel(backend: backend, byok: byok)
@@ -109,7 +109,7 @@ final class AnyLanguageModelClient {
 
     #if canImport(AnyLanguageModel)
         private func buildModel(
-            backend: GenerationBackend,
+            backend: ExecutionBackend,
             byok: BYOKSettings?
         ) throws -> any LanguageModel {
             switch backend {

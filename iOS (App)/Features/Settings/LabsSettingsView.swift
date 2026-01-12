@@ -24,14 +24,10 @@ struct LabsSettingsView: View {
 
     private func downgradeBackendIfNeeded() {
         let store = GenerationBackendSettingsStore()
-        guard store.loadSelectedBackend() == .mlc else { return }
-        let fallback: GenerationBackend
-        if AppleIntelligenceAvailability.currentStatus() == .available {
-            fallback = .appleIntelligence
-        } else {
-            fallback = .byok
+        guard store.loadSelectedBackend() == .local else { return }
+        if AppleIntelligenceAvailability.currentStatus() != .available {
+            store.saveSelectedBackend(.byok)
         }
-        store.saveSelectedBackend(fallback)
     }
 }
 

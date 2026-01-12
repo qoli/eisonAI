@@ -8,6 +8,7 @@ final class GenerationService {
     private let defaultAnyLanguageModels = AnyLanguageModelClient()
     private let backendSettings = GenerationBackendSettingsStore()
     private let byokSettingsStore = BYOKSettingsStore()
+    private let tokenEstimator = GPTTokenEstimator.shared
 
     private let rawLibraryStore = RawLibraryStore()
     private let titlePromptStore = TitlePromptStore()
@@ -40,7 +41,8 @@ final class GenerationService {
             let userPrompt = buildTitleUserPrompt(for: item)
 
             let stream: AsyncThrowingStream<String, Error>
-            let backend = backendSettings.effectiveBackend()
+            let tokenEstimate = await tokenEstimator.estimateTokenCount(for: userPrompt)
+            let backend = backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
             switch backend {
             case .mlc:
                 try await mlc.loadIfNeeded()

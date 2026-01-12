@@ -31,7 +31,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private let anyLanguageModels = AnyLanguageModelClient()
     private let backendSettings = GenerationBackendSettingsStore()
     private let byokSettingsStore = BYOKSettingsStore()
-    private let byokLongDocumentSettings = BYOKLongDocumentSettingsStore.shared
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
     private let tokenEstimator = GPTTokenEstimator.shared
@@ -98,7 +97,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 if Task.isCancelled { throw CancellationError() }
                 log("prepared input url=\(normalized.url.isEmpty ? "nil" : normalized.url) titleCount=\(normalized.title.count) textCount=\(normalized.text.count)")
 
-                let backend = self.backendSettings.effectiveBackend()
+                let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
+                self.tokenEstimate = tokenEstimate
+                let executionType = self.backendSettings.resolveExecutionBackendType(tokenCount: tokenEstimate)
+                let backend = self.backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
                 var byokSettings: BYOKSettings?
                 if backend == .byok {
                     let settings = self.byokSettingsStore.loadSettings()
@@ -111,23 +113,13 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     byokSettings = settings
                 }
 
-                let routingThreshold =
-                    backend == .byok
-                    ? byokLongDocumentSettings.routingThreshold()
-                    : longDocumentSettings.routingThreshold()
-                let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
-                self.tokenEstimate = tokenEstimate
-                let isLongDocument = tokenEstimate > routingThreshold
-                let chunkTokenSize =
-                    isLongDocument
-                    ? (backend == .byok
-                        ? byokLongDocumentSettings.chunkTokenSize()
-                        : longDocumentSettings.chunkTokenSize())
-                    : nil
+                let routingThreshold = longDocumentSettings.routingThreshold()
+                let isLongDocument = executionType == .local && tokenEstimate > routingThreshold
+                let chunkTokenSize = isLongDocument ? longDocumentSettings.chunkTokenSize() : nil
                 self.pipelineStatus = isLongDocument ? "ON" : "Off"
                 self.chunkStatus = isLongDocument ? self.chunkStatus : ""
                 self.log("tokenEstimate=\(tokenEstimate) isLongDocument=\(isLongDocument)")
-                self.log("backend=\(backend.rawValue)")
+                self.log("backend=\(backend.rawValue) executionType=\(executionType.rawValue)")
 
                 let result: PipelineResult
                 var effectiveChunkTokenSize: Int?
@@ -324,7 +316,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
     private func runSingleSummary(
         _ input: PreparedInput,
-        backend: GenerationBackend,
+        backend: ExecutionBackend,
         byok: BYOKSettings?
     ) async throws -> PipelineResult {
         let systemPrompt = loadKeyPointSystemPrompt()
@@ -384,7 +376,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         _ input: PreparedInput,
         tokenEstimate: Int,
         chunkTokenSize: Int,
-        backend: GenerationBackend,
+        backend: ExecutionBackend,
         byok: BYOKSettings?
     ) async throws -> PipelineResult {
         log("longdoc:start backend=\(backend.rawValue)")
@@ -531,7 +523,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         _ input: PreparedInput,
         tokenEstimate: Int,
         chunkTokenSize: Int,
-        backend: GenerationBackend,
+        backend: ExecutionBackend,
         byok: BYOKSettings?
     ) async throws -> (PipelineResult, Int) {
         var currentChunkSize = max(1, chunkTokenSize)

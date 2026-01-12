@@ -4,7 +4,7 @@ import SwiftUI
 struct AIModelsSettingsView: View {
     private let backendStore = GenerationBackendSettingsStore()
     private let byokStore = BYOKSettingsStore()
-    private let byokLongDocStore = BYOKLongDocumentSettingsStore.shared
+    private let autoStrategyStore = AutoStrategySettingsStore.shared
     private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
     private let tokenEstimatorSettingsStore = TokenEstimatorSettingsStore.shared
     private let longDocumentChunkSizeOptions: [Int] = [2000, 2200, 2600, 3000, 3200]
@@ -14,7 +14,7 @@ struct AIModelsSettingsView: View {
     private static let modelPickerCustomTag = "__byok_model_custom__"
 
     @State private var didLoad = false
-    @State private var backend: GenerationBackend = .mlc
+    @State private var backend: GenerationBackend = .local
     @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var localQwenEnabled = false
 
@@ -41,7 +41,8 @@ struct AIModelsSettingsView: View {
     @State private var byokPingError = ""
     @State private var byokPingTask: Task<Void, Never>?
 
-    @State private var byokLongDocPreset: BYOKLongDocumentPreset = .safe
+    @State private var autoStrategyThreshold: Int = 7168
+    @State private var autoLocalPreference: AutoStrategySettingsStore.LocalModelPreference = .appleIntelligence
     @State private var longDocumentChunkTokenSize: Int = 2000
     @State private var longDocumentMaxChunkCount: Int = 5
     @State private var tokenEstimatorEncoding: Encoding = .cl100k
@@ -50,34 +51,35 @@ struct AIModelsSettingsView: View {
         AppleIntelligenceAvailability.currentStatus()
     }
 
+    private var localAvailability: LocalModelAvailability {
+        LocalModelAvailability(
+            isQwenAvailable: localQwenEnabled,
+            isAppleAvailable: aiStatus == .available
+        )
+    }
+
     private var availableBackends: [GenerationBackend] {
-        var options: [GenerationBackend] = []
-        if localQwenEnabled {
-            options.append(.mlc)
-        }
-        if aiStatus == .available {
-            options.append(.appleIntelligence)
+        var options: [GenerationBackend] = [.auto]
+        if localAvailability.hasAnyLocal {
+            options.append(.local)
         }
         options.append(.byok)
         return options
     }
 
     private var backendFooterText: String {
+        var lines: [String] = []
         switch aiStatus {
         case .available:
-            return "Apple Intelligence is available on this device."
+            lines.append("Apple Intelligence: available.")
         case .notSupported:
-            return "Requires iOS 26+ with Apple Intelligence enabled."
+            lines.append("Apple Intelligence: requires iOS 26+ and enabled.")
         case let .unavailable(reason):
-            return reason
+            lines.append("Apple Intelligence: \(reason)")
         }
-    }
-
-    private var byokLongDocFooterText: String {
-        """
-        \(byokLongDocPreset.contextLabel) · Chunk \(byokLongDocPreset.chunkSize) · Route \(byokLongDocPreset.routingThreshold)
-        Recommended: Safe (8K)
-        """
+        let qwenLine = localQwenEnabled ? "Qwen3 0.6B: enabled." : "Qwen3 0.6B: off (Labs)."
+        lines.append(qwenLine)
+        return lines.joined(separator: "\n")
     }
 
     private var selectedProviderOption: BYOKProvider.ProviderOption? {
@@ -141,7 +143,56 @@ struct AIModelsSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if backend == .byok {
+            if backend == .auto {
+                Section {
+                    Picker(
+                        "Strategy Threshold",
+                        selection: Binding(
+                            get: { autoStrategyThreshold },
+                            set: { newValue in
+                                autoStrategyThreshold = newValue
+                                autoStrategyStore.setStrategyThreshold(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(autoStrategyStore.allowedThresholds, id: \.self) { value in
+                            Text("\(value)").tag(value)
+                        }
+                    }
+                } header: {
+                    Text("Auto Strategy")
+                } footer: {
+                    Text("Tokens ≤ threshold use Local; otherwise BYOK.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if backend != .byok {
+                Section {
+                    Picker(
+                        backend == .auto ? "Local Preference" : "Local Model",
+                        selection: Binding(
+                            get: { autoLocalPreference },
+                            set: { newValue in
+                                autoLocalPreference = newValue
+                                autoStrategyStore.setLocalModelPreference(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(AutoStrategySettingsStore.LocalModelPreference.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
+                        }
+                    }
+                    .disabled(!localAvailability.hasAnyLocal)
+                } header: {
+                    Text("Local Model")
+                } footer: {
+                    Text(localAvailability.hasAnyLocal ? "Used when execution type is Local." : "No local models are available.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if backend != .local {
                 Section {
                     Picker("Provider", selection: $byokProviderOptionID) {
                         ForEach(BYOKProvider.httpOptions) { option in
@@ -255,20 +306,6 @@ struct AIModelsSettingsView: View {
                         }
                     }
                 }
-
-                Section {
-                    Picker("Context Strategy", selection: $byokLongDocPreset) {
-                        ForEach(BYOKLongDocumentPreset.allCases) { preset in
-                            Text(preset.title).tag(preset)
-                        }
-                    }
-
-                } header: {
-                    Text("Long-Document Strategy")
-                } footer: {
-                    Text(byokLongDocFooterText)
-                        .foregroundStyle(.secondary)
-                }
             }
 
             if backend != .byok {
@@ -277,7 +314,7 @@ struct AIModelsSettingsView: View {
                         Text("Long-Document Processing")
                             .font(.headline)
 
-                        Text("We estimate tokens with the selected tokenizer. If content exceeds the routing threshold, we split it into chunks, summarize each chunk, then combine key points into a final summary.")
+                        Text("Local-only pipeline. We estimate tokens with the selected tokenizer. If content exceeds the routing threshold, we split it into chunks, summarize each chunk, then combine key points into a final summary.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -391,7 +428,7 @@ struct AIModelsSettingsView: View {
         .onChange(of: backend) { _, newValue in
             guard didLoad else { return }
             backendStore.saveSelectedBackend(newValue)
-            if newValue == .byok {
+            if newValue != .local {
                 scheduleByokConnectionTest()
             } else {
                 resetByokConnectionTest()
@@ -454,9 +491,6 @@ struct AIModelsSettingsView: View {
                 scheduleByokConnectionTest()
             }
         }
-        .onChange(of: byokLongDocPreset) { _, newValue in
-            if didLoad { applyByokLongDocPreset(newValue) }
-        }
     }
 
     private func loadStateIfNeeded() {
@@ -482,30 +516,21 @@ struct AIModelsSettingsView: View {
         byokProviderOptionID = optionID
         lastConfirmedProviderOptionID = optionID
 
-        let storedChunkSize = byokLongDocStore.chunkTokenSize()
-        let storedRoutingThreshold = byokLongDocStore.routingThreshold()
-        byokLongDocPreset = BYOKLongDocumentPreset.match(
-            chunkSize: storedChunkSize,
-            routingThreshold: storedRoutingThreshold
-        )
-
+        autoStrategyThreshold = autoStrategyStore.strategyThreshold()
+        autoLocalPreference = autoStrategyStore.localModelPreference()
         longDocumentChunkTokenSize = longDocumentSettingsStore.chunkTokenSize()
         longDocumentMaxChunkCount = longDocumentSettingsStore.maxChunkCount()
         tokenEstimatorEncoding = tokenEstimatorSettingsStore.selectedEncoding()
 
         validateBYOK()
-        applyByokLongDocPreset(byokLongDocPreset, updateStorage: false)
-        if backend == .byok {
+        if backend != .local {
             scheduleByokConnectionTest()
         }
     }
 
     private func resolveBackendSelection(_ selected: GenerationBackend) -> GenerationBackend {
-        if selected == .mlc, !localQwenEnabled {
-            return aiStatus == .available ? .appleIntelligence : .byok
-        }
-        if selected == .appleIntelligence, aiStatus != .available {
-            return localQwenEnabled ? .mlc : .byok
+        if selected == .local, !localAvailability.hasAnyLocal {
+            return .byok
         }
         return selected
     }
@@ -525,16 +550,6 @@ struct AIModelsSettingsView: View {
         }
         byokFooterIsError = false
         byokFooterMessage = ""
-    }
-
-    private func applyByokLongDocPreset(
-        _ preset: BYOKLongDocumentPreset,
-        updateStorage: Bool = true
-    ) {
-        if updateStorage {
-            byokLongDocStore.setChunkTokenSize(preset.chunkSize)
-            byokLongDocStore.setRoutingThreshold(preset.routingThreshold)
-        }
     }
 
     private func applyProviderOption(_ option: BYOKProvider.ProviderOption) {
@@ -566,7 +581,7 @@ struct AIModelsSettingsView: View {
         byokConnectionTask?.cancel()
         byokConnectionTask = nil
 
-        guard backend == .byok else {
+        guard backend != .local else {
             resetByokConnectionTest()
             return
         }
@@ -823,69 +838,6 @@ private struct BYOKHTTPError: LocalizedError {
             return "HTTP \(statusCode)."
         }
         return "Unexpected response."
-    }
-}
-
-private enum BYOKLongDocumentPreset: String, CaseIterable, Identifiable {
-    case safe
-    case balanced
-    case large
-    case ultra
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .safe: return "Safe"
-        case .balanced: return "Balanced"
-        case .large: return "Large Context"
-        case .ultra: return "Ultra"
-        }
-    }
-
-    var subtitle: String {
-        switch self {
-        case .safe: return "8K Context Windows"
-        case .balanced: return "16K Context Windows"
-        case .large: return "32K Context Windows"
-        case .ultra: return "128K Context Windows"
-        }
-    }
-
-    var contextLabel: String {
-        switch self {
-        case .safe: return "8K Context Windows"
-        case .balanced: return "16K Context Windows"
-        case .large: return "32K Context Windows"
-        case .ultra: return "128K Context Windows"
-        }
-    }
-
-    var chunkSize: Int {
-        switch self {
-        case .safe: return 4096
-        case .balanced: return 6144
-        case .large: return 12288
-        case .ultra: return 32768
-        }
-    }
-
-    var routingThreshold: Int {
-        switch self {
-        case .safe: return 7168
-        case .balanced: return 14336
-        case .large: return 28672
-        case .ultra: return 114688
-        }
-    }
-
-    static func match(chunkSize: Int, routingThreshold: Int) -> BYOKLongDocumentPreset {
-        for preset in allCases {
-            if preset.chunkSize == chunkSize && preset.routingThreshold == routingThreshold {
-                return preset
-            }
-        }
-        return .safe
     }
 }
 
