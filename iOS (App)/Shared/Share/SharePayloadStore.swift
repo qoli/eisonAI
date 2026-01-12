@@ -2,6 +2,10 @@ import Foundation
 
 struct SharePayloadStore {
     private let fileManager = FileManager.default
+    enum SaveOutcome {
+        case saved(URL)
+        case duplicate
+    }
 
     private func appGroupContainerURL() throws -> URL {
         guard
@@ -40,6 +44,28 @@ struct SharePayloadStore {
             options: [.skipsHiddenFiles]
         )
         return items.filter { $0.pathExtension.lowercased() == "json" }
+    }
+
+    func saveIfNotDuplicate(_ payload: SharePayload) throws -> SaveOutcome {
+        if let url = payload.url?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !url.isEmpty,
+           try containsURL(url)
+        {
+            return .duplicate
+        }
+        return .saved(try save(payload))
+    }
+
+    func save(_ payload: SharePayload) throws -> URL {
+        let dirURL = try payloadsDirectoryURL()
+        let fileURL = dirURL.appendingPathComponent("\(payload.id).json", isDirectory: false)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(payload)
+        try data.write(to: fileURL, options: [.atomic])
+        return fileURL
     }
 
     func loadNextPending() throws -> SharePayload? {
@@ -82,5 +108,30 @@ struct SharePayloadStore {
 
         try? fileManager.removeItem(at: fileURL)
         return payload
+    }
+
+    private func containsURL(_ url: String) throws -> Bool {
+        let dirURL = try payloadsDirectoryURL()
+        let files = try fileManager.contentsOfDirectory(
+            at: dirURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        for file in files where file.pathExtension.lowercased() == "json" {
+            guard let data = try? Data(contentsOf: file),
+                  let payload = try? decoder.decode(SharePayload.self, from: data)
+            else {
+                continue
+            }
+            if payload.url == url {
+                return true
+            }
+        }
+
+        return false
     }
 }
