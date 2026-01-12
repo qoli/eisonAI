@@ -7,6 +7,12 @@ struct LabsSettingsView: View {
     var body: some View {
         Form {
             Section {
+                InstalledMemoryView()
+                    .listRowInsets(EdgeInsets())
+                    .padding(.vertical, 4)
+            }
+
+            Section {
                 Toggle("Enable Local Qwen3 0.6B", isOn: $localQwenEnabled)
             } header: {
                 Text("Local Models")

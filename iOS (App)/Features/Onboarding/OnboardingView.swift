@@ -191,10 +191,6 @@ struct OnboardingView: View {
         return Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
     }
 
-    private var ramDisplay: String {
-        String(format: "%.1f GiB", ramGiB)
-    }
-
     private var ramTier: RamTier {
         if ramGiB < 6 {
             return .insufficient
@@ -209,51 +205,8 @@ struct OnboardingView: View {
         AppleIntelligenceAvailability.currentStatus() == .available
     }
 
-    private var localAvailability: LocalModelAvailability {
-        LocalModelAvailability(
-            isQwenAvailable: localQwenEnabled,
-            isAppleAvailable: appleAvailable
-        )
-    }
-
     private var recommendedBackend: GenerationBackend {
-        if appleAvailable {
-            return .auto
-        }
-        if localQwenEnabled, ramTier == .sufficient {
-            return .auto
-        }
-        return .byok
-    }
-
-    private var ramLevelColors: [Color] {
-        if ramGiB < 6 {
-            return [.gray, .gray, .red]
-        }
-        if ramGiB < 8 {
-            return [.gray, .yellow, .green]
-        }
-        if ramGiB < 16 {
-            return [.gray, .green, .green]
-        }
-        return [.green, .green, .green]
-    }
-
-    private var ramMessage: String {
-        if appleAvailable {
-            return "Apple Intelligence is available for local runs."
-        }
-        if !localQwenEnabled {
-            return "Local models are off. Enable Qwen3 0.6B in Settings → Labs."
-        }
-        switch ramTier {
-        case .insufficient:
-            return "This device isn’t suited for local models. We recommend BYOK."
-        case .limited:
-            return "Local Qwen3 0.6B may run but can be unstable."
-        case .sufficient:
-            return "This device can run Qwen3 0.6B locally."
-        }
+        appleAvailable ? .local : .byok
     }
 
     private var ramBackendOptions: [GenerationBackend] {
@@ -678,52 +631,19 @@ struct OnboardingView: View {
                 HStack {
                     Image(systemName: "memorychip")
                         .font(.headline)
-                    Text("Device Capability Check")
+                    Text("System Compatibility Check")
                         .font(.headline)
                         .fontWeight(.bold)
                     Spacer()
                 }
 
-            Text("We check memory before purchase to set a safe default.")
+                Text("We selected a safe \ndefault AI engine based on your device.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 6)
 
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Installed Memory")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fontWeight(.semibold)
-
-                    Spacer()
-                }
-
-                HStack {
-                    Text(ramDisplay)
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .fontDesign(.rounded)
-
-                    Spacer()
-
-                    // Ram LEVEL
-                    VStack(spacing: 2) {
-                        ForEach(0 ..< 3, id: \.self) { index in
-                            Capsule()
-                                .fill(ramLevelColors[index])
-                                .frame(width: 16, height: 5)
-                        }
-                    }
-                }
-
-                Text(ramMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-
-                Divider()
-
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Default Model Engine")
                         .font(.caption)
@@ -735,12 +655,12 @@ struct OnboardingView: View {
                             Button {
                                 setRamBackend(backend)
                             } label: {
-                                Text(backend.displayName)
+                                Text(backendOptionLabel(backend))
                             }
                         }
                     } label: {
                         HStack(spacing: 8) {
-                            Text(ramSelectedBackend.displayName)
+                            Text(backendOptionLabel(ramSelectedBackend))
                                 .font(.headline)
                             Image(systemName: "chevron.up.chevron.down")
                                 .font(.caption2)
@@ -767,7 +687,7 @@ struct OnboardingView: View {
             ZStack(alignment: .leading) {
                 Text("BYOK uses your own provider and API key. Finish setup later in Settings → AI Models.")
                     .opacity(ramSelectedBackend == .byok ? 1 : 0)
-                Text("Local runs on-device (Apple Intelligence or Qwen3 0.6B).")
+                Text("Local runs on-device (Apple Intelligence).")
                     .opacity(ramSelectedBackend == .local ? 1 : 0)
                 Text("Auto switches between Local and BYOK based on token count.")
                     .opacity(ramSelectedBackend == .auto ? 1 : 0)
@@ -1408,6 +1328,17 @@ struct OnboardingView: View {
         ramSelectedBackend = backend
         let store = GenerationBackendSettingsStore()
         store.saveSelectedBackend(backend)
+    }
+
+    private func backendOptionLabel(_ backend: GenerationBackend) -> String {
+        switch backend {
+        case .auto:
+            return "Auto"
+        case .local:
+            return "Local (Apple Intelligence)"
+        case .byok:
+            return "BYOK"
+        }
     }
 }
 
