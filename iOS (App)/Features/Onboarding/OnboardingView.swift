@@ -174,7 +174,9 @@ struct OnboardingView: View {
     @State private var purchaseErrorMessage: String?
     @State private var hasLoadedStore = false
     @State private var didApplyRamPreset = false
-    @State private var ramSelectedBackend: GenerationBackend = .mlc
+    @State private var ramSelectedBackend: GenerationBackend = .byok
+    @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
+    private var localQwenEnabled = false
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
@@ -207,6 +209,9 @@ struct OnboardingView: View {
         if AppleIntelligenceAvailability.currentStatus() == .available {
             return .appleIntelligence
         }
+        if !localQwenEnabled {
+            return .byok
+        }
         switch ramTier {
         case .sufficient:
             return .mlc
@@ -229,6 +234,9 @@ struct OnboardingView: View {
     }
 
     private var ramMessage: String {
+        if !localQwenEnabled {
+            return "Local models are off. Enable Qwen3 0.6B in Settings → Labs."
+        }
         switch ramTier {
         case .insufficient:
             return "This device isn’t suited for local models. We recommend Apple Intelligence or BYOK."
@@ -244,7 +252,7 @@ struct OnboardingView: View {
         if AppleIntelligenceAvailability.currentStatus() == .available {
             options.append(.appleIntelligence)
         }
-        if ramTier != .insufficient {
+        if localQwenEnabled, ramTier != .insufficient {
             options.append(.mlc)
         }
         options.append(.byok)

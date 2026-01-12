@@ -31,6 +31,19 @@ struct SettingsView: View {
 
             Section {
                 NavigationLink {
+                    LabsSettingsView()
+                } label: {
+                    Label("Labs", systemImage: "flask")
+                        .foregroundStyle(.primary)
+                }
+            } header: {
+                Text("Labs")
+            } footer: {
+                Text("Experimental features and model flags.")
+            }
+
+            Section {
+                NavigationLink {
                     DataSyncSettingsView()
                 } label: {
                     Label("Data & Sync", systemImage: "icloud.and.arrow.up")

@@ -15,6 +15,8 @@ struct AIModelsSettingsView: View {
 
     @State private var didLoad = false
     @State private var backend: GenerationBackend = .mlc
+    @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
+    private var localQwenEnabled = false
 
     @State private var byokProvider: BYOKProvider = .openAIChat
     @State private var byokProviderOptionID = ""
@@ -49,10 +51,14 @@ struct AIModelsSettingsView: View {
     }
 
     private var availableBackends: [GenerationBackend] {
-        var options: [GenerationBackend] = [.mlc, .byok]
-        if aiStatus == .available {
-            options.insert(.appleIntelligence, at: 1)
+        var options: [GenerationBackend] = []
+        if localQwenEnabled {
+            options.append(.mlc)
         }
+        if aiStatus == .available {
+            options.append(.appleIntelligence)
+        }
+        options.append(.byok)
         return options
     }
 
@@ -392,6 +398,14 @@ struct AIModelsSettingsView: View {
                 resetByokPing()
             }
         }
+        .onChange(of: localQwenEnabled) { _, _ in
+            guard didLoad else { return }
+            let resolved = resolveBackendSelection(backend)
+            if resolved != backend {
+                backend = resolved
+                backendStore.saveSelectedBackend(resolved)
+            }
+        }
         .onChange(of: byokProviderOptionID) { _, newValue in
             guard didLoad else { return }
             guard !suppressProviderOptionChange else { return }
@@ -450,11 +464,10 @@ struct AIModelsSettingsView: View {
         didLoad = true
 
         let selected = backendStore.loadSelectedBackend()
-        if selected == .appleIntelligence, aiStatus != .available {
-            backend = .mlc
-            backendStore.saveSelectedBackend(.mlc)
-        } else {
-            backend = selected
+        let resolved = resolveBackendSelection(selected)
+        backend = resolved
+        if resolved != selected {
+            backendStore.saveSelectedBackend(resolved)
         }
 
         let byokSettings = byokStore.loadSettings()
@@ -485,6 +498,16 @@ struct AIModelsSettingsView: View {
         if backend == .byok {
             scheduleByokConnectionTest()
         }
+    }
+
+    private func resolveBackendSelection(_ selected: GenerationBackend) -> GenerationBackend {
+        if selected == .mlc, !localQwenEnabled {
+            return aiStatus == .available ? .appleIntelligence : .byok
+        }
+        if selected == .appleIntelligence, aiStatus != .available {
+            return localQwenEnabled ? .mlc : .byok
+        }
+        return selected
     }
 
     private func validateBYOK() {

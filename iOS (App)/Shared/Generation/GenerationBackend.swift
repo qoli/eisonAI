@@ -35,9 +35,19 @@ struct GenerationBackendSettingsStore {
 
     func effectiveBackend() -> GenerationBackend {
         let selected = loadSelectedBackend()
+        let localQwenEnabled = LabsSettingsStore().isLocalQwenEnabled()
+        if selected == .mlc, !localQwenEnabled {
+            if AppleIntelligenceAvailability.currentStatus() == .available {
+                return .appleIntelligence
+            }
+            return .byok
+        }
         if selected == .appleIntelligence,
            AppleIntelligenceAvailability.currentStatus() != .available {
-            return .mlc
+            if localQwenEnabled {
+                return .mlc
+            }
+            return .byok
         }
         return selected
     }
