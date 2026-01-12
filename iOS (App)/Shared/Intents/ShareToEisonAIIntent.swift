@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UIKit
 
 struct ShareToEisonAIIntent: AppIntent {
     static var title: LocalizedStringResource = "Send to eisonAI"
@@ -38,8 +39,6 @@ struct ShareToEisonAIIntent: AppIntent {
             title: nil
         )
 
-        return .result(value: "失敗 · 內容為空，無法儲存")
-
         do {
             let outcome = try SharePayloadStore().saveIfNotDuplicate(payload)
             switch outcome {
@@ -49,7 +48,9 @@ struct ShareToEisonAIIntent: AppIntent {
             case .saved:
                 let message = "已送出到 eisonAI。"
                 if openApp, let deeplink = shareDeepLinkURL(for: payload.id) {
-                    return .result(value: message)
+                    await MainActor.run {
+                        UIApplication.shared.open(deeplink)
+                    }
                 }
                 return .result(value: message)
             }
