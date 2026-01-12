@@ -22,11 +22,11 @@ struct ShareToEisonAIIntent: AppIntent {
         }
     }
 
-    func perform() async throws -> some ProvidesDialog & ReturnsValue<String> {
+    func perform() async throws -> some ReturnsValue<String> {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             let message = "內容為空，無法傳送。"
-            return .result(value: message, dialog: IntentDialog(stringLiteral: message))
+            return .result(value: message)
         }
 
         let urlString = normalizedURLString(from: trimmed)
@@ -38,26 +38,24 @@ struct ShareToEisonAIIntent: AppIntent {
             title: nil
         )
 
+        return .result(value: "失敗 · 內容為空，無法儲存")
+
         do {
             let outcome = try SharePayloadStore().saveIfNotDuplicate(payload)
             switch outcome {
             case .duplicate:
                 let message = "已存在相同 URL 的內容。"
-                return .result(value: message, dialog: IntentDialog(stringLiteral: message))
+                return .result(value: message)
             case .saved:
                 let message = "已送出到 eisonAI。"
                 if openApp, let deeplink = shareDeepLinkURL(for: payload.id) {
-                    return .result(
-                        value: message,
-                        opensIntent: OpenURLIntent(deeplink),
-                        dialog: IntentDialog(stringLiteral: message)
-                    )
+                    return .result(value: message)
                 }
-                return .result(value: message, dialog: IntentDialog(stringLiteral: message))
+                return .result(value: message)
             }
         } catch {
             let message = "送出失敗：\(error.localizedDescription)"
-            return .result(value: message, dialog: IntentDialog(stringLiteral: message))
+            return .result(value: message)
         }
     }
 
