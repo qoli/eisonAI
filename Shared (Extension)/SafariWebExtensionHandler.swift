@@ -16,6 +16,7 @@ import SafariServices
 #endif
 
 enum GenerationBackendSelection: String {
+    case auto
     case mlc
     case appleIntelligence = "apple"
     case byok
@@ -317,6 +318,26 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return max(1, stored)
     }
 
+    private func loadAutoStrategyThreshold() -> Int {
+        let fallback = 7168
+        let allowed: Set<Int> = [2600, 7168]
+        guard let stored = sharedDefaults()?.object(forKey: AppConfig.autoStrategyThresholdKey) as? Int else {
+            return fallback
+        }
+        return allowed.contains(stored) ? stored : fallback
+    }
+
+    private func loadAutoLocalPreference() -> String {
+        guard let stored = sharedDefaults()?.string(forKey: AppConfig.autoLocalModelPreferenceKey) else {
+            return "appleIntelligence"
+        }
+        return stored == "qwen3" ? "qwen3" : "appleIntelligence"
+    }
+
+    private func loadLocalQwenEnabled() -> Bool {
+        sharedDefaults()?.bool(forKey: AppConfig.localQwenEnabledKey) ?? false
+    }
+
     private func loadLongDocumentMaxChunks() -> Int {
         let fallback = 5
         let allowed: Set<Int> = [4, 5, 6, 7]
@@ -471,7 +492,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
     private func isFoundationModelsExtensionEnabled() -> Bool {
         let backend = loadGenerationBackendSelection()
-        return backend == .appleIntelligence || backend == .byok
+        return backend == .appleIntelligence || backend == .byok || backend == .auto
     }
 
     private func loadBYOKSettings() -> BYOKSettingsPayload {
@@ -650,6 +671,27 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             ])
             return
 
+        case "getAutoStrategySettings":
+            Task {
+                let byokSettings = loadBYOKSettings()
+                let applePayload = await FoundationModelsStreamManager.shared.checkAvailabilityPayload(
+                    backend: .appleIntelligence,
+                    byok: byokSettings
+                )
+                complete(context, responseMessage: [
+                    "v": 1,
+                    "type": "response",
+                    "name": "autoStrategySettings",
+                    "payload": [
+                        "strategyThreshold": loadAutoStrategyThreshold(),
+                        "localPreference": loadAutoLocalPreference(),
+                        "qwenEnabled": loadLocalQwenEnabled(),
+                        "appleAvailability": applePayload,
+                    ],
+                ])
+            }
+            return
+
         case "getGenerationBackend":
             complete(context, responseMessage: [
                 "v": 1,
@@ -720,13 +762,15 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 let payload = dict["payload"] as? [String: Any]
                 let systemPrompt = (payload?["systemPrompt"] as? String) ?? ""
                 let promptPrefix = payload?["promptPrefix"] as? String
+                let tokenEstimate = payload?["tokenEstimate"] as? Int
 
                 do {
                     try await FoundationModelsStreamManager.shared.prewarm(
                         systemPrompt: systemPrompt,
                         promptPrefix: promptPrefix,
                         backend: backend,
-                        byok: byokSettings
+                        byok: byokSettings,
+                        tokenEstimate: tokenEstimate
                     )
                     complete(context, responseMessage: [
                         "v": 1,
@@ -761,6 +805,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 let optionsDict = payload?["options"] as? [String: Any]
                 let temperature = optionsDict?["temperature"] as? Double
                 let maximumResponseTokens = optionsDict?["maximumResponseTokens"] as? Int
+                let tokenEstimate = payload?["tokenEstimate"] as? Int
 
                 do {
                     let jobId = try await FoundationModelsStreamManager.shared.start(
@@ -769,7 +814,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                         temperature: temperature,
                         maximumResponseTokens: maximumResponseTokens,
                         backend: backend,
-                        byok: byokSettings
+                        byok: byokSettings,
+                        tokenEstimate: tokenEstimate
                     )
                     complete(context, responseMessage: [
                         "v": 1,
@@ -1065,6 +1111,23 @@ actor FoundationModelsStreamManager {
         byok: BYOKSettingsPayload
     ) async -> [String: Any] {
         switch backend {
+        case .auto:
+            let appleAvailable = appleAvailability()
+            let byokError = validateBYOK(byok)
+            let byokAvailable = byokError == nil
+            if appleAvailable || byokAvailable {
+                return [
+                    "enabled": true,
+                    "available": true,
+                    "reason": "",
+                ]
+            }
+            let reason = byokError ?? "Apple Intelligence is unavailable."
+            return [
+                "enabled": true,
+                "available": false,
+                "reason": reason,
+            ]
         case .mlc:
             return [
                 "enabled": false,
@@ -1085,48 +1148,7 @@ actor FoundationModelsStreamManager {
                 "reason": "",
             ]
         case .appleIntelligence:
-            guard #available(iOS 26.0, macOS 26.0, *) else {
-                return [
-                    "enabled": true,
-                    "available": false,
-                    "reason": "Requires iOS 26+ with Apple Intelligence.",
-                ]
-            }
-
-            #if canImport(FoundationModels) && canImport(AnyLanguageModel)
-                let model = SystemLanguageModel.default
-                switch model.availability {
-                case .available:
-                    return [
-                        "enabled": true,
-                        "available": true,
-                        "reason": "",
-                    ]
-                case let .unavailable(reason):
-                    let message: String
-                    switch reason {
-                    case .deviceNotEligible:
-                        message = "Device not eligible for Apple Intelligence."
-                    case .appleIntelligenceNotEnabled:
-                        message = "Apple Intelligence is not enabled."
-                    case .modelNotReady:
-                        message = "Apple Intelligence models are still downloading."
-                    @unknown default:
-                        message = "Apple Intelligence is unavailable."
-                    }
-                    return [
-                        "enabled": true,
-                        "available": false,
-                        "reason": message,
-                    ]
-                }
-            #else
-                return [
-                    "enabled": true,
-                    "available": false,
-                    "reason": "Apple Intelligence framework is unavailable.",
-                ]
-            #endif
+            return appleAvailabilityPayload()
         }
     }
 
@@ -1134,13 +1156,20 @@ actor FoundationModelsStreamManager {
         systemPrompt: String,
         promptPrefix: String?,
         backend: GenerationBackendSelection,
-        byok: BYOKSettingsPayload
+        byok: BYOKSettingsPayload,
+        tokenEstimate: Int?
     ) async throws {
         if backend == .mlc {
             throw StreamError.notSupported
         }
         if backend == .byok {
             return
+        }
+        if backend == .auto {
+            let resolved = resolveAutoBackend(tokenCount: tokenEstimate)
+            if resolved == .byok {
+                return
+            }
         }
         guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
         #if canImport(FoundationModels) && canImport(AnyLanguageModel)
@@ -1185,15 +1214,24 @@ actor FoundationModelsStreamManager {
         temperature: Double?,
         maximumResponseTokens: Int?,
         backend: GenerationBackendSelection,
-        byok: BYOKSettingsPayload
+        byok: BYOKSettingsPayload,
+        tokenEstimate: Int?
     ) async throws -> String {
         if backend == .mlc {
             throw StreamError.notSupported
         }
-        if backend == .byok, let error = validateBYOK(byok) {
+        let resolvedBackend: GenerationBackendSelection
+        switch backend {
+        case .auto:
+            resolvedBackend = resolveAutoBackend(tokenCount: tokenEstimate)
+        default:
+            resolvedBackend = backend
+        }
+
+        if resolvedBackend == .byok, let error = validateBYOK(byok) {
             throw StreamError.unavailable(error)
         }
-        if backend == .appleIntelligence {
+        if resolvedBackend == .appleIntelligence {
             guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
         }
 
@@ -1210,7 +1248,7 @@ actor FoundationModelsStreamManager {
                 userPrompt: userPrompt,
                 temperature: temp,
                 maximumResponseTokens: maxTok,
-                backend: backend,
+                backend: resolvedBackend,
                 byok: byok
             )
         }
@@ -1306,6 +1344,102 @@ actor FoundationModelsStreamManager {
         return nil
     }
 
+    private func autoStrategyThreshold() -> Int {
+        let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+        let allowed = [2600, 7168]
+        if let stored = defaults?.object(forKey: AppConfig.autoStrategyThresholdKey) as? Int,
+           allowed.contains(stored) {
+            return stored
+        }
+        return 7168
+    }
+
+    private func autoLocalPreference() -> String {
+        let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+        return defaults?.string(forKey: AppConfig.autoLocalModelPreferenceKey) ?? "appleIntelligence"
+    }
+
+    private func resolveAutoBackend(
+        tokenCount: Int?
+    ) -> GenerationBackendSelection {
+        let threshold = autoStrategyThreshold()
+        let useLocal = tokenCount.map { $0 <= threshold } ?? true
+        let preference = autoLocalPreference()
+        if useLocal {
+            if preference == "qwen3" {
+                if appleAvailability() {
+                    return .appleIntelligence
+                }
+            } else if appleAvailability() {
+                return .appleIntelligence
+            }
+        }
+        return .byok
+    }
+
+    private func appleAvailability() -> Bool {
+        guard #available(iOS 26.0, macOS 26.0, *) else {
+            return false
+        }
+
+        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+            let model = SystemLanguageModel.default
+            switch model.availability {
+            case .available:
+                return true
+            case .unavailable:
+                return false
+            }
+        #else
+            return false
+        #endif
+    }
+
+    private func appleAvailabilityPayload() -> [String: Any] {
+        guard #available(iOS 26.0, macOS 26.0, *) else {
+            return [
+                "enabled": true,
+                "available": false,
+                "reason": "Requires iOS 26+ with Apple Intelligence.",
+            ]
+        }
+
+        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+            let model = SystemLanguageModel.default
+            switch model.availability {
+            case .available:
+                return [
+                    "enabled": true,
+                    "available": true,
+                    "reason": "",
+                ]
+            case let .unavailable(reason):
+                let message: String
+                switch reason {
+                case .deviceNotEligible:
+                    message = "Device not eligible for Apple Intelligence."
+                case .appleIntelligenceNotEnabled:
+                    message = "Apple Intelligence is not enabled."
+                case .modelNotReady:
+                    message = "Apple Intelligence models are still downloading."
+                @unknown default:
+                    message = "Apple Intelligence is unavailable."
+                }
+                return [
+                    "enabled": true,
+                    "available": false,
+                    "reason": message,
+                ]
+            }
+        #else
+            return [
+                "enabled": true,
+                "available": false,
+                "reason": "Apple Intelligence framework is unavailable.",
+            ]
+        #endif
+    }
+
     #if canImport(AnyLanguageModel)
         private enum BYOKHTTPProvider: String {
             case ollama
@@ -1320,6 +1454,8 @@ actor FoundationModelsStreamManager {
             byok: BYOKSettingsPayload
         ) throws -> any LanguageModel {
             switch backend {
+            case .auto:
+                throw StreamError.unavailable("Auto backend must be resolved before use.")
             case .mlc:
                 throw StreamError.notSupported
             case .appleIntelligence:

@@ -7,6 +7,7 @@ struct AIModelsSettingsView: View {
     private let byokLongDocStore = BYOKLongDocumentSettingsStore.shared
     private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
     private let tokenEstimatorSettingsStore = TokenEstimatorSettingsStore.shared
+    private let autoStrategyStore = AutoStrategySettingsStore.shared
     private let longDocumentChunkSizeOptions: [Int] = [2000, 2200, 2600, 3000, 3200]
     private let longDocumentMaxChunkOptions: [Int] = [4, 5, 6, 7]
     private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
@@ -17,6 +18,8 @@ struct AIModelsSettingsView: View {
     @State private var backend: GenerationBackend = .mlc
     @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var localQwenEnabled = false
+    @State private var autoStrategyThreshold = 7168
+    @State private var autoLocalPreference: AutoStrategySettingsStore.LocalModelPreference = .appleIntelligence
 
     @State private var byokProvider: BYOKProvider = .openAIChat
     @State private var byokProviderOptionID = ""
@@ -50,26 +53,75 @@ struct AIModelsSettingsView: View {
         AppleIntelligenceAvailability.currentStatus()
     }
 
-    private var availableBackends: [GenerationBackend] {
-        var options: [GenerationBackend] = []
-        if localQwenEnabled {
-            options.append(.mlc)
+    private var backendOptions: [BackendOption] {
+        let availability = backendStore.localModelAvailability()
+        var options: [BackendOption] = []
+
+        let autoEnabled = availability.hasAnyLocal
+        options.append(
+            BackendOption(
+                backend: .auto,
+                title: "Auto",
+                isEnabled: autoEnabled,
+                disabledReason: autoEnabled ? nil : "Requires Labs or Apple Intelligence"
+            )
+        )
+
+        if availability.isAppleAvailable {
+            options.append(
+                BackendOption(
+                    backend: .appleIntelligence,
+                    title: GenerationBackend.appleIntelligence.displayName,
+                    isEnabled: true,
+                    disabledReason: nil
+                )
+            )
         }
-        if aiStatus == .available {
-            options.append(.appleIntelligence)
+
+        options.append(
+            BackendOption(
+                backend: .byok,
+                title: GenerationBackend.byok.displayName,
+                isEnabled: true,
+                disabledReason: nil
+            )
+        )
+
+        if availability.isQwenAvailable {
+            options.append(
+                BackendOption(
+                    backend: .mlc,
+                    title: GenerationBackend.mlc.displayName,
+                    isEnabled: true,
+                    disabledReason: nil
+                )
+            )
         }
-        options.append(.byok)
+
         return options
     }
 
     private var backendFooterText: String {
-        switch aiStatus {
-        case .available:
-            return "Apple Intelligence is available on this device."
-        case .notSupported:
-            return "Requires iOS 26+ with Apple Intelligence enabled."
-        case let .unavailable(reason):
-            return reason
+        switch backend {
+        case .auto:
+            let availability = backendStore.localModelAvailability()
+            if !availability.hasAnyLocal {
+                return "Auto requires Labs or Apple Intelligence."
+            }
+            let byokSettings = byokStore.loadSettings()
+            if byokStore.validationError(for: byokSettings) != nil {
+                return "BYOK is not configured. Auto cannot route over the threshold."
+            }
+            return "≤ \(autoStrategyThreshold) tokens use local; above uses BYOK."
+        default:
+            switch aiStatus {
+            case .available:
+                return "Apple Intelligence is available on this device."
+            case .notSupported:
+                return "Requires iOS 26+ with Apple Intelligence enabled."
+            case let .unavailable(reason):
+                return reason
+            }
         }
     }
 
@@ -91,6 +143,21 @@ struct AIModelsSettingsView: View {
 
     private var selectedProviderDocsURL: URL? {
         selectedProviderOption?.preset?.docsURL
+    }
+
+    private var localModelOptions: [LocalModelOption] {
+        [
+            LocalModelOption(
+                id: .appleIntelligence,
+                title: "Apple Intelligence",
+                isEnabled: aiStatus == .available
+            ),
+            LocalModelOption(
+                id: .qwen3,
+                title: "Qwen3 0.6B",
+                isEnabled: localQwenEnabled
+            ),
+        ]
     }
 
     private var byokModelPickerOptions: [ModelPickerOption] {
@@ -129,8 +196,10 @@ struct AIModelsSettingsView: View {
         Form {
             Section {
                 Picker("Backend", selection: $backend) {
-                    ForEach(availableBackends, id: \.self) { backend in
-                        Text(backend.displayName).tag(backend)
+                    ForEach(backendOptions) { option in
+                        Text(option.label)
+                            .tag(option.backend)
+                            .disabled(!option.isEnabled)
                     }
                 }
 
@@ -141,7 +210,55 @@ struct AIModelsSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if backend == .byok {
+            if backend == .auto {
+                Section {
+                    Picker(
+                        "Threshold",
+                        selection: Binding(
+                            get: { autoStrategyThreshold },
+                            set: { newValue in
+                                autoStrategyThreshold = newValue
+                                autoStrategyStore.setStrategyThreshold(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(autoStrategyStore.allowedThresholds, id: \.self) { threshold in
+                            Text("\(threshold) tokens").tag(threshold)
+                        }
+                    }
+                } header: {
+                    Text("Strategy Threshold")
+                } footer: {
+                    Text("Local for ≤ threshold. BYOK for > threshold.")
+                        .foregroundStyle(.secondary)
+                }
+
+                Section {
+                    Picker(
+                        "Local Model",
+                        selection: Binding(
+                            get: { autoLocalPreference },
+                            set: { newValue in
+                                autoLocalPreference = newValue
+                                autoStrategyStore.setLocalModelPreference(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(localModelOptions) { option in
+                            Text(option.title)
+                                .tag(option.id)
+                                .disabled(!option.isEnabled)
+                        }
+                    }
+                } header: {
+                    Text("Local Model Preference")
+                } footer: {
+                    Text("Used when Auto routes to local.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if backend == .byok || backend == .auto {
                 Section {
                     Picker("Provider", selection: $byokProviderOptionID) {
                         ForEach(BYOKProvider.httpOptions) { option in
@@ -271,7 +388,7 @@ struct AIModelsSettingsView: View {
                 }
             }
 
-            if backend != .byok {
+            if backend != .byok && backend != .auto {
                 Section {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Long-Document Processing")
@@ -307,49 +424,51 @@ struct AIModelsSettingsView: View {
                 }
             }
 
-            Section {
-                Picker(
-                    "Max Chunks",
-                    selection: Binding(
-                        get: { longDocumentMaxChunkCount },
-                        set: { newValue in
-                            longDocumentMaxChunkCount = newValue
-                            longDocumentSettingsStore.setMaxChunkCount(newValue)
+            if backend != .auto {
+                Section {
+                    Picker(
+                        "Max Chunks",
+                        selection: Binding(
+                            get: { longDocumentMaxChunkCount },
+                            set: { newValue in
+                                longDocumentMaxChunkCount = newValue
+                                longDocumentSettingsStore.setMaxChunkCount(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
+                            Text("\(count)").tag(count)
+                                .lineLimit(1)
                         }
-                    )
-                ) {
-                    ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
-                        Text("\(count)").tag(count)
-                            .lineLimit(1)
                     }
-                }
-            } header: {
-                Text("Max Chunks")
-            } footer: {
-                Text("Extra chunks are skipped to keep processing time predictable.")
-            }
-
-            Section {
-                Picker(
-                    "Tokenizer",
-                    selection: Binding(
-                        get: { tokenEstimatorEncoding },
-                        set: { newValue in
-                            tokenEstimatorEncoding = newValue
-                            tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
-                        }
-                    )
-                ) {
-                    ForEach(tokenEstimatorOptions, id: \.self) { encoding in
-                        Text(encoding.rawValue).tag(encoding)
-                    }
+                } header: {
+                    Text("Max Chunks")
+                } footer: {
+                    Text("Extra chunks are skipped to keep processing time predictable.")
                 }
 
-            } header: {
-                Text("Tokenization")
-            } footer: {
-                Text("Used for token estimates and chunking in the app and Safari extension.")
-                    .padding(.bottom)
+                Section {
+                    Picker(
+                        "Tokenizer",
+                        selection: Binding(
+                            get: { tokenEstimatorEncoding },
+                            set: { newValue in
+                                tokenEstimatorEncoding = newValue
+                                tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(tokenEstimatorOptions, id: \.self) { encoding in
+                            Text(encoding.rawValue).tag(encoding)
+                        }
+                    }
+
+                } header: {
+                    Text("Tokenization")
+                } footer: {
+                    Text("Used for token estimates and chunking in the app and Safari extension.")
+                        .padding(.bottom)
+                }
             }
         }
 
@@ -391,7 +510,7 @@ struct AIModelsSettingsView: View {
         .onChange(of: backend) { _, newValue in
             guard didLoad else { return }
             backendStore.saveSelectedBackend(newValue)
-            if newValue == .byok {
+            if newValue == .byok || newValue == .auto {
                 scheduleByokConnectionTest()
             } else {
                 resetByokConnectionTest()
@@ -400,6 +519,7 @@ struct AIModelsSettingsView: View {
         }
         .onChange(of: localQwenEnabled) { _, _ in
             guard didLoad else { return }
+            resolveAutoLocalPreference()
             let resolved = resolveBackendSelection(backend)
             if resolved != backend {
                 backend = resolved
@@ -482,6 +602,10 @@ struct AIModelsSettingsView: View {
         byokProviderOptionID = optionID
         lastConfirmedProviderOptionID = optionID
 
+        autoStrategyThreshold = autoStrategyStore.strategyThreshold()
+        autoLocalPreference = autoStrategyStore.localModelPreference()
+        resolveAutoLocalPreference()
+
         let storedChunkSize = byokLongDocStore.chunkTokenSize()
         let storedRoutingThreshold = byokLongDocStore.routingThreshold()
         byokLongDocPreset = BYOKLongDocumentPreset.match(
@@ -495,19 +619,29 @@ struct AIModelsSettingsView: View {
 
         validateBYOK()
         applyByokLongDocPreset(byokLongDocPreset, updateStorage: false)
-        if backend == .byok {
+        if backend == .byok || backend == .auto {
             scheduleByokConnectionTest()
         }
     }
 
     private func resolveBackendSelection(_ selected: GenerationBackend) -> GenerationBackend {
-        if selected == .mlc, !localQwenEnabled {
-            return aiStatus == .available ? .appleIntelligence : .byok
+        switch selected {
+        case .auto:
+            let availability = backendStore.localModelAvailability()
+            return availability.hasAnyLocal ? .auto : .byok
+        case .mlc:
+            if !localQwenEnabled {
+                return aiStatus == .available ? .appleIntelligence : .byok
+            }
+            return .mlc
+        case .appleIntelligence:
+            if aiStatus != .available {
+                return localQwenEnabled ? .mlc : .byok
+            }
+            return .appleIntelligence
+        case .byok:
+            return .byok
         }
-        if selected == .appleIntelligence, aiStatus != .available {
-            return localQwenEnabled ? .mlc : .byok
-        }
-        return selected
     }
 
     private func validateBYOK() {
@@ -534,6 +668,21 @@ struct AIModelsSettingsView: View {
         if updateStorage {
             byokLongDocStore.setChunkTokenSize(preset.chunkSize)
             byokLongDocStore.setRoutingThreshold(preset.routingThreshold)
+        }
+    }
+
+    private func resolveAutoLocalPreference() {
+        guard let selected = localModelOptions.first(where: { $0.id == autoLocalPreference }) else {
+            if let firstEnabled = localModelOptions.first(where: { $0.isEnabled }) {
+                autoLocalPreference = firstEnabled.id
+                autoStrategyStore.setLocalModelPreference(firstEnabled.id)
+            }
+            return
+        }
+
+        if !selected.isEnabled, let fallback = localModelOptions.first(where: { $0.isEnabled }) {
+            autoLocalPreference = fallback.id
+            autoStrategyStore.setLocalModelPreference(fallback.id)
         }
     }
 
@@ -566,7 +715,7 @@ struct AIModelsSettingsView: View {
         byokConnectionTask?.cancel()
         byokConnectionTask = nil
 
-        guard backend == .byok else {
+        guard backend == .byok || backend == .auto else {
             resetByokConnectionTest()
             return
         }
@@ -790,6 +939,27 @@ private struct ModelPickerOption: Identifiable {
     let label: String
 
     var id: String { value }
+}
+
+private struct BackendOption: Identifiable {
+    let backend: GenerationBackend
+    let title: String
+    let isEnabled: Bool
+    let disabledReason: String?
+
+    var id: GenerationBackend { backend }
+    var label: String {
+        if let disabledReason, !isEnabled {
+            return "\(title) (\(disabledReason))"
+        }
+        return title
+    }
+}
+
+private struct LocalModelOption: Identifiable {
+    let id: AutoStrategySettingsStore.LocalModelPreference
+    let title: String
+    let isEnabled: Bool
 }
 
 private struct OpenAIModelListResponse: Decodable {

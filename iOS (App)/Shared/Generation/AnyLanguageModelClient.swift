@@ -113,6 +113,8 @@ final class AnyLanguageModelClient {
             byok: BYOKSettings?
         ) throws -> any LanguageModel {
             switch backend {
+            case .auto:
+                throw ClientError.invalidConfiguration("Auto backend must be resolved before use.")
             case .mlc:
                 throw ClientError.invalidConfiguration("MLC is not supported by AnyLanguageModel.")
             case .appleIntelligence:

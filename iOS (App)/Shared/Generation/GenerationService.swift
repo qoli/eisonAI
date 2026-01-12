@@ -8,6 +8,7 @@ final class GenerationService {
     private let defaultAnyLanguageModels = AnyLanguageModelClient()
     private let backendSettings = GenerationBackendSettingsStore()
     private let byokSettingsStore = BYOKSettingsStore()
+    private let tokenEstimator = GPTTokenEstimator.shared
 
     private let rawLibraryStore = RawLibraryStore()
     private let titlePromptStore = TitlePromptStore()
@@ -40,7 +41,8 @@ final class GenerationService {
             let userPrompt = buildTitleUserPrompt(for: item)
 
             let stream: AsyncThrowingStream<String, Error>
-            let backend = backendSettings.effectiveBackend()
+            let tokenEstimate = await tokenEstimator.estimateTokenCount(for: userPrompt)
+            let backend = backendSettings.effectiveBackend(tokenCount: tokenEstimate)
             switch backend {
             case .mlc:
                 try await mlc.loadIfNeeded()
@@ -57,6 +59,10 @@ final class GenerationService {
                 )
             case .byok:
                 let byokSettings = byokSettingsStore.loadSettings()
+                if let error = byokSettingsStore.validationError(for: byokSettings) {
+                    log("title generation invalid BYOK error=\(error.message)")
+                    return nil
+                }
                 stream = try await anyLanguageModels.streamChat(
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
@@ -64,6 +70,12 @@ final class GenerationService {
                     maximumResponseTokens: 128,
                     backend: backend,
                     byok: byokSettings
+                )
+            case .auto:
+                throw NSError(
+                    domain: "EisonAI.Generation",
+                    code: 20,
+                    userInfo: [NSLocalizedDescriptionKey: "Auto backend must be resolved before generation."]
                 )
             }
 

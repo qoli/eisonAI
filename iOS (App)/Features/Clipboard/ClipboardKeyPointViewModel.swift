@@ -98,7 +98,9 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 if Task.isCancelled { throw CancellationError() }
                 log("prepared input url=\(normalized.url.isEmpty ? "nil" : normalized.url) titleCount=\(normalized.title.count) textCount=\(normalized.text.count)")
 
-                let backend = self.backendSettings.effectiveBackend()
+                let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
+                self.tokenEstimate = tokenEstimate
+                let backend = self.backendSettings.effectiveBackend(tokenCount: tokenEstimate)
                 var byokSettings: BYOKSettings?
                 if backend == .byok {
                     let settings = self.byokSettingsStore.loadSettings()
@@ -115,8 +117,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     backend == .byok
                     ? byokLongDocumentSettings.routingThreshold()
                     : longDocumentSettings.routingThreshold()
-                let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
-                self.tokenEstimate = tokenEstimate
                 let isLongDocument = tokenEstimate > routingThreshold
                 let chunkTokenSize =
                     isLongDocument
@@ -369,6 +369,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             )
             summary = try await collectStream(stream, updateOutput: true)
             modelId = byok?.trimmedModel ?? "byok"
+        case .auto:
+            throw NSError(
+                domain: "EisonAI.Generation",
+                code: 30,
+                userInfo: [NSLocalizedDescriptionKey: "Auto backend must be resolved before generation."]
+            )
         }
 
         return PipelineResult(
@@ -457,6 +463,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     byok: byok
                 )
                 anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
+            case .auto:
+                throw NSError(
+                    domain: "EisonAI.Generation",
+                    code: 31,
+                    userInfo: [NSLocalizedDescriptionKey: "Auto backend must be resolved before generation."]
+                )
             }
 
             let trimmedAnchor = anchorText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -515,6 +527,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             )
             summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
             modelId = byok?.trimmedModel ?? "byok"
+        case .auto:
+            throw NSError(
+                domain: "EisonAI.Generation",
+                code: 32,
+                userInfo: [NSLocalizedDescriptionKey: "Auto backend must be resolved before generation."]
+            )
         }
         log("longdoc:summary-done count=\(summary.count)")
 
