@@ -324,12 +324,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadAutoStrategyThreshold() -> Int {
-        let fallback = 2600
-        let allowed: Set<Int> = [2600]
-        guard let stored = sharedDefaults()?.object(forKey: AppConfig.autoStrategyThresholdKey) as? Int else {
-            return fallback
-        }
-        return allowed.contains(stored) ? stored : fallback
+        2600
     }
 
     private func loadAutoLocalPreference() -> String {

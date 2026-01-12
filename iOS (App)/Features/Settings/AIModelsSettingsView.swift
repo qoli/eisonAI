@@ -335,49 +335,51 @@ struct AIModelsSettingsView: View {
                 }
             }
 
-            Section {
-                Picker(
-                    "Max Chunks",
-                    selection: Binding(
-                        get: { longDocumentMaxChunkCount },
-                        set: { newValue in
-                            longDocumentMaxChunkCount = newValue
-                            longDocumentSettingsStore.setMaxChunkCount(newValue)
+            if backend != .byok {
+                Section {
+                    Picker(
+                        "Max Chunks",
+                        selection: Binding(
+                            get: { longDocumentMaxChunkCount },
+                            set: { newValue in
+                                longDocumentMaxChunkCount = newValue
+                                longDocumentSettingsStore.setMaxChunkCount(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
+                            Text("\(count)").tag(count)
+                                .lineLimit(1)
                         }
-                    )
-                ) {
-                    ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
-                        Text("\(count)").tag(count)
-                            .lineLimit(1)
                     }
-                }
-            } header: {
-                Text("Max Chunks")
-            } footer: {
-                Text("Extra chunks are skipped to keep processing time predictable.")
-            }
-
-            Section {
-                Picker(
-                    "Tokenizer",
-                    selection: Binding(
-                        get: { tokenEstimatorEncoding },
-                        set: { newValue in
-                            tokenEstimatorEncoding = newValue
-                            tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
-                        }
-                    )
-                ) {
-                    ForEach(tokenEstimatorOptions, id: \.self) { encoding in
-                        Text(encoding.rawValue).tag(encoding)
-                    }
+                } header: {
+                    Text("Max Chunks")
+                } footer: {
+                    Text("Extra chunks are skipped to keep processing time predictable.")
                 }
 
-            } header: {
-                Text("Tokenization")
-            } footer: {
-                Text("Used for token estimates and chunking in the app and Safari extension.")
-                    .padding(.bottom)
+                Section {
+                    Picker(
+                        "Tokenizer",
+                        selection: Binding(
+                            get: { tokenEstimatorEncoding },
+                            set: { newValue in
+                                tokenEstimatorEncoding = newValue
+                                tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
+                            }
+                        )
+                    ) {
+                        ForEach(tokenEstimatorOptions, id: \.self) { encoding in
+                            Text(encoding.rawValue).tag(encoding)
+                        }
+                    }
+
+                } header: {
+                    Text("Tokenization")
+                } footer: {
+                    Text("Used for token estimates and chunking in the app and Safari extension.")
+                        .padding(.bottom)
+                }
             }
         }
 

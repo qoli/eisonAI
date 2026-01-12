@@ -83,6 +83,7 @@ else:
 ```
 
 - `strategyThreshold` 是 **Auto 專用門檻**
+- 目前 **固定為 2600**，不提供調整
 - Auto：
   - ❌ 不關心 chunk
   - ❌ 不關心 longdocRoutingThreshold

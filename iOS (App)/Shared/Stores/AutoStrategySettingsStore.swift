@@ -19,21 +19,8 @@ struct AutoStrategySettingsStore {
         }
     }
 
-    let allowedThresholds: [Int] = [Self.fixedThreshold]
-    private let defaultThreshold = Self.fixedThreshold
-
     func strategyThreshold() -> Int {
-        guard let stored = defaults?.object(forKey: AppConfig.autoStrategyThresholdKey) as? Int,
-              allowedThresholds.contains(stored)
-        else {
-            return defaultThreshold
-        }
-        return stored
-    }
-
-    func setStrategyThreshold(_ value: Int) {
-        guard allowedThresholds.contains(value) else { return }
-        defaults?.set(value, forKey: AppConfig.autoStrategyThresholdKey)
+        Self.fixedThreshold
     }
 
     func localModelPreference() -> LocalModelPreference {
