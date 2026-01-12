@@ -17,7 +17,7 @@ HF_API_URL = f"https://huggingface.co/api/models/{HF_REPO}"
 HF_RESOLVE_BASE = f"https://huggingface.co/{HF_REPO}/resolve/main/"
 
 WEBLLM_MODEL_VERSION = "v0_2_80"
-WEBLLM_WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"
+WEBLLM_WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm"
 WEBLLM_WASM_URL = (
     "https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/"
     f"{WEBLLM_MODEL_VERSION}/{WEBLLM_WASM_FILE}"

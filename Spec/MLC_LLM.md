@@ -73,9 +73,9 @@ EisonAI 的原生 MLC demo 需要 `model_lib`（hash 字串），來源是 `mlc_
 - WebLLM assets 路徑：`Shared (Extension)/Resources/webllm-assets/`
 - iOS app 讀取方式：從 Embedded Extension（`.appex`）內唯讀存取 `webllm-assets/models/<model>/resolve/main`
 
-## WebLLM wasm（WebGPU）編譯流程（Qwen3-0.6B cs2k）
+## WebLLM wasm（WebGPU）編譯流程（Qwen3-0.6B cs1k）
 
-目標：產出 `Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm`，供 Safari Extension 使用。
+目標：產出 `Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm`，供 Safari Extension 使用。
 
 ### 1) 安裝 emsdk（建議 3.1.56）
 
@@ -105,7 +105,7 @@ source /tmp/mlc-llm-venv311/bin/activate
 python -m pip install --pre -U -f https://mlc.ai/wheels mlc-llm-nightly-cpu mlc-ai-nightly-cpu
 ```
 
-### 4) 編譯 wasm（cs2k）
+### 4) 編譯 wasm（cs1k）
 
 ```bash
 source /tmp/emsdk/emsdk_env.sh
@@ -115,16 +115,16 @@ export TVM_HOME=/Volumes/Data/Github/mlc-llm/3rdparty/tvm
 /tmp/mlc-llm-venv311/bin/python -m mlc_llm compile \
   "Shared (Extension)/Resources/webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main/mlc-chat-config.json" \
   --device webgpu \
-  --overrides "context_window_size=4096;prefill_chunk_size=2048" \
-  --output "Shared (Extension)/Resources/webllm-assets/wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"
+  --overrides "context_window_size=4096;prefill_chunk_size=1024" \
+  --output "Shared (Extension)/Resources/webllm-assets/wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm"
 ```
 
 ### 5) Extension 內對應檔名
 
 - `Shared (Extension)/Resources/webllm/popup.js`
-  - `WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"`
+  - `WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm"`
 - `Scripts/download_webllm_assets.py`
-  - `WEBLLM_WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm"`
+  - `WEBLLM_WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm"`
 
 > `webllm-assets/wasm/` 為 gitignored；若需多人同步，請自行提供 wasm 下載來源或改用內部分發。
 

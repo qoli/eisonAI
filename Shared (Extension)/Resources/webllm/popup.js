@@ -21,7 +21,7 @@ const TOKENIZER_GLOBALS = {
 const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2000, 2200, 2600, 3000, 3200]);
 const LONG_DOCUMENT_MAX_CHUNK_OPTIONS = new Set([4, 5, 6, 7]);
 const VISIBILITY_TEXT_LIMIT = 600;
-const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm";
+const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
 const WASM_URL = new URL(`../webllm-assets/wasm/${WASM_FILE}`, import.meta.url)
   .href;
 const WEBGPU_REQUIRED_FEATURES = ["shader-f16"];

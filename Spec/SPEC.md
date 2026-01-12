@@ -106,7 +106,7 @@
 - 放置路徑：`Shared (Extension)/Resources/webllm-assets/`
 - 預期結構：
   - `models/Qwen3-0.6B-q4f16_1-MLC/resolve/main/*`
-  - `wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs2k-webgpu.wasm`
+  - `wasm/Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm`
 - 下載腳本：`python3 Scripts/download_webllm_assets.py`
 - Git：大檔已在 `.gitignore` 忽略（開發者需自行下載）
 
