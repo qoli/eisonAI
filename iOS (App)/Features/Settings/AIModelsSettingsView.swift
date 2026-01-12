@@ -41,7 +41,6 @@ struct AIModelsSettingsView: View {
     @State private var byokPingError = ""
     @State private var byokPingTask: Task<Void, Never>?
 
-    @State private var autoStrategyThreshold: Int = 7168
     @State private var autoLocalPreference: AutoStrategySettingsStore.LocalModelPreference = .appleIntelligence
     @State private var longDocumentChunkTokenSize: Int = 2000
     @State private var longDocumentMaxChunkCount: Int = 5
@@ -145,24 +144,16 @@ struct AIModelsSettingsView: View {
 
             if backend == .auto {
                 Section {
-                    Picker(
-                        "Strategy Threshold",
-                        selection: Binding(
-                            get: { autoStrategyThreshold },
-                            set: { newValue in
-                                autoStrategyThreshold = newValue
-                                autoStrategyStore.setStrategyThreshold(newValue)
-                            }
-                        )
-                    ) {
-                        ForEach(autoStrategyStore.allowedThresholds, id: \.self) { value in
-                            Text("\(value)").tag(value)
-                        }
+                    HStack {
+                        Text("Strategy Threshold")
+                        Spacer()
+                        Text("\(AutoStrategySettingsStore.fixedThreshold)")
+                            .foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Auto Strategy")
                 } footer: {
-                    Text("Tokens ≤ threshold use Local; otherwise BYOK.")
+                    Text("Tokens ≤ 2,600 use Local; otherwise BYOK. Threshold is fixed.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -516,7 +507,6 @@ struct AIModelsSettingsView: View {
         byokProviderOptionID = optionID
         lastConfirmedProviderOptionID = optionID
 
-        autoStrategyThreshold = autoStrategyStore.strategyThreshold()
         autoLocalPreference = autoStrategyStore.localModelPreference()
         longDocumentChunkTokenSize = longDocumentSettingsStore.chunkTokenSize()
         longDocumentMaxChunkCount = longDocumentSettingsStore.maxChunkCount()

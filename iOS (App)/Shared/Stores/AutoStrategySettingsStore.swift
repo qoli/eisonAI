@@ -2,6 +2,7 @@ import Foundation
 
 struct AutoStrategySettingsStore {
     static let shared = AutoStrategySettingsStore()
+    static let fixedThreshold = 2600
     private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
 
     enum LocalModelPreference: String, CaseIterable {
@@ -18,8 +19,8 @@ struct AutoStrategySettingsStore {
         }
     }
 
-    let allowedThresholds: [Int] = [2600, 7168]
-    private let defaultThreshold = 7168
+    let allowedThresholds: [Int] = [Self.fixedThreshold]
+    private let defaultThreshold = Self.fixedThreshold
 
     func strategyThreshold() -> Int {
         guard let stored = defaults?.object(forKey: AppConfig.autoStrategyThresholdKey) as? Int,

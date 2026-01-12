@@ -8,7 +8,7 @@ const FOUNDATION_PREWARM_PREFIX_LIMIT = 1200;
 const NO_SUMMARY_TEXT_MESSAGE = "No summary text";
 const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 2000;
 const DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD = 2600;
-const DEFAULT_AUTO_STRATEGY_THRESHOLD = 7168;
+const DEFAULT_AUTO_STRATEGY_THRESHOLD = 2600;
 const DEFAULT_AUTO_LOCAL_PREFERENCE = "appleIntelligence";
 const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
 const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
@@ -1475,7 +1475,7 @@ async function refreshByokSettingsFromNative({ log = false } = {}) {
 
     byokModelName = String(model ?? "").trim();
     autoStrategyThreshold =
-      Number.isFinite(autoThreshold) && [2600, 7168].includes(autoThreshold)
+      Number.isFinite(autoThreshold) && [2600].includes(autoThreshold)
         ? autoThreshold
         : DEFAULT_AUTO_STRATEGY_THRESHOLD;
     autoLocalPreference = normalizeLocalPreference(autoPreferenceRaw);
