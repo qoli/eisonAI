@@ -82,6 +82,6 @@ WebLLM 在某些 Cache API 路徑會對非 http(s) URL 丟出：
 
 ## 如何繼續開發
 
-- 修改摘要 prompt：調整 `Shared (Extension)/Resources/default_system_prompt.txt` + `Shared (Extension)/Resources/summary_user_prompt_extension.txt`（system prompt 也可由主 App 設定覆蓋）
+- 修改摘要 prompt：調整 `Shared (Extension)/Resources/default_system_prompt.txt` + `Shared (Extension)/Resources/summary_user_prompt.txt`（system prompt 也可由主 App 設定覆蓋）
 - 長文策略：改成 chunk + reduce（避免目前單次截斷）
 - 模型切換：更新 `MODEL_ID` / `WASM_FILE` 與 `getLocalAppConfig(...)`，並同步調整 `webllm-assets/` 下載與 layout

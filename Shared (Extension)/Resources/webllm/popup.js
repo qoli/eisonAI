@@ -1190,31 +1190,28 @@ function hasReadableBodyText(text) {
 }
 
 const DEFAULT_SYSTEM_PROMPT =
-  `將內容整理為簡短簡報，包含重點摘要。
+  `Summarize the content as a short brief with key points.
 
-輸出要求：
-- 合適的格式結構
+Output requirements:
+- Use a clear structured format
 `;
 
 const DEFAULT_CHUNK_PROMPT =
-  `你是一個文字整理員。
+  `You are a text organizer.
 
-你目前的任務是，正在協助用戶完整閱讀超長內容。
+Your task is to help the user fully read very long content.
 
-- 擷取此文章的關鍵點`;
+- Extract the key points from this article`;
 
 const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
 const DEFAULT_CHUNK_PROMPT_URL = new URL("../default_chunk_prompt.txt", import.meta.url);
-const SUMMARY_USER_PROMPT_TEMPLATE_URL = new URL(
-  "../summary_user_prompt_extension.txt",
-  import.meta.url,
-);
+const SUMMARY_USER_PROMPT_TEMPLATE_URL = new URL("../summary_user_prompt.txt", import.meta.url);
 const READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL = new URL(
-  "../reading_anchor_system_suffix_extension.txt",
+  "../reading_anchor_system_suffix.txt",
   import.meta.url,
 );
 const READING_ANCHOR_USER_PROMPT_TEMPLATE_URL = new URL(
-  "../reading_anchor_user_prompt_extension.txt",
+  "../reading_anchor_user_prompt.txt",
   import.meta.url,
 );
 const READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL = new URL(
@@ -1222,10 +1219,10 @@ const READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL = new URL(
   import.meta.url,
 );
 
-const DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE = "{{title}}\n\nContent\n{{content}}";
+const DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE = "{{title}}\n\nCONTENT\n{{content}}";
 const DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE =
-  "- 當前這是原文中的一個段落（chunks {{chunk_index}} of {{chunk_total}}）";
-const DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE = "Content\n{{content}}";
+  "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})";
+const DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE = "CONTENT\n{{content}}";
 const DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE = "Chunk {{chunk_index}}\n{{chunk_text}}";
 
 const PROMPT_TEMPLATE_CACHE = new Map();

@@ -17,7 +17,7 @@ struct SystemPromptStore {
         let languageName = ModelLanguage.displayName(forTag: languageTag)
         let languageLineTemplate = PromptTemplates.load(
             name: "summary_language_line",
-            fallback: "- 請使用{{language}}輸出"
+            fallback: "- Please respond in {{language}}."
         )
         let languageLine = PromptTemplates.render(
             template: languageLineTemplate,

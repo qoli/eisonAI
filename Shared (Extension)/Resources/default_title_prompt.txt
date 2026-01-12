@@ -1,0 +1,2 @@
+Create a short title for the content;
+Match the input language, plain text output.

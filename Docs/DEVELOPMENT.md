@@ -85,11 +85,10 @@ popup/worker 內會 `console.log`（例如 model/wasm URL、載入進度等）�
 - 預設 chunk prompt（長文閱讀錨點）：`Shared (Extension)/Resources/default_chunk_prompt.txt`
 - 預設 title prompt（App 端補標題）：`Shared (Extension)/Resources/default_title_prompt.txt`
 - user prompt 模板（正文格式/截斷策略）：
-  - popup：`Shared (Extension)/Resources/summary_user_prompt_extension.txt`
-  - App：`Shared (Extension)/Resources/summary_user_prompt_app.txt`
+  - 共用：`Shared (Extension)/Resources/summary_user_prompt.txt`
 - 長文閱讀錨點模板：
-  - system suffix：`Shared (Extension)/Resources/reading_anchor_system_suffix_extension.txt` / `reading_anchor_system_suffix_app.txt`
-  - user prompt：`Shared (Extension)/Resources/reading_anchor_user_prompt_extension.txt` / `reading_anchor_user_prompt_app.txt`
+  - system suffix：`Shared (Extension)/Resources/reading_anchor_system_suffix.txt`
+  - user prompt：`Shared (Extension)/Resources/reading_anchor_user_prompt.txt`
   - anchors 聚合格式：`Shared (Extension)/Resources/reading_anchor_summary_item.txt`
 
 ### 6.2 修改 chat template（MLC conv_template）

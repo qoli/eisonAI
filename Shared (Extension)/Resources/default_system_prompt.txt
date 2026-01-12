@@ -1,0 +1,4 @@
+Summarize the content as a short brief with key points.
+
+Output requirements:
+- Use a clear structured format

@@ -42,29 +42,29 @@ enum AppConfig {
 
     static let defaultSystemPrompt: String = {
         let fallback = """
-        將內容整理為簡短簡報，包含重點摘要。
+        Summarize the content as a short brief with key points.
 
-        輸出要求：
-        - 合適的格式結構
+        Output requirements:
+        - Use a clear structured format
         """
         return PromptTemplates.load(name: "default_system_prompt", fallback: fallback)
     }()
 
     static let defaultChunkPrompt: String = {
         let fallback = """
-        你是一個文字整理員。
+        You are a text organizer.
 
-        你目前的任務是，正在協助用戶完整閱讀超長內容。
+        Your task is to help the user fully read very long content.
 
-        - 擷取此文章的關鍵點
+        - Extract the key points from this article
         """
         return PromptTemplates.load(name: "default_chunk_prompt", fallback: fallback)
     }()
 
     static let defaultTitlePrompt: String = {
         let fallback = """
-        為內容建立一個簡短的標題；
-        與輸入語言保持一致，純文本輸出。
+        Create a short title for the content;
+        Match the input language, plain text output.
         """
         return PromptTemplates.load(name: "default_title_prompt", fallback: fallback)
     }()

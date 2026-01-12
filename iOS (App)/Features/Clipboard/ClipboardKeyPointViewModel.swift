@@ -571,7 +571,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
         let base = ChunkPromptStore().load().trimmingCharacters(in: .whitespacesAndNewlines)
         let suffixTemplate = PromptTemplates.load(
-            name: "reading_anchor_system_suffix_app",
+            name: "reading_anchor_system_suffix",
             fallback: "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})"
         )
         let dynamicLine = PromptTemplates.render(
@@ -589,7 +589,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private func buildReadingAnchorUserPrompt(text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let template = PromptTemplates.load(
-            name: "reading_anchor_user_prompt_app",
+            name: "reading_anchor_user_prompt",
             fallback: "CONTENT\n{{content}}"
         )
         let prompt = PromptTemplates.render(
@@ -698,7 +698,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let clippedText = clampText(text, maxChars: 8000)
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let template = PromptTemplates.load(
-            name: "summary_user_prompt_app",
+            name: "summary_user_prompt",
             fallback: "{{title}}\n\nCONTENT\n{{content}}"
         )
         return PromptTemplates.render(

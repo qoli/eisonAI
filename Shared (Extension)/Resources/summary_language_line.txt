@@ -1,1 +1,1 @@
-- 請使用{{language}}輸出
+- Please respond in {{language}}.
