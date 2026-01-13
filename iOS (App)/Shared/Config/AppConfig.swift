@@ -45,7 +45,9 @@ enum AppConfig {
         Summarize the content as a short brief with key points.
 
         Output requirements:
-        - Use a clear structured format
+        - Clear structured headings + bullet points
+        - No tables (including Markdown tables)
+        - Do not use the `|` character
         """
         return PromptTemplates.load(name: "default_system_prompt", fallback: fallback)
     }()
