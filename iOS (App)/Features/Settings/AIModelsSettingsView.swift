@@ -656,7 +656,7 @@ struct AIModelsSettingsView: View {
         let stream = try await client.streamChat(
             systemPrompt: "You are a connection test.",
             userPrompt: "ping",
-            temperature: 0,
+            temperature: 0.2,
             maximumResponseTokens: 1,
             backend: .byok,
             byok: settings

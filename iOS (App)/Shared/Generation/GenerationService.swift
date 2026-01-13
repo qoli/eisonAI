@@ -53,7 +53,7 @@ final class GenerationService {
                 stream = try await anyLanguageModels.streamChat(
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
-                    temperature: 0.4,
+                    temperature: 0.2,
                     maximumResponseTokens: 128,
                     backend: backend
                 )
@@ -62,7 +62,7 @@ final class GenerationService {
                 stream = try await anyLanguageModels.streamChat(
                     systemPrompt: systemPrompt,
                     userPrompt: userPrompt,
-                    temperature: 0.4,
+                    temperature: 0.2,
                     maximumResponseTokens: 128,
                     backend: backend,
                     byok: byokSettings

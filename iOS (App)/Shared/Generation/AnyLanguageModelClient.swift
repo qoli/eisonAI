@@ -58,7 +58,7 @@ final class AnyLanguageModelClient {
     func streamChat(
         systemPrompt: String,
         userPrompt: String,
-        temperature: Double? = 0.4,
+        temperature: Double? = 0.2,
         maximumResponseTokens: Int? = 2048,
         backend: ExecutionBackend,
         byok: BYOKSettings? = nil

@@ -343,7 +343,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             let stream = try await anyLanguageModels.streamChat(
                 systemPrompt: systemPrompt,
                 userPrompt: userPrompt,
-                temperature: 0.4,
+                temperature: 0.2,
                 maximumResponseTokens: 2048,
                 backend: backend
             )
@@ -354,7 +354,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             let stream = try await anyLanguageModels.streamChat(
                 systemPrompt: systemPrompt,
                 userPrompt: userPrompt,
-                temperature: 0.4,
+                temperature: 0.2,
                 maximumResponseTokens: 2048,
                 backend: backend,
                 byok: byok
@@ -443,7 +443,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 let stream = try await anyLanguageModels.streamChat(
                     systemPrompt: anchorSystemPrompt,
                     userPrompt: anchorUserPrompt,
-                    temperature: 0.4,
+                    temperature: 0.2,
                     maximumResponseTokens: Self.readingAnchorMaxResponseTokens,
                     backend: backend,
                     byok: byok
@@ -490,7 +490,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             let stream = try await anyLanguageModels.streamChat(
                 systemPrompt: summarySystemPrompt,
                 userPrompt: summaryUserPrompt,
-                temperature: 0.4,
+                temperature: 0.2,
                 maximumResponseTokens: 2048,
                 backend: backend
             )
@@ -500,7 +500,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             let stream = try await anyLanguageModels.streamChat(
                 systemPrompt: summarySystemPrompt,
                 userPrompt: summaryUserPrompt,
-                temperature: 0.4,
+                temperature: 0.2,
                 maximumResponseTokens: 2048,
                 backend: backend,
                 byok: byok

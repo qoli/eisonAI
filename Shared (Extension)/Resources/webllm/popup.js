@@ -1736,7 +1736,7 @@ async function startFoundationModelsStream({
       tokenEstimate: Number.isFinite(tokenEstimate) ? Number(tokenEstimate) : 0,
       backend: backend ? String(backend) : "",
       options: {
-        temperature: 0.4,
+        temperature: 0.2,
         maximumResponseTokens: MAX_OUTPUT_TOKENS,
       },
     },
@@ -2012,7 +2012,7 @@ async function streamChat(messages) {
       stream: true,
       stream_options: { include_usage: true },
       messages,
-      temperature: 0.4,
+      temperature: 0.2,
       max_tokens: MAX_OUTPUT_TOKENS,
       extra_body: { enable_thinking: true },
     });
@@ -2080,7 +2080,7 @@ async function generateTextWithWebLLM(messages, { renderOutput = false } = {}) {
     stream: true,
     stream_options: { include_usage: true },
     messages,
-    temperature: 0.4,
+    temperature: 0.2,
     max_tokens: MAX_OUTPUT_TOKENS,
     extra_body: { enable_thinking: true },
   });
