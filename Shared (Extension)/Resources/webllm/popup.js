@@ -36,6 +36,7 @@ const WEBGPU_STATUS_STATES = {
 const WEBGPU_STATUS_CLASSES = Object.values(WEBGPU_STATUS_STATES).map(
   (state) => state.className,
 );
+const LOG_PREVIEW_LIMIT = 160;
 
 const modelSelect = document.getElementById("model");
 const loadButton = document.getElementById("load");
@@ -118,6 +119,26 @@ const STATUS_NO_DOT_CHANGE = new Set([
   "Nothing to share",
   "Summary and link copied",
 ]);
+
+function previewText(value, limit = LOG_PREVIEW_LIMIT) {
+  const text = String(value ?? "");
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit)}…`;
+}
+
+function logTextSummary(label, text) {
+  const value = String(text ?? "");
+  console.log(`[WebLLM Demo] ${label}`, {
+    length: value.length,
+    preview: previewText(value),
+  });
+}
+
+function logPopupEvent(event, details) {
+  console.log(`[WebLLM Demo] ${event}`, details ?? {});
+}
 
 function hasWebGPU() {
   return Boolean(globalThis.navigator?.gpu);
@@ -1085,6 +1106,7 @@ async function getActiveTab() {
 async function getArticleTextFromContentScript() {
   const tab = await getActiveTab();
   if (!tab?.id) throw new Error("No active tab found");
+  logPopupEvent("getArticleText.start", { tabId: tab.id, url: tab.url ?? "" });
   const resp = await tabsSendMessage(tab.id, { command: "getArticleText" });
 
   if (!resp) {
@@ -1107,8 +1129,13 @@ async function getArticleTextFromContentScript() {
     typeof resp.body === "string"
       ? resp.body
       : typeof resp.text === "string"
-        ? resp.text
-        : "";
+      ? resp.text
+      : "";
+  logPopupEvent("getArticleText.response", {
+    titleLength: title.length,
+    bodyLength: body.length,
+    command: resp.command ?? "articleTextResponse",
+  });
   return { title, text: body, url: tab.url ?? "" };
 }
 
@@ -1117,15 +1144,27 @@ function buildSummaryUserPrompt({ title, text, url }) {
   const resolvedTitle = title || "(no title)";
   const resolvedContent = clippedText || "(empty)";
   const template = summaryUserPromptTemplate || DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE;
-  return renderPromptTemplate(template, {
+  const prompt = renderPromptTemplate(template, {
     title: resolvedTitle,
     content: resolvedContent,
   });
+  logPopupEvent("buildSummaryUserPrompt", {
+    titleLength: resolvedTitle.length,
+    contentLength: String(text ?? "").length,
+    clippedLength: resolvedContent.length,
+    templateLength: String(template ?? "").length,
+    resultLength: prompt.length,
+  });
+  return prompt;
 }
 
 function buildSummaryMessages({ title, text, url }) {
   const system = systemPrompt;
   const user = buildSummaryUserPrompt({ title, text, url });
+  logPopupEvent("buildSummaryMessages", {
+    systemPromptLength: String(system ?? "").length,
+    userPromptLength: String(user ?? "").length,
+  });
 
   return [
     { role: "system", content: system },
@@ -1262,23 +1301,27 @@ async function refreshPromptTemplates() {
     SUMMARY_USER_PROMPT_TEMPLATE_URL,
     DEFAULT_SUMMARY_USER_PROMPT_TEMPLATE,
   );
+  logTextSummary("summary user prompt template", summaryUserPromptTemplate);
   readingAnchorSystemSuffixTemplate = await loadBundledPromptText(
     READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL,
     DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE,
   );
+  logTextSummary("reading anchor system suffix template", readingAnchorSystemSuffixTemplate);
   readingAnchorUserPromptTemplate = await loadBundledPromptText(
     READING_ANCHOR_USER_PROMPT_TEMPLATE_URL,
     DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE,
   );
+  logTextSummary("reading anchor user prompt template", readingAnchorUserPromptTemplate);
   readingAnchorSummaryItemTemplate = await loadBundledPromptText(
     READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL,
     DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE,
   );
+  logTextSummary("reading anchor summary item template", readingAnchorSummaryItemTemplate);
 }
 
 function renderPromptTemplate(template, values) {
   const normalized = String(template ?? "");
-  return normalized.replace(/\\{\\{\\s*([a-zA-Z0-9_]+)\\s*\\}\\}/g, (match, key) => {
+  return normalized.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
     if (!Object.prototype.hasOwnProperty.call(values, key)) return match;
     return String(values[key] ?? "");
   });
@@ -1333,6 +1376,8 @@ async function stopGenerationForRestart() {
 async function refreshSystemPromptFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     systemPrompt = await getDefaultSystemPromptFallback();
+    logPopupEvent("systemPrompt.fallback", { reason: "native messaging unavailable" });
+    logTextSummary("system prompt", systemPrompt);
     return systemPrompt;
   }
 
@@ -1350,20 +1395,26 @@ async function refreshSystemPromptFromNative() {
 
     if (typeof prompt === "string" && prompt.trim()) {
       systemPrompt = prompt;
+      logPopupEvent("systemPrompt.loaded", { source: "native" });
     } else {
       systemPrompt = await getDefaultSystemPromptFallback();
+      logPopupEvent("systemPrompt.fallback", { reason: "empty native prompt" });
     }
   } catch (err) {
     systemPrompt = await getDefaultSystemPromptFallback();
     console.warn("[WebLLM Demo] Failed to load system prompt from native:", err);
+    logPopupEvent("systemPrompt.fallback", { reason: "native error", error: getErrorMessage(err) });
   }
 
+  logTextSummary("system prompt", systemPrompt);
   return systemPrompt;
 }
 
 async function refreshChunkPromptFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     chunkPrompt = await getDefaultChunkPromptFallback();
+    logPopupEvent("chunkPrompt.fallback", { reason: "native messaging unavailable" });
+    logTextSummary("chunk prompt", chunkPrompt);
     return chunkPrompt;
   }
 
@@ -1381,20 +1432,25 @@ async function refreshChunkPromptFromNative() {
 
     if (typeof prompt === "string" && prompt.trim()) {
       chunkPrompt = prompt;
+      logPopupEvent("chunkPrompt.loaded", { source: "native" });
     } else {
       chunkPrompt = await getDefaultChunkPromptFallback();
+      logPopupEvent("chunkPrompt.fallback", { reason: "empty native prompt" });
     }
   } catch (err) {
     chunkPrompt = await getDefaultChunkPromptFallback();
     console.warn("[WebLLM Demo] Failed to load chunk prompt from native:", err);
+    logPopupEvent("chunkPrompt.fallback", { reason: "native error", error: getErrorMessage(err) });
   }
 
+  logTextSummary("chunk prompt", chunkPrompt);
   return chunkPrompt;
 }
 
 async function refreshTokenEstimatorFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
+    logPopupEvent("tokenEstimator.fallback", { reason: "native messaging unavailable" });
     return tokenEstimatorEncoding;
   }
 
@@ -1415,9 +1471,11 @@ async function refreshTokenEstimatorFromNative() {
     } else {
       tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
     }
+    logPopupEvent("tokenEstimator.loaded", { encoding: tokenEstimatorEncoding });
   } catch (err) {
     tokenEstimatorEncoding = DEFAULT_TOKEN_ESTIMATOR;
     console.warn("[WebLLM Demo] Failed to load token estimator from native:", err);
+    logPopupEvent("tokenEstimator.fallback", { reason: "native error", error: getErrorMessage(err) });
   }
 
   return tokenEstimatorEncoding;
@@ -1426,6 +1484,7 @@ async function refreshTokenEstimatorFromNative() {
 async function refreshLongDocumentChunkTokenSizeFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+    logPopupEvent("longDocChunkSize.fallback", { reason: "native messaging unavailable" });
     return longDocumentChunkTokenSize;
   }
 
@@ -1446,12 +1505,14 @@ async function refreshLongDocumentChunkTokenSizeFromNative() {
     } else {
       longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
     }
+    logPopupEvent("longDocChunkSize.loaded", { chunkTokenSize: longDocumentChunkTokenSize });
   } catch (err) {
     longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
     console.warn(
       "[WebLLM Demo] Failed to load long document chunk size from native:",
       err,
     );
+    logPopupEvent("longDocChunkSize.fallback", { reason: "native error", error: getErrorMessage(err) });
   }
 
   return longDocumentChunkTokenSize;
@@ -1460,6 +1521,7 @@ async function refreshLongDocumentChunkTokenSizeFromNative() {
 async function refreshLongDocumentMaxChunksFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
     longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+    logPopupEvent("longDocMaxChunks.fallback", { reason: "native messaging unavailable" });
     return longDocumentMaxChunks;
   }
 
@@ -1480,9 +1542,11 @@ async function refreshLongDocumentMaxChunksFromNative() {
     } else {
       longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
     }
+    logPopupEvent("longDocMaxChunks.loaded", { maxChunks: longDocumentMaxChunks });
   } catch (err) {
     longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
     console.warn("[WebLLM Demo] Failed to load long document max chunks from native:", err);
+    logPopupEvent("longDocMaxChunks.fallback", { reason: "native error", error: getErrorMessage(err) });
   }
 
   return longDocumentMaxChunks;
@@ -1784,6 +1848,11 @@ async function prepareSummaryContext() {
       text: String(ctx.text ?? "").trim(),
       url: String(ctx.url ?? "").trim(),
     };
+    logPopupEvent("prepareSummaryContext.normalized", {
+      titleLength: normalized.title.length,
+      textLength: normalized.text.length,
+      url: normalized.url,
+    });
 
     if (!hasReadableBodyText(normalized.text)) {
       cachedUserPrompt = "";
@@ -1801,6 +1870,10 @@ async function prepareSummaryContext() {
 
     cachedUserPrompt = buildSummaryUserPrompt(normalized);
     preparedMessagesForTokenEstimate = buildSummaryMessages(normalized);
+    logPopupEvent("prepareSummaryContext.ready", {
+      tokenEstimate: lastTokenEstimate,
+      cachedUserPromptLength: cachedUserPrompt.length,
+    });
     return { ...normalized, tokenEstimate: lastTokenEstimate };
   } catch (err) {
     cachedUserPrompt = "";
@@ -2121,6 +2194,11 @@ function buildSummaryUserPromptFromAnchors(anchors) {
 }
 
 async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, chunkTokenSize }) {
+  logPopupEvent("longDoc.runOnce.start", {
+    useFoundation,
+    totalTokens,
+    chunkTokenSize,
+  });
   const resolvedChunkTokenSize = Math.max(1, Number(chunkTokenSize) || 1);
   lastChunkTokenSize = resolvedChunkTokenSize;
   lastRoutingThreshold = getLongDocumentRoutingThreshold();
@@ -2227,12 +2305,18 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
 
 async function runLongDocumentPipeline(ctx) {
   // Decide backend first; WebLLM needs engine warm-up while Foundation Models does not.
+  const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
   const useFoundation = await shouldUseFoundationModels({ tokenEstimate: totalTokens });
   await refreshPromptTemplates();
   await refreshTokenEstimatorFromNative();
   await refreshLongDocumentChunkTokenSizeFromNative();
   await refreshLongDocumentMaxChunksFromNative();
-  const totalTokens = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
+  logPopupEvent("longDoc.pipeline.start", {
+    useFoundation,
+    totalTokens,
+    chunkTokenSize: longDocumentChunkTokenSize,
+    maxChunks: longDocumentMaxChunks,
+  });
 
   if (!useFoundation) {
     await ensureWebLLMEngineLoaded();
@@ -2441,6 +2525,13 @@ async function streamSummaryWithFoundationModels(ctx) {
 }
 
 async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
+  logPopupEvent("autoSummarize.start", {
+    force,
+    restart,
+    autoSummarizeRunning,
+    autoSummarizeStarted,
+    autoSummarizeQueued,
+  });
   if (autoSummarizeRunning) {
     if (force || restart) {
       autoSummarizeQueued = true;
@@ -2491,6 +2582,12 @@ async function autoSummarizeActiveTab({ force = false, restart = false } = {}) {
     const useFoundation = await shouldUseFoundationModels({ tokenEstimate });
     const executionType = resolveExecutionBackendType(tokenEstimate);
     await refreshLongDocumentChunkTokenSizeFromNative();
+    logPopupEvent("autoSummarize.decision", {
+      tokenEstimate,
+      useFoundation,
+      executionType,
+      routingThreshold: getLongDocumentRoutingThreshold(),
+    });
     if (executionType === "local" && tokenEstimate > getLongDocumentRoutingThreshold()) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
@@ -2627,6 +2724,7 @@ stopButton.addEventListener("click", async () => {
 copySystemButton?.addEventListener("click", async () => {
   try {
     await refreshSystemPromptFromNative();
+    logPopupEvent("copySystemPrompt", { length: systemPrompt.length });
     await copyToClipboard(systemPrompt);
     setStatus("System prompt copied");
   } catch (err) {
@@ -2651,6 +2749,10 @@ copyUserButton?.addEventListener("click", async () => {
         setOutput(NO_SUMMARY_TEXT_MESSAGE);
         return;
       }
+      logPopupEvent("copyUserPrompt.prepared", {
+        cachedUserPromptLength: cachedUserPrompt.length,
+        tokenEstimate: lastTokenEstimate,
+      });
       setStatus("User prompt ready (click again to copy)", 1);
     } finally {
       copyUserButton.disabled = false;
@@ -2659,6 +2761,7 @@ copyUserButton?.addEventListener("click", async () => {
   }
 
   try {
+    logPopupEvent("copyUserPrompt.copy", { length: cachedUserPrompt.length });
     await copyToClipboard(cachedUserPrompt);
     setStatus("User prompt copied");
   } catch (err) {
@@ -2716,6 +2819,12 @@ summarizeButton.addEventListener("click", async () => {
     const tokenEstimate = Number(ctx.tokenEstimate ?? lastTokenEstimate) || 0;
     const useFoundation = await shouldUseFoundationModels({ tokenEstimate });
     const executionType = resolveExecutionBackendType(tokenEstimate);
+    logPopupEvent("summarize.decision", {
+      tokenEstimate,
+      useFoundation,
+      executionType,
+      routingThreshold: getLongDocumentRoutingThreshold(),
+    });
     if (executionType === "local" && tokenEstimate > getLongDocumentRoutingThreshold()) {
       await runLongDocumentPipeline(ctx);
       await saveRawHistoryItem(ctx);
