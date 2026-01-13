@@ -31,11 +31,12 @@ struct ShareToEisonAIIntent: AppIntent {
         }
 
         let urlString = normalizedURLString(from: trimmed)
+        let textValue: String? = urlString == nil ? trimmed : nil
         let payload = SharePayload(
             id: UUID().uuidString,
             createdAt: Date(),
             url: urlString,
-            text: trimmed,
+            text: textValue,
             title: nil
         )
 
