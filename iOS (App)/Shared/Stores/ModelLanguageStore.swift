@@ -22,7 +22,7 @@ struct ModelLanguage: Identifiable, Hashable {
         ModelLanguage(tag: "pt-BR", displayName: "Portuguese (Brazil)"),
         ModelLanguage(tag: "pt-PT", displayName: "Portuguese (Portugal)"),
         ModelLanguage(tag: "es-ES", displayName: "Spanish (Spain)"),
-        ModelLanguage(tag: "zh-Hans", displayName: "Chinese (Simplified)"),
+        ModelLanguage(tag: "zh-Hans", displayName: "Chinese (Simplified)"), 
         ModelLanguage(tag: "zh-Hant", displayName: "Chinese (Traditional)"),
         ModelLanguage(tag: "ja", displayName: "Japanese"),
         ModelLanguage(tag: "ko", displayName: "Korean"),
