@@ -6,6 +6,9 @@
 project_path="$(cd "$(dirname "$0")" && pwd)"
 project_xcode="$project_path/eisonAI.xcodeproj"
 
+# 會導致無法 Build
+rm "/Volumes/Data/Github/eisonAI/Shared (Extension)/Resources/webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main/README.md"
+
 # 檢查參數是否提供新版本號
 if [ -z "$1" ]; then
     MARKETING_VERSION=$(xcodebuild -showBuildSettings -project $project_xcode 2>/dev/null | awk -F" = " '/MARKETING_VERSION/{print $2}')
