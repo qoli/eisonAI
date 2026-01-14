@@ -27,6 +27,14 @@ struct DebugSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("AppConfig") {
+                NavigationLink("AppConfig Data") {
+                    AppConfigDebugView()
+                }
+                Text("Inspect AppConfig constants and stored values.")
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Share Payload (Debug)") {
                 Button("Clear pending share payloads") {
                     do {
