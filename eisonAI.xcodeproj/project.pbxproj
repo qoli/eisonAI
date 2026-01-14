@@ -120,6 +120,7 @@
 				Stores/ChunkPromptStore.swift,
 				Stores/ModelLanguageStore.swift,
 				Stores/SystemPromptStore.swift,
+				Translation/PromptTranslationCoordinator.swift,
 				Web/BundledTextResource.swift,
 			);
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;

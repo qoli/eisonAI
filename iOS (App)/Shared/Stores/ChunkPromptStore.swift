@@ -21,7 +21,10 @@ struct ChunkPromptStore {
         return stored
     }
 
-    func loadWithLanguage() -> String {
+    func loadWithLanguage(translated: Bool = true) -> String {
+        if translated, let translatedPrompt = loadTranslatedPrompt() {
+            return translatedPrompt
+        }
         let base = load()
         let languageTag = modelLanguageStore.loadOrRecommended()
         let languageName = ModelLanguage.displayName(forTag: languageTag)
@@ -52,5 +55,13 @@ struct ChunkPromptStore {
         if normalizedLanguageLine.isEmpty { return normalizedBase }
         if normalizedBase.contains(normalizedLanguageLine) { return normalizedBase }
         return "\(normalizedBase)\n\n\(normalizedLanguageLine)"
+    }
+
+    private func loadTranslatedPrompt() -> String? {
+        guard let stored = defaults?.string(forKey: AppConfig.translatedChunkPromptKey) else {
+            return nil
+        }
+        let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

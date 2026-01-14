@@ -5,6 +5,7 @@ import SwiftUI
 struct LibraryRootView: View {
     @StateObject private var viewModel = LibraryViewModel()
     @StateObject private var syncCoordinator = RawLibrarySyncCoordinator.shared
+    @StateObject private var translationCoordinator = PromptTranslationCoordinator.shared
 
     @State private var searchText: String = ""
     @State private var selection: Int = LibraryMode.all.rawValue
@@ -78,9 +79,22 @@ struct LibraryRootView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        let content = NavigationStack {
             libraryContent
         }
+        #if canImport(Translation)
+            if #available(iOS 17.4, macOS 14.4, macCatalyst 26.0, *) {
+                content.translationTask(translationCoordinator.configuration) { session in
+                    print("[TranslationTask] translationTask started")
+                    await translationCoordinator.handleTranslation(session: session)
+                    print("[TranslationTask] translationTask finished")
+                }
+            } else {
+                content
+            }
+        #else
+            content
+        #endif
     }
 
     @ViewBuilder
@@ -104,6 +118,7 @@ struct LibraryRootView: View {
             }
             .task {
                 viewModel.reload()
+                ModelLanguageStore().ensureTranslatedPromptsOnLaunch()
             }
             .onAppear {
                 viewModel.reload()

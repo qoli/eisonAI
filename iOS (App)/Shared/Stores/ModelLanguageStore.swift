@@ -115,23 +115,75 @@ struct ModelLanguageStore {
 
         guard let stored = defaults.string(forKey: AppConfig.modelLanguageKey) else {
             let recommended = ModelLanguage.recommendedTag(for: locale)
-            save(recommended)
+            saveInternal(recommended, triggerTranslator: false)
             return recommended
         }
         let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty || !ModelLanguage.isSupportedTag(trimmed) {
             let recommended = ModelLanguage.recommendedTag(for: locale)
-            save(recommended)
+            saveInternal(recommended, triggerTranslator: false)
             return recommended
         }
         return ModelLanguage.normalizeTag(trimmed)
     }
 
     func save(_ tag: String) {
+        saveInternal(tag, triggerTranslator: true)
+    }
+
+    func callTranslator() {
+        #if !APP_EXTENSION
+        Task { @MainActor in
+            print("[ModelLanguageStore] callTranslator started")
+            await translatePrompts()
+            print("[ModelLanguageStore] callTranslator finished")
+        }
+        #endif
+    }
+
+    func ensureTranslatedPromptsOnLaunch() {
+        guard let defaults else { return }
+        let summary = defaults.string(forKey: AppConfig.translatedSummaryPromptKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let chunk = defaults.string(forKey: AppConfig.translatedChunkPromptKey)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if summary.isEmpty || chunk.isEmpty {
+            callTranslator()
+        }
+    }
+
+    private func saveInternal(_ tag: String, triggerTranslator: Bool) {
         guard let defaults else { return }
         let normalized = ModelLanguage.normalizeTag(tag)
         if normalized.isEmpty || !ModelLanguage.isSupportedTag(normalized) { return }
-        defaults.set(ModelLanguage.supported.first(where: { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame })?.tag ?? normalized,
-                     forKey: AppConfig.modelLanguageKey)
+        defaults.set(
+            ModelLanguage.supported.first(where: { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame })?.tag ?? normalized,
+            forKey: AppConfig.modelLanguageKey
+        )
+        if triggerTranslator {
+            callTranslator()
+        }
+    }
+
+    @MainActor
+    private func translatePrompts() async {
+        #if !APP_EXTENSION
+        guard let defaults else { return }
+        let summarySource = SystemPromptStore().load(translated: false)
+        let chunkSource = ChunkPromptStore().loadWithLanguage(translated: false)
+        let targetTag = loadOrRecommended()
+        print("[ModelLanguageStore] translatePrompts target=\(targetTag) summaryCount=\(summarySource.count) chunkCount=\(chunkSource.count)")
+        guard let result = await PromptTranslationCoordinator.shared.requestTranslation(
+            summary: summarySource,
+            chunk: chunkSource,
+            targetLanguageTag: targetTag
+        ) else {
+            print("[ModelLanguageStore] translatePrompts failed")
+            return
+        }
+        defaults.set(result.summary, forKey: AppConfig.translatedSummaryPromptKey)
+        defaults.set(result.chunk, forKey: AppConfig.translatedChunkPromptKey)
+        print("[ModelLanguageStore] translatePrompts saved summaryCount=\(result.summary.count) chunkCount=\(result.chunk.count)")
+        #endif
     }
 }

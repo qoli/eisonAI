@@ -11,7 +11,10 @@ struct SystemPromptStore {
     private var defaults: UserDefaults? { UserDefaults(suiteName: AppConfig.appGroupIdentifier) }
     private let modelLanguageStore = ModelLanguageStore()
 
-    func load() -> String {
+    func load(translated: Bool = true) -> String {
+        if translated, let translatedPrompt = loadTranslatedPrompt() {
+            return translatedPrompt
+        }
         let base = loadBase()
         let languageTag = modelLanguageStore.loadOrRecommended()
         let languageName = ModelLanguage.displayName(forTag: languageTag)
@@ -69,5 +72,13 @@ struct SystemPromptStore {
         }
 
         return filtered.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func loadTranslatedPrompt() -> String? {
+        guard let stored = defaults?.string(forKey: AppConfig.translatedSummaryPromptKey) else {
+            return nil
+        }
+        let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

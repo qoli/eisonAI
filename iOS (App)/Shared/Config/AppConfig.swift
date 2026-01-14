@@ -12,6 +12,8 @@ enum AppConfig {
     static let systemPromptKey = "eison.systemPrompt"
     static let modelLanguageKey = "eison.modelLanguage"
     static let chunkPromptKey = "eison.chunkPrompt"
+    static let translatedSummaryPromptKey = "eison.translatedPrompt.summary"
+    static let translatedChunkPromptKey = "eison.translatedPrompt.chunk"
     static let titlePromptKey = "eison.titlePrompt"
     static let generationBackendKey = "eison.generation.backend"
     static let foundationModelsAppEnabledKey = "eison.foundationModels.app.enabled"
