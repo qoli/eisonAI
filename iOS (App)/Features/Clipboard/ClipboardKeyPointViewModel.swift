@@ -228,6 +228,8 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     byokSettingsStore: self.byokSettingsStore
                 )
 
+                // 需要注入輸出內容檢查
+
                 self.status = "Done"
                 self.shouldDismiss = true
                 self.log("saved output, dismissing")
@@ -612,12 +614,13 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     template: itemTemplate,
                     values: [
                         "chunk_index": String(chunk.index + 1),
-                        "chunk_text": chunk.text,
+                        "chunk_text": chunk.text.removingThinkTags(),
                     ]
                 )
             }
             .joined(separator: "\n\n")
         log("longdoc:summary-user-prompt anchors=\(anchors.count) promptCount=\(prompt.count)")
+        log(prompt)
         return prompt
     }
 

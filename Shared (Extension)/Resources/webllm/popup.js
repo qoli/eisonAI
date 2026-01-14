@@ -626,6 +626,13 @@ function splitModelThinking(rawText) {
   return { think, final, hasThink: true, thinkClosed: true };
 }
 
+function removeThinkTags(rawText) {
+  const raw = String(rawText ?? "");
+  let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  cleaned = cleaned.replace(/<think>/gi, "").replace(/<\/think>/gi, "");
+  return cleaned;
+}
+
 function renderModelOutput(rawText) {
   const { think, final } = splitModelThinking(rawText);
   setThink(stripTrailingWhitespace(stripLeadingBlankLines(think)));
@@ -2189,7 +2196,7 @@ function buildSummaryUserPromptFromAnchors(anchors) {
     .map((anchor) =>
       renderPromptTemplate(template, {
         chunk_index: anchor.index + 1,
-        chunk_text: anchor.text,
+        chunk_text: removeThinkTags(anchor.text),
       }).trim(),
     )
     .join("\\n\\n");

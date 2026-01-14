@@ -45,7 +45,6 @@ struct ClipboardKeyPointSheet: View {
             .scrollIndicators(.hidden)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .defaultScrollAnchor(.bottom)
-//            .navigationTitle("Cognitive Index")
             .ifIPad({ view in
                 view.navigationTitle("Cognitive Index")
             })
