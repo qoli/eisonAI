@@ -633,10 +633,27 @@ function removeThinkTags(rawText) {
   return cleaned;
 }
 
-function renderModelOutput(rawText) {
+function renderModelOutputWithMode(rawText, { mode = "replace", prefix = "" } = {}) {
   const { think, final } = splitModelThinking(rawText);
-  setThink(stripTrailingWhitespace(stripLeadingBlankLines(think)));
-  setModelOutputMarkdown(stripTrailingWhitespace(stripLeadingBlankLines(final)));
+  const normalizedThink = stripTrailingWhitespace(stripLeadingBlankLines(think));
+  const normalizedFinal = stripTrailingWhitespace(stripLeadingBlankLines(final));
+  setThink(normalizedThink);
+
+  if (mode === "append") {
+    const base = String(prefix ?? "");
+    if (base && normalizedFinal) {
+      setModelOutputMarkdown(`${base}\n\n${normalizedFinal}`);
+    } else {
+      setModelOutputMarkdown(`${base}${normalizedFinal}`);
+    }
+    return;
+  }
+
+  setModelOutputMarkdown(normalizedFinal);
+}
+
+function renderModelOutput(rawText) {
+  renderModelOutputWithMode(rawText);
 }
 
 function getErrorMessage(err) {
@@ -2077,7 +2094,10 @@ async function ensureWebLLMEngineLoaded() {
   }
 }
 
-async function generateTextWithWebLLM(messages, { renderOutput = false } = {}) {
+async function generateTextWithWebLLM(
+  messages,
+  { renderOutput = false, outputMode = "replace", outputPrefix = "" } = {},
+) {
   if (!engine) throw new Error("Engine is not loaded.");
   if (engineLoading) throw new Error("Engine is still loading.");
 
@@ -2098,7 +2118,7 @@ async function generateTextWithWebLLM(messages, { renderOutput = false } = {}) {
     if (!delta) continue;
     acc += delta;
     if (renderOutput) {
-      renderModelOutput(acc);
+      renderModelOutputWithMode(acc, { mode: outputMode, prefix: outputPrefix });
     }
   }
   return acc;
@@ -2108,6 +2128,8 @@ async function generateTextWithFoundationModels({
   systemPrompt,
   userPrompt,
   renderOutput = false,
+  outputMode = "replace",
+  outputPrefix = "",
   tokenEstimate,
 }) {
   const prewarmPrefix = String(userPrompt ?? "").slice(0, FOUNDATION_PREWARM_PREFIX_LIMIT);
@@ -2152,7 +2174,7 @@ async function generateTextWithFoundationModels({
     if (polled.delta) {
       acc += polled.delta;
       if (renderOutput) {
-        renderModelOutput(acc);
+        renderModelOutputWithMode(acc, { mode: outputMode, prefix: outputPrefix });
       }
     }
 
@@ -2238,7 +2260,9 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
       `[WebLLM Demo] Chunk ${chunk.index + 1}/${chunks.length} text:\\n${chunkText}`,
     );
     setStatus(`Reading chunk ${chunk.index + 1}/${chunks.length}…`, 0);
-    showVisibilityPreview(chunkText);
+    if (!String(lastModelOutputMarkdown ?? "").trim()) {
+      showVisibilityPreview(chunkText);
+    }
 
     const systemPrompt = buildReadingAnchorSystemPrompt({
       index: chunk.index + 1,
@@ -2247,14 +2271,19 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
     const userPrompt = buildReadingAnchorUserPrompt(chunkText);
 
     setStatus(`Generating chunk ${chunk.index + 1}/${chunks.length}…`, 0);
-    resetOutputForVisibility();
     setThink("");
+    const outputPrefix = String(lastModelOutputMarkdown ?? "");
+    const outputOptions = {
+      renderOutput: true,
+      outputMode: "append",
+      outputPrefix,
+    };
 
     const anchorText = useFoundation
       ? await generateTextWithFoundationModels({
           systemPrompt,
           userPrompt,
-          renderOutput: true,
+          ...outputOptions,
           tokenEstimate: totalTokens,
         })
       : await generateTextWithWebLLM(
@@ -2262,7 +2291,7 @@ async function runLongDocumentPipelineOnce(ctx, { useFoundation, totalTokens, ch
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
-          { renderOutput: true },
+          outputOptions,
         );
 
     const cleanedAnchor = (() => {

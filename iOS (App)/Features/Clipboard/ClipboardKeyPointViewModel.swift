@@ -440,7 +440,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             switch backend {
             case .mlc:
                 let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
-                anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
+                anchorText = try await collectStream(
+                    stream,
+                    updateOutput: true,
+                    label: "longdoc-anchor-\(chunk.index)",
+                    appendToOutput: true
+                )
             case .appleIntelligence, .byok:
                 let stream = try await anyLanguageModels.streamChat(
                     systemPrompt: anchorSystemPrompt,
@@ -450,7 +455,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     backend: backend,
                     byok: byok
                 )
-                anchorText = try await collectStream(stream, updateOutput: true, label: "longdoc-anchor-\(chunk.index)")
+                anchorText = try await collectStream(
+                    stream,
+                    updateOutput: true,
+                    label: "longdoc-anchor-\(chunk.index)",
+                    appendToOutput: true
+                )
             }
 
             let trimmedAnchor = anchorText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -571,7 +581,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
-        let base = ChunkPromptStore().load().trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = ChunkPromptStore().loadWithLanguage().trimmingCharacters(in: .whitespacesAndNewlines)
         let suffixTemplate = PromptTemplates.load(
             name: "reading_anchor_system_suffix",
             fallback: "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})"
@@ -627,17 +637,24 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     private func collectStream(
         _ stream: AsyncThrowingStream<String, Error>,
         updateOutput: Bool,
-        label: String = ""
+        label: String = "",
+        appendToOutput: Bool = false
     ) async throws -> String {
         if !label.isEmpty {
             log("longdoc:collect-start label=\(label)")
         }
         var finalText = ""
+        var outputPrefix = updateOutput && appendToOutput ? output : ""
+        var didAppendSeparator = false
         for try await delta in stream {
             if Task.isCancelled { break }
             finalText.append(delta)
             if updateOutput {
-                output = finalText
+                if appendToOutput, !didAppendSeparator, !outputPrefix.isEmpty {
+                    outputPrefix.append("\n\n")
+                    didAppendSeparator = true
+                }
+                output = outputPrefix + finalText
             }
         }
         if !label.isEmpty {

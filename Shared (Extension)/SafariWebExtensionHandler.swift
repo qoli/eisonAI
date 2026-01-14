@@ -281,13 +281,18 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadChunkPrompt() -> String {
-        guard let stored = sharedDefaults()?.string(forKey: chunkPromptKey) else {
-            return AppConfig.defaultChunkPrompt
+        let base: String
+        if let stored = sharedDefaults()?.string(forKey: chunkPromptKey) {
+            let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
+            base = trimmed.isEmpty ? AppConfig.defaultChunkPrompt : trimmed
+        } else {
+            base = AppConfig.defaultChunkPrompt
         }
-        if stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return AppConfig.defaultChunkPrompt
-        }
-        return stored
+
+        let languageTag = loadModelLanguageTag()
+        let languageName = modelLanguageDisplayName(forTag: languageTag)
+        let languageLine = "- 請使用\(languageName)輸出"
+        return composeSystemPrompt(base: base, languageLine: languageLine)
     }
 
     private func loadTokenEstimatorEncoding() -> String {
