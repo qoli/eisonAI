@@ -56,6 +56,3 @@
 - App 內任何地方只要讀取這兩個欄位，就視為「目前語言下已決定好的最終 Prompt」
 - runtime 不需要、也不應該再判斷語言或翻譯狀態
 - 語言變更 = 清空並重新產生這兩個欄位
-
-## 參考
-- Apple Translation API：`/Volumes/Data/Github/Language-translation`
