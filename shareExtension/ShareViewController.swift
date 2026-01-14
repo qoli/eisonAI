@@ -64,6 +64,13 @@ final class ShareViewController: UIViewController {
                 log("picked title: \(itemTitle.prefix(120))")
             }
 
+            if text == nil,
+               let contentText = item.attributedContentText?.string.trimmingCharacters(in: .whitespacesAndNewlines),
+               !contentText.isEmpty {
+                text = contentText
+                log("picked attributedContentText length: \(contentText.count)")
+            }
+
             let providers = item.attachments ?? []
             log("attachments count: \(providers.count)")
             for provider in providers {
@@ -74,7 +81,13 @@ final class ShareViewController: UIViewController {
                     }
                 }
 
-                if text == nil, provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                if text == nil,
+                   provider.canLoadObject(ofClass: NSString.self)
+                    || provider.canLoadObject(ofClass: NSAttributedString.self)
+                    || provider.hasItemConformingToTypeIdentifier(UTType.text.identifier)
+                    || provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier)
+                    || provider.hasItemConformingToTypeIdentifier(UTType.rtf.identifier)
+                    || provider.hasItemConformingToTypeIdentifier(UTType.html.identifier) {
                     if let loadedText = try? await loadTextString(from: provider) {
                         text = loadedText
                         log("loaded text length: \(loadedText.count)")
@@ -198,7 +211,30 @@ final class ShareViewController: UIViewController {
             return String(data: data, encoding: .utf8)
         }
 
+        if provider.hasItemConformingToTypeIdentifier(UTType.text.identifier),
+           let data = try await loadDataRepresentation(for: UTType.text, from: provider) {
+            return String(data: data, encoding: .utf8)
+        }
+
+        if provider.hasItemConformingToTypeIdentifier(UTType.rtf.identifier),
+           let data = try await loadDataRepresentation(for: UTType.rtf, from: provider) {
+            return attributedStringText(from: data, type: .rtf)
+        }
+
+        if provider.hasItemConformingToTypeIdentifier(UTType.html.identifier),
+           let data = try await loadDataRepresentation(for: UTType.html, from: provider) {
+            return attributedStringText(from: data, type: .html)
+        }
+
         return nil
+    }
+
+    private func attributedStringText(from data: Data, type: UTType) -> String? {
+        let options: [NSAttributedString.DocumentReadingOptionKey: Any] = [
+            .documentType: type == .rtf ? NSAttributedString.DocumentType.rtf : .html,
+            .characterEncoding: String.Encoding.utf8.rawValue,
+        ]
+        return (try? NSAttributedString(data: data, options: options, documentAttributes: nil))?.string
     }
 
     private func loadObject<T: NSItemProviderReading>(_ type: T.Type, from provider: NSItemProvider) async throws -> T? {
