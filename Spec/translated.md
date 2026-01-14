@@ -20,6 +20,8 @@ Output requirements:
 ## 範圍
 - 主要涵蓋 **System Prompt**（summary 系統提示詞）。
 - 若需要一致行為，建議同步擴展到：Chunk Prompt、Title Prompt、Reading Anchor 相關模板。
+- **本規格採用**：System Prompt + Chunk Prompt + Title Prompt 進行雙語化。
+- **不做雙語化**：Reading Anchor 相關模板（`reading_anchor_*`），避免影響模板占位符與結構穩定性。
 
 ## Chunk Prompt / Reading Anchor 位置
 ### iOS
@@ -56,10 +58,15 @@ Output requirements:
 - **App Defaults Cache**：保存 Translated Prompt 的本地快取。
 - **ModelLanguageStore**：保存使用者選擇的目標語言設定。
 - **Translation API**：iOS 17.4 / macOS 14.4 之後的 on-device 翻譯框架。
+- **Language Line**：以 `summary_language_line` 模板產生的語言提示行（例如 `- Please respond in {{language}}.`）。
 
 ## 資料儲存
-- `AppDefaults.translatedPrompt`（String，預設空字串）
-- `AppDefaults.translatedPrompt.languageTag`（String，記錄翻譯目標語言）
+- `AppDefaults.translatedPrompt.summary`（String，預設空字串）
+- `AppDefaults.translatedPrompt.summary.languageTag`（String，記錄翻譯目標語言）
+- `AppDefaults.translatedPrompt.chunk`（String，預設空字串）
+- `AppDefaults.translatedPrompt.chunk.languageTag`（String，記錄翻譯目標語言）
+- `AppDefaults.translatedPrompt.title`（String，預設空字串）
+- `AppDefaults.translatedPrompt.title.languageTag`（String，記錄翻譯目標語言）
 - `ModelLanguageStore.selectedLanguage`（語言代碼）
 
 ## 雙語格式（必須）
@@ -74,20 +81,22 @@ Output requirements:
 說明：
 - 先原文後翻譯，固定順序。
 - 翻譯必須保留原本的空行與條列格式。
+- 若已存在語言提示行（Language Line），只保留 **一次**，避免重複。
 
 ## 工作流程
 ### 啟動或使用提示詞時
-1. 讀取 `AppDefaults.translatedPrompt`。
-2. 若為空字串，或 `translatedPrompt.languageTag` 與目標語言不同：
+1. 依 Prompt 類型讀取對應快取（summary / chunk / title）。
+2. 若為空字串，或 `languageTag` 與目標語言不同：
    - 使用 **TranslationSession** 翻譯 Default Prompt → 目標語言。
-   - 寫入 `AppDefaults.translatedPrompt` 與對應語言標記。
+   - 寫入對應的 `translatedPrompt.*` 與對應語言標記。
 3. `ModelLanguageStore.loadOrRecommended()` 必須回傳語言適配結果。
+4. 組合輸出時，若需要 Language Line，僅追加一次（不可重複）。
 
 ### 使用者切換語言時
 在「語言變更流程」中處理（不可在 sync `save` 內直接做 async 翻譯）：
 1. 先保存新語言到 `ModelLanguageStore`。
 2. 由上層流程（UI/Service）觸發 **TranslationSession** 翻譯任務。
-3. 覆蓋 `AppDefaults.translatedPrompt` 與語言標記。
+3. 逐一覆蓋 `AppDefaults.translatedPrompt.summary/chunk/title` 與語言標記。
 4. 翻譯完全由 Translation API 控制，不使用 LLM。
 
 ## 翻譯規則
@@ -95,6 +104,7 @@ Output requirements:
 - 翻譯輸出必須保留原本的格式（空行、條列符號）。
 - 目標語言由 `ModelLanguageStore` 決定。
 - 不能改寫語義，只做語言翻譯。
+- Reading Anchor 相關模板保持原語（不進行翻譯）。
 
 ## Translation API 使用規則
 - 使用 `TranslationSession.Configuration` 指定目標語言。
@@ -105,6 +115,10 @@ Output requirements:
 - 翻譯失敗：保持 `AppDefaults.translatedPrompt` 為空，並回退使用 Default Prompt。
 - 若翻譯成功但格式損壞：丟棄翻譯結果，回退 Default Prompt。
 - 若 `translatedPrompt.languageTag` 與目標語言不一致：視為快取失效，重新翻譯。
+
+## Extension 來源規則
+- Safari Extension **只讀取 App 端已雙語化的 prompt**（透過 native messaging）。
+- Extension 端不執行翻譯，避免雙重翻譯與不一致。
 
 ## 檢查點
 - 切換語言後，提示詞立即更新。
