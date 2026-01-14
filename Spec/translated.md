@@ -62,11 +62,8 @@ Output requirements:
 
 ## 資料儲存
 - `AppDefaults.translatedPrompt.summary`（String，預設空字串）
-- `AppDefaults.translatedPrompt.summary.languageTag`（String，記錄翻譯目標語言）
 - `AppDefaults.translatedPrompt.chunk`（String，預設空字串）
-- `AppDefaults.translatedPrompt.chunk.languageTag`（String，記錄翻譯目標語言）
 - `AppDefaults.translatedPrompt.title`（String，預設空字串）
-- `AppDefaults.translatedPrompt.title.languageTag`（String，記錄翻譯目標語言）
 - `ModelLanguageStore.selectedLanguage`（語言代碼）
 
 ## 雙語格式（必須）
@@ -86,17 +83,21 @@ Output requirements:
 ## 工作流程
 ### 啟動或使用提示詞時
 1. 依 Prompt 類型讀取對應快取（summary / chunk / title）。
-2. 若為空字串，或 `languageTag` 與目標語言不同：
+2. 若為空字串：
    - 使用 **TranslationSession** 翻譯 Default Prompt → 目標語言。
-   - 寫入對應的 `translatedPrompt.*` 與對應語言標記。
+   - 寫入對應的 `translatedPrompt.*`。
 3. `ModelLanguageStore.loadOrRecommended()` 必須回傳語言適配結果。
 4. 組合輸出時，若需要 Language Line，僅追加一次（不可重複）。
 
+### App 啟動時
+- 檢查 `translatedPrompt.summary/chunk/title` 是否為空字串。
+- 只要有任何一項為空，立即啟動翻譯流程，補齊缺漏並寫入 `AppDefaults`。
+
 ### 使用者切換語言時
-在「語言變更流程」中處理（不可在 sync `save` 內直接做 async 翻譯）：
-1. 先保存新語言到 `ModelLanguageStore`。
-2. 由上層流程（UI/Service）觸發 **TranslationSession** 翻譯任務。
-3. 逐一覆蓋 `AppDefaults.translatedPrompt.summary/chunk/title` 與語言標記。
+在 `ModelLanguageStore.save(...)` 內直接觸發翻譯：
+1. 保存新語言到 `ModelLanguageStore`。
+2. 立即使用 **TranslationSession** 翻譯 Default Prompt → 目標語言。
+3. 逐一覆蓋 `AppDefaults.translatedPrompt.summary/chunk/title`。
 4. 翻譯完全由 Translation API 控制，不使用 LLM。
 
 ## 翻譯規則
@@ -114,7 +115,6 @@ Output requirements:
 ## 錯誤與回退
 - 翻譯失敗：保持 `AppDefaults.translatedPrompt` 為空，並回退使用 Default Prompt。
 - 若翻譯成功但格式損壞：丟棄翻譯結果，回退 Default Prompt。
-- 若 `translatedPrompt.languageTag` 與目標語言不一致：視為快取失效，重新翻譯。
 
 ## Extension 來源規則
 - Safari Extension **只讀取 App 端已雙語化的 prompt**（透過 native messaging）。
