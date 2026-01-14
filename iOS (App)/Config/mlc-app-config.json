@@ -4,7 +4,7 @@
       "model_id": "Qwen3-0.6B-q4f16_1-MLC",
       "model_lib": "qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2",
       "model_path": "Qwen3-0.6B-q4f16_1-MLC",
-      "estimated_vram_bytes": 3000000000
+      "estimated_vram_bytes": 1500000000
     }
   ]
 }
