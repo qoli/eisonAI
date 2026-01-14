@@ -21,6 +21,35 @@ Output requirements:
 - 主要涵蓋 **System Prompt**（summary 系統提示詞）。
 - 若需要一致行為，建議同步擴展到：Chunk Prompt、Title Prompt、Reading Anchor 相關模板。
 
+## Chunk Prompt / Reading Anchor 位置
+### iOS
+- Chunk Prompt 讀取：`iOS (App)/Shared/Stores/ChunkPromptStore.swift`（UserDefaults key：`eison.chunkPrompt`）
+- Chunk Prompt 預設：`iOS (App)/Shared/Config/AppConfig.swift` → `AppConfig.defaultChunkPrompt`
+- 長文 Anchor 系統提示組合：`iOS (App)/Features/Clipboard/ClipboardKeyPointViewModel.swift`
+  - `buildReadingAnchorSystemPrompt()` 以 Chunk Prompt 為 base，再接 `reading_anchor_system_suffix`
+  - `buildReadingAnchorUserPrompt()` 使用 `reading_anchor_user_prompt`
+  - `buildSummaryUserPrompt()` 使用 `reading_anchor_summary_item`
+
+### Safari Extension
+- Chunk Prompt 預設檔：`Shared (Extension)/Resources/default_chunk_prompt.txt`
+- Native 讀取邏輯：`Shared (Extension)/Resources/webllm/popup.js` → `refreshChunkPromptFromNative()`
+- Reading Anchor 模板檔：
+  - system suffix：`Shared (Extension)/Resources/reading_anchor_system_suffix.txt`
+  - user prompt：`Shared (Extension)/Resources/reading_anchor_user_prompt.txt`
+  - anchors 聚合：`Shared (Extension)/Resources/reading_anchor_summary_item.txt`
+
+## 語言支持位置（App）
+- 語言清單與推薦邏輯：`iOS (App)/Shared/Stores/ModelLanguageStore.swift`
+  - `ModelLanguage.supported`：支援語言列表
+  - `ModelLanguageStore.loadOrRecommended()`：依 locale 推薦並保存
+  - 儲存 key：`AppConfig.modelLanguageKey`（`eison.modelLanguage`）
+- 系統提示詞附加語言提示：`iOS (App)/Shared/Stores/SystemPromptStore.swift`
+  - `summary_language_line` 模板：`Shared (Extension)/Resources/summary_language_line.txt`
+- UI 設定入口：
+  - `iOS (App)/Features/Settings/GeneralSettingsView.swift`（Language picker）
+  - `iOS (App)/Features/Settings/PromptSettingsView.swift`（提示語言說明）
+  - `iOS (App)/Features/Onboarding/OnboardingView.swift`（初始保存）
+
 ## 核心概念
 - **Default Prompt**：由 App 提供的預設提示詞（上方 block）。
 - **Translated Prompt**：Default Prompt 翻譯後的版本。
