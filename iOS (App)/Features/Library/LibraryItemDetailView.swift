@@ -428,11 +428,11 @@ struct LibraryItemDetailView: View {
                 ForEach(anchors) { anchor in
                     let title = "Chunk \(anchor.index + 1) (\(anchor.tokenCount) tokens)"
                     NavigationLink {
-                        LibraryTextDetailView(title: title, text: anchor.text)
+                        LibraryTextDetailView(title: title, text: anchor.text.thinkTagstoMarkdonw())
                     } label: {
                         PlainTextSection(
                             title: title,
-                            text: anchor.text
+                            text: anchor.text.removingThinkTags()
                         )
                     }
                     .buttonStyle(.plain)

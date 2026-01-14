@@ -15,7 +15,7 @@ extension String {
         return cleaned
     }
 
-    func thinkTags() -> String {
+    func thinkTagstoMarkdonw() -> String {
         replacingOccurrences(of: "<think>", with: "> **Thinking**\n> ")
             .replacingOccurrences(of: "</think>", with: "\n> **Index**\n> ")
     }
