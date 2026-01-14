@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
+    private let shareOpenAppStore = ShareOpenAppSettingsStore()
     private let sharePollingStore = SharePollingSettingsStore()
     private let modelLanguageStore = ModelLanguageStore()
 
+    @State private var shareOpenAppEnabled = true
     @State private var sharePollingEnabled = true
     @State private var modelLanguageTag = ""
     @State private var didLoad = false
@@ -37,6 +39,23 @@ struct GeneralSettingsView: View {
                 Text("Visualize structure directly inside Safari.")
             }
 
+            Section {
+                Toggle(
+                    "Open eisonAI after sharing",
+                    isOn: Binding(
+                        get: { shareOpenAppEnabled },
+                        set: { newValue in
+                            shareOpenAppEnabled = newValue
+                            shareOpenAppStore.setEnabled(newValue)
+                        }
+                    )
+                )
+            } header: {
+                Text("Share Extension")
+            } footer: {
+                Text("When enabled, eisonAI opens automatically after you share.")
+            }
+
 //            Section {
 //                Toggle(
 //                    "Share Polling",
@@ -58,6 +77,7 @@ struct GeneralSettingsView: View {
         .onAppear {
             if !didLoad {
                 didLoad = true
+                shareOpenAppEnabled = shareOpenAppStore.isEnabled()
                 sharePollingEnabled = sharePollingStore.isEnabled()
                 modelLanguageTag = modelLanguageStore.loadOrRecommended()
             }

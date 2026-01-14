@@ -9,6 +9,8 @@ final class ShareViewController: UIViewController {
     private var hostingController: UIHostingController<ShareStatusView>?
     private let minimizeDuration: TimeInterval = 0.6
     private let bounceDuration: TimeInterval = 0.7
+    private let appGroupIdentifier = "group.com.qoli.eisonAI"
+    private let shareOpenAppAfterShareKey = "eison.share.openAppAfterShare"
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -121,14 +123,27 @@ final class ShareViewController: UIViewController {
 
         do {
             let outcome = try SharePayloadStore().saveIfNotDuplicate(payload)
+            let shouldOpenApp = shouldOpenAppAfterShare()
+            let deepLinkURL = shareDeepLinkURL(for: payload.id)
+            let fallbackURL = URL(string: "eisonai://")
             await MainActor.run {
+                var openURL: URL?
                 switch outcome {
                 case .saved(let fileURL):
                     log("saved payload: \(fileURL.lastPathComponent)")
                     setStatus("Saved", detail: "Closing…")
+                    if shouldOpenApp {
+                        openURL = deepLinkURL ?? fallbackURL
+                    }
                 case .duplicate:
                     log("duplicate url, skipping save")
                     setStatus("Already saved", detail: "Closing…")
+                    if shouldOpenApp {
+                        openURL = fallbackURL
+                    }
+                }
+                if let openURL {
+                    openHostApp(url: openURL)
                 }
                 playMinimizeAndComplete()
             }
@@ -266,5 +281,35 @@ final class ShareViewController: UIViewController {
         #if DEBUG
             print("[ShareExtension] \(message)")
         #endif
+    }
+
+    private func shouldOpenAppAfterShare() -> Bool {
+        guard let defaults = UserDefaults(suiteName: appGroupIdentifier) else { return true }
+        if defaults.object(forKey: shareOpenAppAfterShareKey) == nil {
+            return true
+        }
+        return defaults.bool(forKey: shareOpenAppAfterShareKey)
+    }
+
+    private func shareDeepLinkURL(for id: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "eisonai"
+        components.host = "share"
+        components.queryItems = [URLQueryItem(name: "id", value: id)]
+        return components.url
+    }
+
+    @MainActor
+    private func openHostApp(url: URL) {
+        var responder: UIResponder? = self
+        while let current = responder {
+            if current.responds(to: #selector(UIApplication.open(_:options:completionHandler:))),
+               current.isMember(of: UIApplication.self),
+               let application = current as? UIApplication {
+                application.open(url, options: [:], completionHandler: nil)
+                break
+            }
+            responder = current.next
+        }
     }
 }
