@@ -19,7 +19,7 @@ struct ClipboardKeyPointSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Markdown(model.output.isEmpty ? "—" : model.output.thinkTagstoMarkdonw())
+                Markdown(model.output.isEmpty ? "_" : model.output.thinkTagstoMarkdonw())
                     .markdownTheme(.librarySummary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
