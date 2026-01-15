@@ -55,23 +55,6 @@ struct GeneralSettingsView: View {
             } footer: {
                 Text("When enabled, eisonAI opens automatically after you share.")
             }
-
-//            Section {
-//                Toggle(
-//                    "Share Polling",
-//                    isOn: Binding(
-//                        get: { sharePollingEnabled },
-//                        set: { newValue in
-//                            sharePollingEnabled = newValue
-//                            sharePollingStore.setEnabled(newValue)
-//                        }
-//                    )
-//                )
-//            } header: {
-//                Text("Share Extension")
-//            } footer: {
-//                Text("When enabled, the app checks every 2 seconds while it is in the foreground.")
-//            }
         }
         .navigationTitle("General")
         .onAppear {
@@ -81,6 +64,9 @@ struct GeneralSettingsView: View {
                 sharePollingEnabled = sharePollingStore.isEnabled()
                 modelLanguageTag = modelLanguageStore.loadOrRecommended()
             }
+        }
+        .task {
+            modelLanguageStore.callTranslator()
         }
         .onChange(of: modelLanguageTag) { _, newValue in
             guard didLoad else { return }
