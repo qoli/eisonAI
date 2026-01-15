@@ -66,6 +66,10 @@ final class MLCClient {
                         log("loadIfNeeded: reload blocked, active stream still running")
                         throw ClientError.streamBusy
                     }
+                    log("loadIfNeeded: unloading engine")
+                    await engine.unload()
+                    isLoaded = false
+                    loadedModelID = nil
                 }
                 let selection: MLCModelSelection
                 if let cached = loadedSelection {
@@ -104,6 +108,7 @@ final class MLCClient {
             #endif
         #endif
     }
+
 
     func streamChat(
         systemPrompt: String,
