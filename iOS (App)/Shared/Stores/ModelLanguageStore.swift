@@ -133,11 +133,11 @@ struct ModelLanguageStore {
 
     func callTranslator() {
         #if !APP_EXTENSION
-        Task { @MainActor in
-            print("[ModelLanguageStore] callTranslator started")
-            await translatePrompts()
-            print("[ModelLanguageStore] callTranslator finished")
-        }
+            Task { @MainActor in
+                print("[ModelLanguageStore] callTranslator started")
+                await translatePrompts()
+                print("[ModelLanguageStore] callTranslator finished")
+            }
         #endif
     }
 
@@ -168,22 +168,22 @@ struct ModelLanguageStore {
     @MainActor
     private func translatePrompts() async {
         #if !APP_EXTENSION
-        guard let defaults else { return }
-        let summarySource = SystemPromptStore().load(translated: false)
-        let chunkSource = ChunkPromptStore().loadWithLanguage(translated: false)
-        let targetTag = loadOrRecommended()
-        print("[ModelLanguageStore] translatePrompts target=\(targetTag) summaryCount=\(summarySource.count) chunkCount=\(chunkSource.count)")
-        guard let result = await PromptTranslationCoordinator.shared.requestTranslation(
-            summary: summarySource,
-            chunk: chunkSource,
-            targetLanguageTag: targetTag
-        ) else {
-            print("[ModelLanguageStore] translatePrompts failed")
-            return
-        }
-        defaults.set(result.summary, forKey: AppConfig.translatedSummaryPromptKey)
-        defaults.set(result.chunk, forKey: AppConfig.translatedChunkPromptKey)
-        print("[ModelLanguageStore] translatePrompts saved summaryCount=\(result.summary.count) chunkCount=\(result.chunk.count)")
+            guard let defaults else { return }
+            let summarySource = SystemPromptStore().load(translated: false)
+            let chunkSource = ChunkPromptStore().loadWithLanguage(translated: false)
+            let targetTag = loadOrRecommended()
+            print("[ModelLanguageStore] translatePrompts target=\(targetTag) summaryCount=\(summarySource.count) chunkCount=\(chunkSource.count)")
+            guard let result = await PromptTranslationCoordinator.shared.requestTranslation(
+                summary: summarySource,
+                chunk: chunkSource,
+                targetLanguageTag: targetTag
+            ) else {
+                print("[ModelLanguageStore] translatePrompts failed")
+                return
+            }
+            defaults.set(result.summary, forKey: AppConfig.translatedSummaryPromptKey)
+            defaults.set(result.chunk, forKey: AppConfig.translatedChunkPromptKey)
+            print("[ModelLanguageStore] translatePrompts saved summaryCount=\(result.summary.count) chunkCount=\(result.chunk.count)")
         #endif
     }
 }
