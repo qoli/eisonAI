@@ -7,8 +7,8 @@
       "model_lib": "qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2",
       "estimated_vram_bytes": 3000000000,
       "overrides": {
-        "prefill_chunk_size": 2048,
-        "context_window_size": 3072
+        "prefill_chunk_size": 1024,
+        "context_window_size": 4096
       },
       "bundle_weight": true
     }

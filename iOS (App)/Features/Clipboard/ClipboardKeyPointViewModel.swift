@@ -329,9 +329,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         switch backend {
         case .mlc:
             status = "Model…"
-            try await mlc.loadIfNeeded()
             status = "Generating"
-            let stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+            let stream = try await mlc.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt
+            )
             summary = try await collectStream(stream, updateOutput: true)
             modelId = mlc.loadedModelID ?? ""
         case .appleIntelligence:
@@ -398,11 +400,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             )
         }
 
-        if backend == .mlc {
-            status = "Model…"
-            try await mlc.loadIfNeeded()
-        }
-
         var readingAnchors: [ReadingAnchorChunk] = []
         readingAnchors.reserveCapacity(chunks.count)
 
@@ -439,7 +436,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             let anchorText: String
             switch backend {
             case .mlc:
-                let stream = try await mlc.streamChat(systemPrompt: anchorSystemPrompt, userPrompt: anchorUserPrompt)
+                status = "Model…"
+                let stream = try await mlc.streamChat(
+                    systemPrompt: anchorSystemPrompt,
+                    userPrompt: anchorUserPrompt,
+                    forceReload: true
+                )
                 anchorText = try await collectStream(
                     stream,
                     updateOutput: true,
@@ -489,7 +491,12 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let modelId: String
         switch backend {
         case .mlc:
-            let stream = try await mlc.streamChat(systemPrompt: summarySystemPrompt, userPrompt: summaryUserPrompt)
+            status = "Model…"
+            let stream = try await mlc.streamChat(
+                systemPrompt: summarySystemPrompt,
+                userPrompt: summaryUserPrompt,
+                forceReload: true
+            )
             summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
             modelId = mlc.loadedModelID ?? ""
         case .appleIntelligence:

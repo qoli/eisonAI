@@ -27,6 +27,7 @@ final class MLCClient {
     }
 
     private(set) var loadedModelID: String?
+    private var loadedSelection: MLCModelSelection?
     private var isLoaded = false
     private let enableSimulatorMLC: Bool
     private let logger = Logger(subsystem: "com.qoli.eisonAI", category: "MLCClient")
@@ -47,8 +48,8 @@ final class MLCClient {
         }
     }
 
-    func loadIfNeeded() async throws {
-        guard !isLoaded else {
+    func loadIfNeeded(forceReload: Bool = false) async throws {
+        guard !isLoaded || forceReload else {
             log("loadIfNeeded: already loaded model=\(loadedModelID ?? "nil")")
             return
         }
@@ -59,9 +60,22 @@ final class MLCClient {
 
         #if !targetEnvironment(simulator)
             #if canImport(MLCSwift)
-                log("loadIfNeeded: resolving model selection")
-                let selection = try MLCModelLocator().resolveSelection()
-                log("loadIfNeeded: loading modelID=\(selection.modelID)")
+                if forceReload {
+                    let finished = await cancelActiveStreamAndWait(timeoutSeconds: 2, reason: "reload")
+                    if !finished {
+                        log("loadIfNeeded: reload blocked, active stream still running")
+                        throw ClientError.streamBusy
+                    }
+                }
+                let selection: MLCModelSelection
+                if let cached = loadedSelection {
+                    selection = cached
+                } else {
+                    log("loadIfNeeded: resolving model selection")
+                    selection = try MLCModelLocator().resolveSelection()
+                    loadedSelection = selection
+                }
+                log("loadIfNeeded: loading modelID=\(selection.modelID) forceReload=\(forceReload)")
                 await engine.reload(modelPath: selection.modelPath, modelLib: selection.modelLib)
                 isLoaded = true
                 loadedModelID = selection.modelID
@@ -91,11 +105,15 @@ final class MLCClient {
         #endif
     }
 
-    func streamChat(systemPrompt: String, userPrompt: String) async throws -> AsyncThrowingStream<String, Error> {
+    func streamChat(
+        systemPrompt: String,
+        userPrompt: String,
+        forceReload: Bool = false
+    ) async throws -> AsyncThrowingStream<String, Error> {
         #if !targetEnvironment(simulator)
             #if canImport(MLCSwift)
                 log("streamChat: start")
-                try await loadIfNeeded()
+                try await loadIfNeeded(forceReload: forceReload)
                 try await finishActiveStreamIfNeeded(reason: "new stream")
                 await engine.reset()
 
