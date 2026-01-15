@@ -153,7 +153,7 @@ struct AIModelsSettingsView: View {
                 } header: {
                     Text("Auto Strategy")
                 } footer: {
-                    Text("Tokens ≤ 2,600 use Local; otherwise BYOK. Threshold is fixed.")
+                    Text("Tokens ≤ 1,792 use Local; otherwise BYOK. Threshold is fixed.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -299,7 +299,7 @@ struct AIModelsSettingsView: View {
                 }
             }
 
-            if backend != .byok {
+            if backend == .local {
                 Section {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Long-Document Processing")
@@ -335,7 +335,7 @@ struct AIModelsSettingsView: View {
                 }
             }
 
-            if backend != .byok {
+            if backend == .local {
                 Section {
                     Picker(
                         "Max Chunks",
@@ -358,28 +358,29 @@ struct AIModelsSettingsView: View {
                     Text("Extra chunks are skipped to keep processing time predictable.")
                 }
 
-                Section {
-                    Picker(
-                        "Tokenizer",
-                        selection: Binding(
-                            get: { tokenEstimatorEncoding },
-                            set: { newValue in
-                                tokenEstimatorEncoding = newValue
-                                tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
-                            }
-                        )
-                    ) {
-                        ForEach(tokenEstimatorOptions, id: \.self) { encoding in
-                            Text(encoding.rawValue).tag(encoding)
-                        }
-                    }
-
-                } header: {
-                    Text("Tokenization")
-                } footer: {
-                    Text("Used for token estimates and chunking in the app and Safari extension.")
-                        .padding(.bottom)
-                }
+// Tokenizer 算法不能再修改，因為 cl100k_base 測試後，認為很穩定
+//                Section {
+//                    Picker(
+//                        "Tokenizer",
+//                        selection: Binding(
+//                            get: { tokenEstimatorEncoding },
+//                            set: { newValue in
+//                                tokenEstimatorEncoding = newValue
+//                                tokenEstimatorSettingsStore.setSelectedEncoding(newValue)
+//                            }
+//                        )
+//                    ) {
+//                        ForEach(tokenEstimatorOptions, id: \.self) { encoding in
+//                            Text(encoding.rawValue).tag(encoding)
+//                        }
+//                    }
+//
+//                } header: {
+//                    Text("Tokenization")
+//                } footer: {
+//                    Text("Used for token estimates and chunking in the app and Safari extension.")
+//                        .padding(.bottom)
+//                }
             }
         }
 

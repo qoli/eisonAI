@@ -2,7 +2,7 @@ import Foundation
 
 struct AutoStrategySettingsStore {
     static let shared = AutoStrategySettingsStore()
-    static let fixedThreshold = 2600
+    static let fixedThreshold = 1792
     private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
 
     enum LocalModelPreference: String, CaseIterable {
