@@ -21,9 +21,9 @@ fi
 # 設定新版本號
 new_version="$1"
 
-gemini --yolo "1. 讀取 notion page eisonAI 更新日誌；然後回報「$new_version」的更新內容；2. 翻譯到自然的英語，然後寫入 /Volumes/Data/Github/eisonAI/fastlane/changelog.txt；"
+gemini --yolo "1. 讀取 notion page「eisonAI 更新日誌」；只需要回報「最新版本」的更新內容，不附帶其他版本；2. 把「最新版本」內容，翻譯到自然的英語，然後寫入 /Volumes/Data/Github/eisonAI/fastlane/changelog.txt；"
 
-gemini --yolo "1. 讀取 notion page eisonAI 更新日誌；然後回報「$new_version」的更新內容；2. 然後寫入 /Volumes/Data/Github/eisonAI/telegram/changelog.md；"
+gemini --yolo "1. 讀取 notion page「eisonAI 更新日誌」；只需要回報「最新版本」的更新內容，不附帶其他版本；2. 把「最新版本」內容，然後寫入 /Volumes/Data/Github/eisonAI/telegram/changelog.md；"
 
 # 修改 MARKETING_VERSION
 sed -i '' "s/MARKETING_VERSION = .*/MARKETING_VERSION = $new_version;/g" "$project_xcode/project.pbxproj"
