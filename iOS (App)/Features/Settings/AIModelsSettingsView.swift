@@ -7,7 +7,7 @@ struct AIModelsSettingsView: View {
     private let autoStrategyStore = AutoStrategySettingsStore.shared
     private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
     private let tokenEstimatorSettingsStore = TokenEstimatorSettingsStore.shared
-    private let longDocumentChunkSizeOptions: [Int] = [2000, 2200, 2600, 3000, 3200]
+    private let longDocumentChunkSizeOptions: [Int] = [2000, 2200, 2600, 3000]
     private let longDocumentMaxChunkOptions: [Int] = [4, 5, 6, 7]
     private let tokenEstimatorOptions: [Encoding] = [.cl100k, .o200k, .p50k, .r50k]
     private static let modelPickerPlaceholderTag = "__byok_model_placeholder__"

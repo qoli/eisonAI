@@ -4,7 +4,7 @@ final class LongDocumentSettingsStore {
     static let shared = LongDocumentSettingsStore()
 
     private let defaults: UserDefaults?
-    private let allowedChunkSizes: [Int] = [2000, 2200, 2600, 3000, 3200]
+    private let allowedChunkSizes: [Int] = [2000, 2200, 2600, 3000]
     private let fallbackChunkSize = 2000
     private let routingThresholdValue = 2600
     private let allowedMaxChunkCounts: [Int] = [4, 5, 6, 7]

@@ -18,7 +18,7 @@ const TOKENIZER_GLOBALS = {
   p50k_base: "GPTTokenizer_p50k_base",
   r50k_base: "GPTTokenizer_r50k_base",
 };
-const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2000, 2200, 2600, 3000, 3200]);
+const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2000, 2200, 2600, 3000]);
 const LONG_DOCUMENT_MAX_CHUNK_OPTIONS = new Set([4, 5, 6, 7]);
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";

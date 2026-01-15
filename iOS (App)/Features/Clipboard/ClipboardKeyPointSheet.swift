@@ -69,6 +69,12 @@ struct ClipboardKeyPointSheet: View {
                     dismiss()
                 }
             }
+            .onChange(of: model.status) { _, newValue in
+                print("→ New Status ...", newValue)
+                if newValue == "Chunk" {
+                    print("→ Chunk ...", model.chunkStatus)
+                }
+            }
         }
     }
 
