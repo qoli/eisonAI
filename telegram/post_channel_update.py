@@ -48,6 +48,68 @@ def merge_text(top: str, changelog: str) -> str:
     return f"{top_clean}{change_clean}"
 
 
+def _is_list_like(line: str) -> bool:
+    stripped = line.lstrip()
+    if not stripped:
+        return False
+    if stripped.startswith(("-", "•", "·")):
+        return True
+    if stripped[0].isdigit():
+        # numbered list: "1." or "1)"
+        if stripped[1:2] in (".", ")"):
+            return True
+    if stripped.startswith(("✅", "⚠️", "❌", "☑️", "✔️", "✳️", "⭐")):
+        return True
+    return False
+
+
+def _is_version_line(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped:
+        return False
+    parts = stripped.split(".")
+    if not all(part.isdigit() for part in parts):
+        return False
+    return True
+
+
+def normalize_markdown_for_telegram(text: str) -> str:
+    # Telegram Markdown does not support headings like "# Title".
+    # Convert headings to bold using legacy Markdown: *bold*
+    lines = text.splitlines()
+    out: list[str] = []
+    for idx, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            i = 0
+            while i < len(stripped) and stripped[i] == "#":
+                i += 1
+            if i < len(stripped) and stripped[i] == " ":
+                content = stripped[i + 1 :].strip()
+                if content:
+                    out.append(f"*{content}*")
+                    continue
+
+        # Heuristic: bold short standalone lines as headings
+        if (
+            stripped
+            and not _is_list_like(stripped)
+            and len(stripped) <= 40
+            and ("。" not in stripped)
+        ):
+            next_line = ""
+            for j in range(idx + 1, len(lines)):
+                if lines[j].strip():
+                    next_line = lines[j].lstrip()
+                    break
+            if _is_version_line(stripped) or _is_list_like(next_line) or next_line == "":
+                out.append(f"*{stripped.strip()}*")
+                continue
+
+        out.append(line)
+    return "\n".join(out)
+
+
 def build_multipart(fields: dict[str, str], files: dict[str, tuple[str, bytes, str]]) -> tuple[bytes, str]:
     boundary = f"----tg-boundary-{uuid.uuid4().hex}"
     lines: list[bytes] = []
@@ -149,7 +211,13 @@ def main() -> int:
     parser.add_argument("--image", default="/Volumes/Data/Github/eisonAI/telegram/VersionUpdate.png")
     parser.add_argument("--top", default="/Volumes/Data/Github/eisonAI/telegram/top.md")
     parser.add_argument("--changelog", default="/Volumes/Data/Github/eisonAI/telegram/changelog.md")
-    parser.add_argument("--parse-mode", default=None, help="Optional: Markdown, MarkdownV2, or HTML")
+    parser.add_argument("--parse-mode", default="Markdown", help="Markdown, MarkdownV2, or HTML (default: Markdown)")
+    parser.add_argument("--no-parse-mode", action="store_true", help="Disable parse mode (send plain text)")
+    parser.add_argument(
+        "--no-normalize",
+        action="store_true",
+        help="Do not normalize Markdown headings for Telegram",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print merged text and exit")
     args = parser.parse_args()
 
@@ -161,10 +229,15 @@ def main() -> int:
     top_text = read_text(args.top)
     changelog_text = read_text(args.changelog)
     merged = merge_text(top_text, changelog_text)
+    if args.parse_mode == "Markdown" and not args.no_normalize:
+        merged = normalize_markdown_for_telegram(merged)
 
     if args.dry_run:
         print(merged)
         return 0
+
+    if args.no_parse_mode:
+        args.parse_mode = None
 
     api_base = f"https://api.telegram.org/bot{token}"
 
