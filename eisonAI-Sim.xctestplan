@@ -1,0 +1,36 @@
+{
+  "configurations" : [
+    {
+      "id" : "8880B430-B030-42D4-A35F-35D3726A8114",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "environmentVariableEntries" : [
+      {
+        "key" : "OS_ACTIVITY_MODE",
+        "value" : "disable"
+      }
+    ],
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:eisonAI.xcodeproj",
+      "identifier" : "4598EF046A554ADA827D159C",
+      "name" : "eisonAI (Sim)"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:eisonAI.xcodeproj",
+        "identifier" : "3CE7EFF6A98D9FC782E7D763",
+        "name" : "eisonAITests"
+      }
+    }
+  ],
+  "version" : 1
+}

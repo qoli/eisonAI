@@ -1,0 +1,36 @@
+{
+  "configurations" : [
+    {
+      "id" : "38F78AC9-B89F-49AB-9D19-B1CA37AFF251",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "environmentVariableEntries" : [
+      {
+        "key" : "OS_ACTIVITY_MODE",
+        "value" : "disable"
+      }
+    ],
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:eisonAI.xcodeproj",
+      "identifier" : "EA7726322BC5B6B3005A194D",
+      "name" : "iOS"
+    }
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:eisonAI.xcodeproj",
+        "identifier" : "3CE7EFF6A98D9FC782E7D763",
+        "name" : "eisonAITests"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -11,13 +11,27 @@
             buildForTesting = "YES"
             buildForRunning = "YES"
             buildForProfiling = "YES"
-            buildForArchiving = "YES"
+            buildForArchiving = "NO"
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4598EF046A554ADA827D159C"
                BuildableName = "eisonAI Sim.app"
                BlueprintName = "eisonAI (Sim)"
+               ReferencedContainer = "container:eisonAI.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "3CE7EFF6A98D9FC782E7D763"
+               BuildableName = "eisonAITests.xctest"
+               BlueprintName = "eisonAITests"
                ReferencedContainer = "container:eisonAI.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -28,12 +42,27 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
-      <TestPlans>
-         <TestPlanReference
-            reference = "container:eisonAI-Sim.xctestplan"
-            default = "YES">
-         </TestPlanReference>
-      </TestPlans>
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "3CE7EFF6A98D9FC782E7D763"
+               BuildableName = "eisonAITests.xctest"
+               BlueprintName = "eisonAITests"
+               ReferencedContainer = "container:eisonAI.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "4598EF046A554ADA827D159C"
+            BuildableName = "eisonAI Sim.app"
+            BlueprintName = "eisonAI (Sim)"
+            ReferencedContainer = "container:eisonAI.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -55,16 +84,6 @@
             ReferencedContainer = "container:eisonAI.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "OS_ACTIVITY_MODE"
-            value = "disable"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
-      <StoreKitConfigurationFileReference
-         identifier = "../../Eison AI.storekit">
-      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

@@ -580,7 +580,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         }
     }
 
-    private func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
+    func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
         let base = ChunkPromptStore().loadWithLanguage().trimmingCharacters(in: .whitespacesAndNewlines)
         let suffixTemplate = PromptTemplates.load(
             name: "reading_anchor_system_suffix",
@@ -598,7 +598,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         return prompt
     }
 
-    private func buildReadingAnchorUserPrompt(text: String) -> String {
+    func buildReadingAnchorUserPrompt(text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let template = PromptTemplates.load(
             name: "reading_anchor_user_prompt",
@@ -612,7 +612,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         return prompt
     }
 
-    private func buildSummaryUserPrompt(from anchors: [ReadingAnchorChunk]) -> String {
+    func buildSummaryUserPrompt(from anchors: [ReadingAnchorChunk]) -> String {
         if anchors.isEmpty { return "(empty)" }
         let itemTemplate = PromptTemplates.load(
             name: "reading_anchor_summary_item",
@@ -663,7 +663,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         return finalText
     }
 
-    private func isContextWindowExceeded(_ error: Error) -> Bool {
+    func isContextWindowExceeded(_ error: Error) -> Bool {
         var pending: [Error] = [error]
         var seenDescriptions = Set<String>()
 
@@ -690,7 +690,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         return false
     }
 
-    private func nextLowerChunkTokenSize(current: Int, allowedSizes: [Int]) -> Int? {
+    func nextLowerChunkTokenSize(current: Int, allowedSizes: [Int]) -> Int? {
         let sorted = allowedSizes.sorted()
         if let index = sorted.firstIndex(of: current) {
             guard index > 0 else { return nil }
@@ -699,7 +699,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         return sorted.filter { $0 < current }.max()
     }
 
-    private func sliceText(_ text: String, startUTF16: Int, endUTF16: Int) -> String {
+    func sliceText(_ text: String, startUTF16: Int, endUTF16: Int) -> String {
         let utf16Count = text.utf16.count
         let start = max(0, min(startUTF16, utf16Count))
         let end = max(start, min(endUTF16, utf16Count))

@@ -15,17 +15,19 @@ actor SwiftikTokenStore {
         case vocabularyFileNotFound
     }
 
+    private let resourceBundles: [Bundle]
     private var tokenizers: [Encoding: Tokenizer] = [:]
+
+    init(resourceBundles: [Bundle] = SwiftikTokenStore.defaultResourceBundles()) {
+        self.resourceBundles = resourceBundles
+    }
 
     func loadTokenizer(for encoding: Encoding) async throws -> Tokenizer {
         if let tokenizer = tokenizers[encoding] {
             return tokenizer
         }
 
-        guard let fileURL = Bundle.main.url(
-            forResource: encoding.rawValue,
-            withExtension: "tiktoken"
-        ) else {
+        guard let fileURL = resolveVocabularyURL(for: encoding) else {
             throw Error.vocabularyFileNotFound
         }
 
@@ -52,13 +54,47 @@ actor SwiftikTokenStore {
             disallowedSpecial: []
         )
     }
+
+    private func resolveVocabularyURL(for encoding: Encoding) -> URL? {
+        for bundle in resourceBundles {
+            if let url = bundle.url(forResource: encoding.rawValue, withExtension: "tiktoken") {
+                return url
+            }
+            if let nestedBundleURL = bundle.url(forResource: "SwiftikToken", withExtension: "bundle"),
+               let nestedBundle = Bundle(url: nestedBundleURL),
+               let url = nestedBundle.url(forResource: encoding.rawValue, withExtension: "tiktoken") {
+                return url
+            }
+        }
+        return nil
+    }
+
+    private static func defaultResourceBundles() -> [Bundle] {
+        var bundles: [Bundle] = []
+        let markerBundle = Bundle(for: SwiftikTokenStoreBundleMarker.self)
+        bundles.append(markerBundle)
+        if markerBundle != .main {
+            bundles.append(.main)
+        }
+        return bundles
+    }
 }
+
+private class SwiftikTokenStoreBundleMarker {}
 
 final class GPTTokenEstimator {
     static let shared = GPTTokenEstimator()
 
-    private let store = SwiftikTokenStore.shared
-    private let settingsStore = TokenEstimatorSettingsStore.shared
+    private let store: SwiftikTokenStore
+    private let settingsStore: TokenEstimatorSettingsStore
+
+    init(
+        store: SwiftikTokenStore = .shared,
+        settingsStore: TokenEstimatorSettingsStore = .shared
+    ) {
+        self.store = store
+        self.settingsStore = settingsStore
+    }
 
     func estimateTokenCount(for text: String) async -> Int {
         let encoding = settingsStore.selectedEncoding()
