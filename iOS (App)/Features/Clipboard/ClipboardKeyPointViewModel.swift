@@ -329,11 +329,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         switch backend {
         case .mlc:
             status = "Model…"
-            status = "Generating"
             let stream = try await mlc.streamChat(
                 systemPrompt: systemPrompt,
                 userPrompt: userPrompt
             )
+            status = "Generating"
             summary = try await collectStream(stream, updateOutput: true)
             modelId = mlc.loadedModelID ?? ""
         case .appleIntelligence:
@@ -442,6 +442,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                     userPrompt: anchorUserPrompt,
                     forceReload: true
                 )
+                status = "Generating"
                 anchorText = try await collectStream(
                     stream,
                     updateOutput: true,
@@ -497,6 +498,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 userPrompt: summaryUserPrompt,
                 forceReload: true
             )
+            status = "Generating"
             summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
             modelId = mlc.loadedModelID ?? ""
         case .appleIntelligence:

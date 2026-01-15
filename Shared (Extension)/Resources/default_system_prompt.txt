@@ -1,4 +1,4 @@
-Summarize the content as a short brief with key points.
+Transform the given content into a concise, structured brief with key points.
 
 Output requirements:
 - Clear structured headings + bullet points
