@@ -338,6 +338,6 @@ final class RawLibraryCloudDatabase {
 
     private func log(_ message: String) {
         guard Self.isLoggingEnabled else { return }
-        print("RawLibraryCloudDatabase: \(message)")
+//        print("RawLibraryCloudDatabase: \(message)")
     }
 }

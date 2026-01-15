@@ -289,24 +289,29 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let trimmedText = payload.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedTitle = payload.title?.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if let text = trimmedText, !text.isEmpty {
-            if let urlString = trimmedURL, !urlString.isEmpty {
-                sourceDescription = urlString
-            } else {
-                sourceDescription = "Shared text (\(text.count) chars)"
-            }
-            status = "Shared"
-            return PreparedInput(url: trimmedURL ?? "", title: trimmedTitle ?? "", text: text)
-        }
-
         if let urlString = trimmedURL, !urlString.isEmpty, let url = URL(string: urlString) {
             sourceDescription = urlString
             status = "URL…"
-            let article = try await extractor.extract(from: url)
-            let title = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            let body = article.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            status = "Extracted"
-            return PreparedInput(url: article.url, title: title, text: body)
+            do {
+                let article = try await extractor.extract(from: url)
+                let title = article.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                let body = article.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                status = "Extracted"
+                return PreparedInput(url: article.url, title: title, text: body)
+            } catch {
+                log("share url extract failed, fallback to shared text: \(error.localizedDescription)")
+                if let text = trimmedText, !text.isEmpty {
+                    status = "Shared"
+                    return PreparedInput(url: urlString, title: trimmedTitle ?? "", text: text)
+                }
+                throw error
+            }
+        }
+
+        if let text = trimmedText, !text.isEmpty {
+            sourceDescription = "Shared text (\(text.count) chars)"
+            status = "Shared"
+            return PreparedInput(url: "", title: trimmedTitle ?? "", text: text)
         }
 
         throw NSError(

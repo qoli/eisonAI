@@ -85,11 +85,11 @@ final class ShareViewController: UIViewController {
 
                 if text == nil,
                    provider.canLoadObject(ofClass: NSString.self)
-                    || provider.canLoadObject(ofClass: NSAttributedString.self)
-                    || provider.hasItemConformingToTypeIdentifier(UTType.text.identifier)
-                    || provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier)
-                    || provider.hasItemConformingToTypeIdentifier(UTType.rtf.identifier)
-                    || provider.hasItemConformingToTypeIdentifier(UTType.html.identifier) {
+                   || provider.canLoadObject(ofClass: NSAttributedString.self)
+                   || provider.hasItemConformingToTypeIdentifier(UTType.text.identifier)
+                   || provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier)
+                   || provider.hasItemConformingToTypeIdentifier(UTType.rtf.identifier)
+                   || provider.hasItemConformingToTypeIdentifier(UTType.html.identifier) {
                     if let loadedText = try? await loadTextString(from: provider) {
                         text = loadedText
                         log("loaded text length: \(loadedText.count)")
@@ -129,7 +129,7 @@ final class ShareViewController: UIViewController {
             await MainActor.run {
                 var openURL: URL?
                 switch outcome {
-                case .saved(let fileURL):
+                case let .saved(fileURL):
                     log("saved payload: \(fileURL.lastPathComponent)")
                     setStatus("Saved", detail: "Closing…")
                     if shouldOpenApp {
@@ -142,10 +142,8 @@ final class ShareViewController: UIViewController {
                         openURL = fallbackURL
                     }
                 }
-                if let openURL {
-                    openHostApp(url: openURL)
-                }
-                playMinimizeAndComplete()
+
+                playMinimizeAndComplete(openURL: openURL)
             }
         } catch {
             log("failed to save payload: \(error.localizedDescription)")
@@ -175,7 +173,7 @@ final class ShareViewController: UIViewController {
     }
 
     @MainActor
-    private func playMinimizeAndComplete() {
+    private func playMinimizeAndComplete(openURL: URL?) {
         guard !didScheduleCompletion else { return }
         didScheduleCompletion = true
 
@@ -187,6 +185,10 @@ final class ShareViewController: UIViewController {
             guard let self else { return }
             self.viewModel.bounceTrigger.toggle()
             DispatchQueue.main.asyncAfter(deadline: .now() + self.bounceDuration) { [weak self] in
+
+                if let openURL {
+                    self?.openHostApp(url: openURL)
+                }
                 self?.completeRequest()
             }
         }
@@ -199,8 +201,7 @@ final class ShareViewController: UIViewController {
 
         if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
            let data = try await loadDataRepresentation(for: UTType.url, from: provider),
-           let url = URL(dataRepresentation: data, relativeTo: nil)
-        {
+           let url = URL(dataRepresentation: data, relativeTo: nil) {
             return url.absoluteString
         }
 
@@ -221,8 +222,7 @@ final class ShareViewController: UIViewController {
         }
 
         if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
-           let data = try await loadDataRepresentation(for: UTType.plainText, from: provider)
-        {
+           let data = try await loadDataRepresentation(for: UTType.plainText, from: provider) {
             return String(data: data, encoding: .utf8)
         }
 
