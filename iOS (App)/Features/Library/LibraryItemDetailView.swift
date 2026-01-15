@@ -410,7 +410,7 @@ struct LibraryItemDetailView: View {
     @ViewBuilder
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            summarySection(item.summaryText.thinkTagstoMarkdonw())
+            summarySection(item.summaryText)
             readingAnchorsSection(item.readingAnchors)
             articleSection(item.articleText)
         }
