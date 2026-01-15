@@ -281,12 +281,14 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadLongDocumentChunkTokenSize() -> Int {
-        let fallback = 2000
-        let allowed: Set<Int> = [2000, 2200, 2600, 3000]
+        let fallback = LongDocumentDefaults.fallbackChunkSize
+        let allowed = LongDocumentDefaults.allowedChunkSizeSet
         guard let stored = sharedDefaults()?.object(forKey: longDocumentChunkTokenSizeKey) as? Int else {
             return fallback
         }
-        return allowed.contains(stored) ? stored : fallback
+        if allowed.contains(stored) { return stored }
+        sharedDefaults()?.set(fallback, forKey: longDocumentChunkTokenSizeKey)
+        return fallback
     }
 
     private func loadBYOKLongDocumentChunkTokenSize() -> Int {
@@ -321,12 +323,14 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadLongDocumentMaxChunks() -> Int {
-        let fallback = 5
-        let allowed: Set<Int> = [4, 5, 6, 7]
+        let fallback = LongDocumentDefaults.fallbackMaxChunkCount
+        let allowed = LongDocumentDefaults.allowedMaxChunkCountSet
         guard let stored = sharedDefaults()?.object(forKey: longDocumentMaxChunkCountKey) as? Int else {
             return fallback
         }
-        return allowed.contains(stored) ? stored : fallback
+        if allowed.contains(stored) { return stored }
+        sharedDefaults()?.set(fallback, forKey: longDocumentMaxChunkCountKey)
+        return fallback
     }
 
     private func readInt(_ value: Any?) -> Int? {
@@ -651,6 +655,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "name": "longDocumentChunkTokenSize",
                 "payload": [
                     "chunkTokenSize": loadLongDocumentChunkTokenSize(),
+                    "allowedChunkSizes": LongDocumentDefaults.allowedChunkSizes,
+                    "fallbackChunkSize": LongDocumentDefaults.fallbackChunkSize,
+                    "routingThreshold": LongDocumentDefaults.routingThresholdValue,
                 ],
             ])
             return
@@ -662,6 +669,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "name": "longDocumentMaxChunks",
                 "payload": [
                     "maxChunks": loadLongDocumentMaxChunks(),
+                    "allowedMaxChunks": LongDocumentDefaults.allowedMaxChunkCounts,
+                    "fallbackMaxChunks": LongDocumentDefaults.fallbackMaxChunkCount,
                 ],
             ])
             return

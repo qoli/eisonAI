@@ -18,7 +18,7 @@ const TOKENIZER_GLOBALS = {
   p50k_base: "GPTTokenizer_p50k_base",
   r50k_base: "GPTTokenizer_r50k_base",
 };
-const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2000, 2200, 2600, 3000]);
+const LONG_DOCUMENT_CHUNK_SIZE_OPTIONS = new Set([2000]);
 const LONG_DOCUMENT_MAX_CHUNK_OPTIONS = new Set([4, 5, 6, 7]);
 const VISIBILITY_TEXT_LIMIT = 600;
 const WASM_FILE = "Qwen3-0.6B-q4f16_1-ctx4k_cs1k-webgpu.wasm";
@@ -74,6 +74,9 @@ let autoQwenEnabled = false;
 let autoAppleAvailability = null;
 let lastFoundationAvailability = null;
 let lastExecutionBackend = "";
+let longDocumentChunkTokenFallback = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+let longDocumentMaxChunksFallback = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+let longDocumentRoutingThreshold = DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD;
 
 const AI_MODEL_WEBLLM_LABEL = "Qwen3 0.6B";
 const AI_MODEL_FM_LABEL = "Apple Intelligence";
@@ -798,6 +801,22 @@ function estimateTokensWithTokenizer(text) {
   }
 }
 
+function normalizePositiveNumbers(raw) {
+  if (!Array.isArray(raw)) return [];
+  const values = raw
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return Array.from(new Set(values));
+}
+
+function updateNumberSet(targetSet, values) {
+  const normalized = normalizePositiveNumbers(values);
+  if (!normalized.length) return false;
+  targetSet.clear();
+  normalized.forEach((value) => targetSet.add(value));
+  return true;
+}
+
 function getLongDocumentChunkTokenSize(totalTokens, { useFoundation } = {}) {
   const value = Number(totalTokens) || 0;
   if (value <= 0) return 1;
@@ -805,7 +824,7 @@ function getLongDocumentChunkTokenSize(totalTokens, { useFoundation } = {}) {
 }
 
 function getLongDocumentRoutingThreshold({ useFoundation } = {}) {
-  return Math.max(1, DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD);
+  return Math.max(1, longDocumentRoutingThreshold);
 }
 
 function getAllowedChunkTokenSizes() {
@@ -1509,7 +1528,7 @@ async function refreshTokenEstimatorFromNative() {
 
 async function refreshLongDocumentChunkTokenSizeFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
-    longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+    longDocumentChunkTokenSize = longDocumentChunkTokenFallback;
     logPopupEvent("longDocChunkSize.fallback", { reason: "native messaging unavailable" });
     return longDocumentChunkTokenSize;
   }
@@ -1525,15 +1544,39 @@ async function refreshLongDocumentChunkTokenSizeFromNative() {
       resp?.chunkTokenSize ??
       resp?.echo?.payload?.chunkTokenSize ??
       resp?.echo?.chunkTokenSize;
+    const allowedChunkSizesRaw =
+      resp?.payload?.allowedChunkSizes ??
+      resp?.allowedChunkSizes ??
+      resp?.echo?.payload?.allowedChunkSizes ??
+      resp?.echo?.allowedChunkSizes;
+    const fallbackChunkSizeRaw =
+      resp?.payload?.fallbackChunkSize ??
+      resp?.fallbackChunkSize ??
+      resp?.echo?.payload?.fallbackChunkSize ??
+      resp?.echo?.fallbackChunkSize;
+    const routingThresholdRaw =
+      resp?.payload?.routingThreshold ??
+      resp?.routingThreshold ??
+      resp?.echo?.payload?.routingThreshold ??
+      resp?.echo?.routingThreshold;
+    updateNumberSet(LONG_DOCUMENT_CHUNK_SIZE_OPTIONS, allowedChunkSizesRaw);
+    const fallbackChunkSize = Number(fallbackChunkSizeRaw);
+    if (Number.isFinite(fallbackChunkSize) && fallbackChunkSize > 0) {
+      longDocumentChunkTokenFallback = fallbackChunkSize;
+    }
+    const routingThreshold = Number(routingThresholdRaw);
+    if (Number.isFinite(routingThreshold) && routingThreshold > 0) {
+      longDocumentRoutingThreshold = routingThreshold;
+    }
     const chunkSize = Number(chunkSizeRaw);
     if (Number.isFinite(chunkSize) && LONG_DOCUMENT_CHUNK_SIZE_OPTIONS.has(chunkSize)) {
       longDocumentChunkTokenSize = chunkSize;
     } else {
-      longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+      longDocumentChunkTokenSize = longDocumentChunkTokenFallback;
     }
     logPopupEvent("longDocChunkSize.loaded", { chunkTokenSize: longDocumentChunkTokenSize });
   } catch (err) {
-    longDocumentChunkTokenSize = DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
+    longDocumentChunkTokenSize = longDocumentChunkTokenFallback;
     console.warn(
       "[WebLLM Demo] Failed to load long document chunk size from native:",
       err,
@@ -1546,7 +1589,7 @@ async function refreshLongDocumentChunkTokenSizeFromNative() {
 
 async function refreshLongDocumentMaxChunksFromNative() {
   if (typeof browser?.runtime?.sendNativeMessage !== "function") {
-    longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+    longDocumentMaxChunks = longDocumentMaxChunksFallback;
     logPopupEvent("longDocMaxChunks.fallback", { reason: "native messaging unavailable" });
     return longDocumentMaxChunks;
   }
@@ -1562,15 +1605,30 @@ async function refreshLongDocumentMaxChunksFromNative() {
       resp?.maxChunks ??
       resp?.echo?.payload?.maxChunks ??
       resp?.echo?.maxChunks;
+    const allowedMaxChunksRaw =
+      resp?.payload?.allowedMaxChunks ??
+      resp?.allowedMaxChunks ??
+      resp?.echo?.payload?.allowedMaxChunks ??
+      resp?.echo?.allowedMaxChunks;
+    const fallbackMaxChunksRaw =
+      resp?.payload?.fallbackMaxChunks ??
+      resp?.fallbackMaxChunks ??
+      resp?.echo?.payload?.fallbackMaxChunks ??
+      resp?.echo?.fallbackMaxChunks;
+    updateNumberSet(LONG_DOCUMENT_MAX_CHUNK_OPTIONS, allowedMaxChunksRaw);
+    const fallbackMaxChunks = Number(fallbackMaxChunksRaw);
+    if (Number.isFinite(fallbackMaxChunks) && fallbackMaxChunks > 0) {
+      longDocumentMaxChunksFallback = fallbackMaxChunks;
+    }
     const maxChunks = Number(maxChunksRaw);
     if (Number.isFinite(maxChunks) && LONG_DOCUMENT_MAX_CHUNK_OPTIONS.has(maxChunks)) {
       longDocumentMaxChunks = maxChunks;
     } else {
-      longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+      longDocumentMaxChunks = longDocumentMaxChunksFallback;
     }
     logPopupEvent("longDocMaxChunks.loaded", { maxChunks: longDocumentMaxChunks });
   } catch (err) {
-    longDocumentMaxChunks = DEFAULT_LONG_DOCUMENT_MAX_CHUNKS;
+    longDocumentMaxChunks = longDocumentMaxChunksFallback;
     console.warn("[WebLLM Demo] Failed to load long document max chunks from native:", err);
     logPopupEvent("longDocMaxChunks.fallback", { reason: "native error", error: getErrorMessage(err) });
   }

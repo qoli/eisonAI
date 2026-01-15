@@ -141,6 +141,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Config/AppConfig.swift,
+				LongDocument/LongDocumentDefaults.swift,
 				Prompts/PromptTemplates.swift,
 				Stores/ChunkPromptStore.swift,
 				Stores/ModelLanguageStore.swift,

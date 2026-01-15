@@ -4,49 +4,62 @@ final class LongDocumentSettingsStore {
     static let shared = LongDocumentSettingsStore()
 
     private let defaults: UserDefaults?
-    private let allowedChunkSizes: [Int] = [2000, 2200, 2600, 3000]
-    private let fallbackChunkSize = 2000
-    private let routingThresholdValue = 2600
-    private let allowedMaxChunkCounts: [Int] = [4, 5, 6, 7]
-    private let fallbackMaxChunkCount = 5
 
     init(defaults: UserDefaults? = UserDefaults(suiteName: AppConfig.appGroupIdentifier)) {
         self.defaults = defaults
     }
 
     func chunkTokenSize() -> Int {
-        guard let stored = defaults?.object(forKey: AppConfig.longDocumentChunkTokenSizeKey) as? Int else {
-            return fallbackChunkSize
+        guard let defaults else { return LongDocumentDefaults.fallbackChunkSize }
+        guard let stored = defaults.object(forKey: AppConfig.longDocumentChunkTokenSizeKey) as? Int else {
+            return LongDocumentDefaults.fallbackChunkSize
         }
-        return allowedChunkSizes.contains(stored) ? stored : fallbackChunkSize
+        let resolved = LongDocumentDefaults.allowedChunkSizeSet.contains(stored)
+            ? stored
+            : LongDocumentDefaults.fallbackChunkSize
+        if resolved != stored {
+            defaults.set(resolved, forKey: AppConfig.longDocumentChunkTokenSizeKey)
+        }
+        return resolved
     }
 
     func setChunkTokenSize(_ value: Int) {
-        let resolved = allowedChunkSizes.contains(value) ? value : fallbackChunkSize
+        let resolved = LongDocumentDefaults.allowedChunkSizeSet.contains(value)
+            ? value
+            : LongDocumentDefaults.fallbackChunkSize
         defaults?.set(resolved, forKey: AppConfig.longDocumentChunkTokenSizeKey)
     }
 
     func allowedChunkTokenSizes() -> [Int] {
-        allowedChunkSizes
+        LongDocumentDefaults.allowedChunkSizes
     }
 
     func routingThreshold() -> Int {
-        routingThresholdValue
+        LongDocumentDefaults.routingThresholdValue
     }
 
     func maxChunkCount() -> Int {
-        guard let stored = defaults?.object(forKey: AppConfig.longDocumentMaxChunkCountKey) as? Int else {
-            return fallbackMaxChunkCount
+        guard let defaults else { return LongDocumentDefaults.fallbackMaxChunkCount }
+        guard let stored = defaults.object(forKey: AppConfig.longDocumentMaxChunkCountKey) as? Int else {
+            return LongDocumentDefaults.fallbackMaxChunkCount
         }
-        return allowedMaxChunkCounts.contains(stored) ? stored : fallbackMaxChunkCount
+        let resolved = LongDocumentDefaults.allowedMaxChunkCountSet.contains(stored)
+            ? stored
+            : LongDocumentDefaults.fallbackMaxChunkCount
+        if resolved != stored {
+            defaults.set(resolved, forKey: AppConfig.longDocumentMaxChunkCountKey)
+        }
+        return resolved
     }
 
     func setMaxChunkCount(_ value: Int) {
-        let resolved = allowedMaxChunkCounts.contains(value) ? value : fallbackMaxChunkCount
+        let resolved = LongDocumentDefaults.allowedMaxChunkCountSet.contains(value)
+            ? value
+            : LongDocumentDefaults.fallbackMaxChunkCount
         defaults?.set(resolved, forKey: AppConfig.longDocumentMaxChunkCountKey)
     }
 
     func maxChunkCountOptions() -> [Int] {
-        allowedMaxChunkCounts
+        LongDocumentDefaults.allowedMaxChunkCounts
     }
 }

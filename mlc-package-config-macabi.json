@@ -5,10 +5,10 @@
       "model": "Shared (Extension)/Resources/webllm-assets/models/Qwen3-0.6B-q4f16_1-MLC/resolve/main",
       "model_id": "Qwen3-0.6B-q4f16_1-MLC",
       "model_lib": "qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2",
-      "estimated_vram_bytes": 2000000000,
+      "estimated_vram_bytes": 3000000000,
       "overrides": {
-        "prefill_chunk_size": 128,
-        "context_window_size": 4096
+        "prefill_chunk_size": 2048,
+        "context_window_size": 3072
       },
       "bundle_weight": true
     }
