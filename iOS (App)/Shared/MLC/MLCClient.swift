@@ -109,7 +109,6 @@ final class MLCClient {
         #endif
     }
 
-
     func streamChat(
         systemPrompt: String,
         userPrompt: String,
@@ -125,7 +124,7 @@ final class MLCClient {
                 let stream = await engine.chat.completions.create(
                     messages: [
                         ChatCompletionMessage(role: .system, content: systemPrompt),
-                        ChatCompletionMessage(role: .user, content: userPrompt),
+                        ChatCompletionMessage(role: .user, content: userPrompt.removingThinkTags()), // 移除 Think 標籤，很重要，避免 qwen3 0.6b 犯錯
                     ]
                 )
 

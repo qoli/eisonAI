@@ -39,16 +39,19 @@ final class GenerationService {
 
             let systemPrompt = titlePromptStore.load()
             let userPrompt = buildTitleUserPrompt(for: item)
+            log("title generation prompts system=\(describePrompt(systemPrompt)) user=\(describePrompt(userPrompt))")
 
             let stream: AsyncThrowingStream<String, Error>
             let tokenEstimate = await tokenEstimator.estimateTokenCount(for: userPrompt)
             let backend = backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
+            log("title generation backend=\(backend.rawValue) tokenEstimate=\(tokenEstimate)")
             switch backend {
             case .mlc:
                 try await mlc.loadIfNeeded()
                 stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
             case .appleIntelligence:
                 let prefix = clampText(userPrompt, maxChars: 800)
+                log("title generation appleIntelligence prefix=\(describePrompt(prefix))")
                 anyLanguageModels.prewarm(systemPrompt: systemPrompt, promptPrefix: prefix, backend: backend)
                 stream = try await anyLanguageModels.streamChat(
                     systemPrompt: systemPrompt,
@@ -94,7 +97,7 @@ final class GenerationService {
 
     private func buildTitleUserPrompt(for item: RawHistoryItem) -> String {
         let pieces = [
-            item.summaryText,
+            item.summaryText.removingThinkTags(),
             item.articleText,
         ]
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -152,6 +155,16 @@ final class GenerationService {
         output = output.replacingOccurrences(of: "(?m)^(\\s*[-+*]\\s+)", with: "", options: .regularExpression)
         output = output.replacingOccurrences(of: "(?m)^(\\s*\\d+\\.\\s+)", with: "", options: .regularExpression)
         return output
+    }
+
+    private func describePrompt(_ text: String, maxPreviewChars: Int = 160) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let count = trimmed.count
+        let preview = clampText(
+            trimmed.replacingOccurrences(of: "\n", with: " "),
+            maxChars: maxPreviewChars
+        )
+        return "len=\(count) preview=\"\(preview)\""
     }
 
     private func log(_ message: String) {
