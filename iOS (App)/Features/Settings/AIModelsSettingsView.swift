@@ -120,13 +120,18 @@ struct AIModelsSettingsView: View {
         }
 
         if !trimmedModel.isEmpty, seen.insert(trimmedModel).inserted {
-            options.append(ModelPickerOption(value: trimmedModel, label: "Custom: \(trimmedModel)"))
+            let customOption = ModelPickerOption(
+                value: trimmedModel,
+                label: "Custom: \(trimmedModel)"
+            )
+            options.append(customOption)
         }
 
-        options.append(ModelPickerOption(
+        let customInputOption = ModelPickerOption(
             value: Self.modelPickerCustomTag,
             label: "Enter Model ID"
-        ))
+        )
+        options.append(customInputOption)
         return options
     }
 
