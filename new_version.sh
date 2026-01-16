@@ -21,7 +21,7 @@ fi
 # 設定新版本號
 new_version="$1"
 
-gemini --yolo "1. 讀取 notion page「eisonAI 更新日誌」；只需要回報「最新版本」的更新內容，不附帶其他版本；2. 把「最新版本」內容，翻譯到自然的英語，然後寫入 /Volumes/Data/Github/eisonAI/fastlane/changelog.txt；"
+gemini --yolo "1. 讀取 notion page「eisonAI 更新日誌」；只需要回報「最新版本」的更新內容，不附帶其他版本；2. 把「最新版本」內容，翻譯到自然的英語(不能含有任何 HTML 標籤)，然後寫入 /Volumes/Data/Github/eisonAI/fastlane/changelog.txt；"
 
 gemini --yolo "1. 讀取 notion page「eisonAI 更新日誌」；只需要回報「最新版本」的更新內容，不附帶其他版本；2. 把「最新版本」內容，然後寫入 /Volumes/Data/Github/eisonAI/telegram/changelog.md；"
 
