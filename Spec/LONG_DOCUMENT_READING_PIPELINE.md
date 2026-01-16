@@ -34,6 +34,7 @@
 
 ### 2.4 Token 估算一致性（Token Estimation Consistency）
 - 以 **tokenEstimator 指定的 encoding** 作為計數基準（預設 `cl100k_base`），確保 Extension 與 App token 對齊
+- encoding 由 Shared defaults（`tokenEstimatorEncodingKey`）決定；App/Extension 都會讀取，若不存在或無效則回退 `cl100k_base`
 - App 使用 `SwiftikToken`；Extension 使用內建 JS tokenizer（與 encoding 對應）
 - 支援 encoding：`cl100k_base` / `o200k_base` / `p50k_base` / `r50k_base`
 - Extension 若 tokenizer 不可用或 native messaging 失敗，回退為 heuristic 估算（CJK 以字元計、非 CJK 以 4 字元約 1 token）
@@ -89,7 +90,9 @@ Step 3  展示用摘要生成
 - 使用 **tokenEstimator encoding** 估算 Token（預設 `cl100k_base`）
   - App：`SwiftikToken`
   - Extension：JS tokenizer（依 encoding），失敗則 fallback heuristic
-- 僅在 `executionType == local` 時進入長文 pipeline（BYOK 永遠不進入）
+- `executionType` 由 backend 設定決定（auto/local/byok）
+  - auto 模式下先以 **AutoStrategy 門檻（固定 1792）**決定 local/byok
+  - 僅在 `executionType == local` 時進入長文 pipeline（BYOK 永遠不進入）
 - 分流門檻：**routingThreshold**（固定 2048）
   - `≤ routingThreshold`：沿用原本單次摘要流程
   - `> routingThreshold`：進入長文 pipeline
@@ -97,7 +100,8 @@ Step 3  展示用摘要生成
 **Safari Extension 實作要點**
 - popup 內使用 JS tokenizer 估算，並從 native 讀取 encoding
 - native messaging 不可用或 tokenizer 初始化失敗時，fallback 回 heuristic 估算
-- native messaging 不可用時，長文參數使用 fallback：`routingThreshold = 2600`、`chunkTokenSize = 2000`、`maxChunks = 5`
+- native messaging 不可用時，長文參數使用 fallback：`routingThreshold = 2048`、`chunkTokenSize = 1792`、`maxChunks = 5`
+  - 以上值與 App 的 `LongDocumentDefaults` 一致
 
 ### Step 1：長文切割（Chunking）
 
@@ -108,7 +112,15 @@ Step 3  展示用摘要生成
 - 使用 **tokenEstimator encoding** 計算 Token（預設 `cl100k_base`）
 - 固定 chunk 大小：`chunkTokenSize` 由設定決定（目前僅允許 1792，預設 1792）
 - 最多段數由設定決定（4/5/6/7，預設 5）；超過則丟棄
-- Apple Intelligence / Foundation Models 如遇 context window 超限，會嘗試降到下一個更小的 `chunkTokenSize`（若無更小選項則直接失敗）
+- Apple Intelligence / Foundation Models 如遇 context window 超限，會嘗試降到下一個更小的 `chunkTokenSize`
+  - 目前允許值只有 1792，因此實際上通常無可降級空間（等同直接失敗）
+
+**平台差異（Chunking Implementation）**
+- iOS App：以 `SwiftikToken` 實際 token 計數進行二分搜尋切段，保留原文 `startUTF16/endUTF16`
+- Safari Extension：
+  - tokenizer 可用時：先 encode 全文，再依 token 切片並 decode 成 chunk 文本
+  - tokenizer 不可用時：改用 heuristic（CJK = 1 char / 非 CJK = 4 chars）逐字累積切段
+  - `startUTF16/endUTF16` 以 chunk 文字長度推算（best-effort），不保證與原文完全對齊
 
 **設計理由**
 - 限制閱讀錨點處理段數，避免超長內容拖垮處理時間
@@ -171,7 +183,9 @@ CONTENT
 - `readingAnchors[]`（Step 2 的中間產物）
 
 **Prompt**
-- System prompt：`SystemPromptStore().load()`（預設讀 `default_system_prompt.txt`；Extension 由 native 下發）
+- System prompt：
+  - iOS App：`SystemPromptStore().load()`（預設 `default_system_prompt.txt`，可被自訂）
+  - Safari Extension（長文）：固定使用 `default_system_prompt.txt`（不套用自訂 system prompt）
 - User prompt：由 `reading_anchor_summary_item` 模板將 anchors 串接
 
 **預設模板**
@@ -221,7 +235,27 @@ Chunk {{chunk_index}}
 - Step 3 的摘要不保證完全忠於原文
 - 不嘗試在端側進行全文級深度推理
 - 不解決跨段落高階語義整合問題（屬於大模型責任）
+### 6.1 目前實作上的額外限制
+- Auto 模式下，`executionType` 會先由 **AutoStrategy 門檻（固定 1792）**決定 local/byok；若判定為 byok，長文 pipeline 不會啟動，即使 tokenEstimate > routingThreshold
+- Safari Extension 的長文 summary 使用 **預設 system prompt**（`default_system_prompt.txt`），不會套用自訂 system prompt（與 iOS App 行為不同）
+- Extension 在 tokenizer 失敗時採 heuristic 切段，且 `startUTF16/endUTF16` 為推算值，僅供定位參考
 
 ## 7. 設計結論
 
 本 pipeline 並非追求「一次生成完美摘要」，而是透過**分段閱讀錨點 + 展示用摘要**的結構，在小模型與端側限制下提供**穩定、可預期、可長期使用**的閱讀系統。
+
+## 8. 實作對齊（目前代碼對應值）
+
+**長文設定（App + Extension）**
+- `chunkTokenSize`：僅允許 `1792`（`LongDocumentDefaults.allowedChunkSizes`）
+- `routingThreshold`：`2048`（`LongDocumentDefaults.routingThresholdValue`）
+- `maxChunks`：`4/5/6/7`（預設 `5`）
+
+**Auto Strategy（影響 executionType）**
+- `strategyThreshold`：固定 `1792`（`AutoStrategySettingsStore.fixedThreshold`）
+- Auto 模式下：`tokenEstimate > 1792` 會傾向走 BYOK（因此不進長文 pipeline）
+
+**模型 context window（供參考）**
+- iOS MLC build（`mlc-package-config.json`）：`context_window_size = 3072`、`prefill_chunk_size = 640`
+- Safari Extension WebLLM（`popup.js`）：本地 model override `context_window_size = 4096`
+- 模型原始 `mlc-chat-config.json` 內部宣告 `context_window_size = 40960`，但 WebLLM 會以 override 值為準

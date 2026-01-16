@@ -81,6 +81,10 @@ struct AIModelsSettingsView: View {
         return lines.joined(separator: "\n")
     }
 
+    private var autoStrategyThresholdValue: Int {
+        LongDocumentDefaults.autoStrategyThresholdValue
+    }
+
     private var selectedProviderOption: BYOKProvider.ProviderOption? {
         BYOKProvider.httpOptions.first { $0.id == byokProviderOptionID }
     }
@@ -147,13 +151,13 @@ struct AIModelsSettingsView: View {
                     HStack {
                         Text("Strategy Threshold")
                         Spacer()
-                        Text("\(AutoStrategySettingsStore.fixedThreshold)")
+                        Text("\(autoStrategyThresholdValue)")
                             .foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Auto Strategy")
                 } footer: {
-                    Text("Tokens ≤ 1,792 use Local; otherwise BYOK. Threshold is fixed.")
+                    Text("Tokens ≤ \(autoStrategyThresholdValue) use Local; otherwise BYOK. Threshold is fixed.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -331,7 +335,7 @@ struct AIModelsSettingsView: View {
                 } header: {
                     Text("Chunk Size")
                 } footer: {
-                    Text("Chunk size is in tokens. Routing threshold is fixed at 2,600.")
+                    Text("Chunk size is in tokens. Routing threshold is fixed at \\(LongDocumentDefaults.routingThresholdValue).")
                 }
             }
 

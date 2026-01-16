@@ -291,24 +291,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return fallback
     }
 
-    private func loadBYOKLongDocumentChunkTokenSize() -> Int {
-        let fallback = 4096
-        guard let stored = sharedDefaults()?.object(forKey: AppConfig.byokLongDocumentChunkTokenSizeKey) as? Int else {
-            return fallback
-        }
-        return max(1, stored)
-    }
-
-    private func loadBYOKLongDocumentRoutingThreshold() -> Int {
-        let fallback = 7168
-        guard let stored = sharedDefaults()?.object(forKey: AppConfig.byokLongDocumentRoutingThresholdKey) as? Int else {
-            return fallback
-        }
-        return max(1, stored)
-    }
-
     private func loadAutoStrategyThreshold() -> Int {
-        2600
+        LongDocumentDefaults.autoStrategyThresholdValue
     }
 
     private func loadAutoLocalPreference() -> String {
@@ -671,18 +655,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                     "maxChunks": loadLongDocumentMaxChunks(),
                     "allowedMaxChunks": LongDocumentDefaults.allowedMaxChunkCounts,
                     "fallbackMaxChunks": LongDocumentDefaults.fallbackMaxChunkCount,
-                ],
-            ])
-            return
-
-        case "getByokLongDocumentSettings":
-            complete(context, responseMessage: [
-                "v": 1,
-                "type": "response",
-                "name": "byokLongDocumentSettings",
-                "payload": [
-                    "chunkTokenSize": loadBYOKLongDocumentChunkTokenSize(),
-                    "routingThreshold": loadBYOKLongDocumentRoutingThreshold(),
                 ],
             ])
             return

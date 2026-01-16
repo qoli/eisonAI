@@ -69,15 +69,6 @@ struct AppConfigDebugView: View {
             DefaultsEntry(name: "byokApiURLKey", key: AppConfig.byokApiURLKey),
             DefaultsEntry(name: "byokApiKeyKey", key: AppConfig.byokApiKeyKey),
             DefaultsEntry(name: "byokModelKey", key: AppConfig.byokModelKey),
-            DefaultsEntry(
-                name: "byokLongDocumentChunkTokenSizeKey",
-                key: AppConfig.byokLongDocumentChunkTokenSizeKey
-            ),
-            DefaultsEntry(
-                name: "byokLongDocumentRoutingThresholdKey",
-                key: AppConfig.byokLongDocumentRoutingThresholdKey
-            ),
-            DefaultsEntry(name: "autoStrategyThresholdKey", key: AppConfig.autoStrategyThresholdKey),
             DefaultsEntry(name: "autoLocalModelPreferenceKey", key: AppConfig.autoLocalModelPreferenceKey),
             DefaultsEntry(name: "localQwenEnabledKey", key: AppConfig.localQwenEnabledKey),
             DefaultsEntry(name: "sharePollingEnabledKey", key: AppConfig.sharePollingEnabledKey),
