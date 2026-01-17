@@ -67,3 +67,5 @@ build-maccatalyst-x86_64/
 issue/
 logs/
 telegram/.token
+opencode.jsonc
+.gemini/settings.json
