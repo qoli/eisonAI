@@ -218,3 +218,164 @@ func perform() async throws -> some IntentResult & ShowsSnippetIntent {
 ## 互動式片段 (Interactive Snippets)
 
 - **SnippetIntent**: 一個在螢幕上呈現互動式片段的 App Intent。
+
+## 實作進度條 (Progress Bar) 功能
+
+在 iOS 的 Interactive Snippets 中實現進度條功能是完全可行的。雖然 Snippets 是快照 (Snapshots) 而非即時渲染的連續畫面，但可以透過**後台更新數據 -> 通知 Snippet 重新加載 (Reload)** 的策略來模擬進度更新。
+
+### 1. 定義共享狀態 (ProgressStore)
+
+首先，需要一個單例或共享物件來存儲進度狀態，確保 Intent 和 View 都能存取同一份數據。
+
+```swift
+import SwiftUI
+
+@MainActor
+class ProgressStore: ObservableObject {
+    static let shared = ProgressStore()
+    
+    // 當前進度 0.0 ~ 1.0
+    var progress: Double = 0.0
+    // 當前狀態描述
+    var statusText: String = "準備就緒"
+    
+    func update(progress: Double, status: String) {
+        self.progress = progress
+        self.statusText = status
+    }
+    
+    func reset() {
+        self.progress = 0.0
+        self.statusText = "準備就緒"
+    }
+}
+```
+
+### 2. 設計 SwiftUI 視圖
+
+使用標準的 `ProgressView` 來設計介面。
+
+```swift
+import SwiftUI
+import AppIntents
+
+struct DownloadProgressView: View {
+    var progress: Double
+    var status: String
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("模型下載中...")
+                    .font(.headline)
+                Spacer()
+                Text("\(Int(progress * 100))%")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            // 標準進度條，添加動畫讓過渡更平滑
+            ProgressView(value: progress, total: 1.0)
+                .tint(.blue)
+                .animation(.easeInOut, value: progress)
+            
+            HStack {
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                
+                Spacer()
+                
+                // 按鈕用於觸發 Intent
+                if progress < 1.0 {
+                    Button(intent: StartDownloadIntent()) {
+                        Text(progress == 0 ? "開始下載" : "下載中...")
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                     Button(intent: ResetIntent()) {
+                        Text("完成")
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.green)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+    }
+}
+```
+
+### 3. 定義 Snippet Intent (容器)
+
+負責讀取數據並渲染 View 的 Intent。
+
+```swift
+import AppIntents
+
+struct DownloadStatusSnippet: SnippetIntent {
+    static var title: LocalizedStringResource = "下載狀態"
+    
+    func perform() async throws -> some IntentResult & ShowsSnippetView {
+        let store = await ProgressStore.shared
+        
+        return .result(
+            view: DownloadProgressView(
+                progress: store.progress,
+                status: store.statusText
+            )
+        )
+    }
+}
+```
+
+### 4. 定義 Action Intent (驅動者)
+
+這是關鍵步驟。Action Intent 在執行任務時，需在每次更新進度後呼叫 `SnippetIntent.reload()` 來通知系統刷新 UI。
+
+```swift
+struct StartDownloadIntent: AppIntent {
+    static var title: LocalizedStringResource = "開始下載任務"
+    
+    func perform() async throws -> some IntentResult {
+        await ProgressStore.shared.reset()
+        
+        // 模擬耗時任務
+        for i in 1...10 {
+            // 1. 模擬任務執行
+            try await Task.sleep(nanoseconds: 500_000_000) 
+            
+            // 2. 更新數據
+            let newProgress = Double(i) / 10.0
+            await ProgressStore.shared.update(
+                progress: newProgress,
+                status: "正在下載區塊 \(i)/10..."
+            )
+            
+            // 3. 關鍵：通知 Snippet 重新加載
+            DownloadStatusSnippet.reload()
+        }
+        
+        await ProgressStore.shared.update(progress: 1.0, status: "下載完成！")
+        DownloadStatusSnippet.reload()
+        
+        return .result()
+    }
+}
+
+struct ResetIntent: AppIntent {
+    static var title: LocalizedStringResource = "重置"
+    func perform() async throws -> some IntentResult {
+        await ProgressStore.shared.reset()
+        DownloadStatusSnippet.reload()
+        return .result()
+    }
+}
+```
+
+### 注意事項
+
+*   **刷新頻率**：建議控制在每 0.5 ~ 1 秒一次，避免過於頻繁導致系統節流。
+*   **執行時間**：App Intent 有執行時間限制。長時間任務（如 >30秒）應考慮使用 `Live Activities` 或後台任務配合 Widget 更新。
+*   **UI 平滑度**：善用 SwiftUI 的 `.animation()` 修飾符來彌補快照更新的不連續性。
