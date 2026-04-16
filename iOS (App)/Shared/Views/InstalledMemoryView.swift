@@ -114,7 +114,7 @@ struct InstalledMemoryView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(16)
-        .glassedEffect(in: RoundedRectangle(cornerRadius: 20), interactive: true)
+//        .glassedEffect(in: RoundedRectangle(cornerRadius: 20), interactive: true)
     }
 }
 
