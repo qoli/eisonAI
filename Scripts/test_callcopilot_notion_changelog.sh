@@ -52,9 +52,11 @@ cat > "$prompt_file" <<EOF
 5. 只提取 \`## ${expected_version}\` 之下、直到下一個版本 heading 之前的內容。不要附帶更舊版本的任何內容。
 6. 如果你最終抽取到的版本不是 \`${expected_version}\`，或者內容中包含舊版本的開發衝刺報告，直接報錯並停止，不要寫出錯誤文件。
 7. 必須真的寫入兩個文件，而不是只在終端回覆。
-8. 將 \`${expected_version}\` 的內容翻譯成自然英文，移除所有 HTML 標籤、HTML 實體、以及多餘的 Notion 標記，寫入 ${english_file}。
-9. 將 \`${expected_version}\` 的內容保留版本號，整理成適合 Telegram 的 markdown，寫入 ${telegram_file}。
-10. 完成後，最後只回報這兩個文件是否成功寫入，以及你提取到的版本號。
+8. 英文 changelog 也必須明確保留版本號 \`${expected_version}\`，不要只輸出條列內容。請用 plain-text 形式寫入 ${english_file}。
+9. 將 \`${expected_version}\` 的內容翻譯成自然英文，移除所有 HTML 標籤、HTML 實體、以及多餘的 Notion 標記，寫入 ${english_file}。
+10. 將 \`${expected_version}\` 的內容保留版本號，整理成適合 Telegram 的 markdown，寫入 ${telegram_file}。
+11. 如果任一輸出缺少版本號 \`${expected_version}\`，直接視為失敗。
+12. 完成後，最後只回報這兩個文件是否成功寫入，以及你提取到的版本號。
 EOF
 
 COPILOT_HOME="$output_dir/copilot-home" \
