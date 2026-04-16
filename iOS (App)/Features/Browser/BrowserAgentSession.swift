@@ -28,7 +28,11 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     private let modelLanguageStore = ModelLanguageStore()
 
     private var runTask: Task<Void, Never>?
+    private var rollingHistorySummary = ""
+    private var summarizedLogEntryCount = 0
     private let maxSteps = 30
+    private let recentLogWindowSize = 6
+    private let rollingSummaryCharacterLimit = 1_600
 
     override init() {
         let contentController = WKUserContentController()
@@ -174,6 +178,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         lastError = nil
         runState = .running(step: 1)
         logEntries = []
+        rollingHistorySummary = ""
+        summarizedLogEntryCount = 0
         ConsoleErrorReporter.logInfo(
             "Starting browser-agent run.",
             context: "BrowserAgentSession.runAgent",
@@ -301,6 +307,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                         "url": currentURLString,
                     ]
                 )
+                await refreshRollingSummaryIfNeeded(goal: goal)
                 syncPiPState()
 
                 let observation = try await pageBridge.observe(in: webView)
@@ -467,47 +474,161 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             )
         }
 
-        let stream: AsyncThrowingStream<String, Error>
-        switch backend {
-        case .mlx:
-            stream = try await anyLanguageModelClient.streamChat(
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                temperature: 0.2,
-                maximumResponseTokens: 700,
-                backend: backend,
-                mlxModelID: mlxModelStore.loadSelectedModelID()
-            )
-        case .appleIntelligence:
-            stream = try await anyLanguageModelClient.streamChat(
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                temperature: 0.2,
-                maximumResponseTokens: 700,
-                backend: backend
-            )
-        case .byok:
-            stream = try await anyLanguageModelClient.streamChat(
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                temperature: 0.2,
-                maximumResponseTokens: 700,
-                backend: backend,
-                byok: byokSettingsStore.loadSettings()
-            )
-        }
-
-        var output = ""
-        for try await chunk in stream {
-            if Task.isCancelled { break }
-            output += chunk
-        }
+        let stream = try await makeModelStream(
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            backend: backend,
+            maximumResponseTokens: 700,
+            temperature: 0.2
+        )
+        let output = try await collectOutput(from: stream)
 
         let json = try extractJSONObject(from: output)
         guard let data = json.data(using: .utf8) else {
             throw BrowserRunError.invalidModelOutput
         }
         return try JSONDecoder().decode(BrowserAgentResponse.self, from: data)
+    }
+
+    private func refreshRollingSummaryIfNeeded(goal: String) async {
+        let summaryCutoff = max(0, logEntries.count - recentLogWindowSize)
+        guard summaryCutoff > summarizedLogEntryCount else { return }
+
+        let entriesToSummarize = Array(logEntries[summarizedLogEntryCount ..< summaryCutoff])
+        guard !entriesToSummarize.isEmpty else { return }
+
+        ConsoleErrorReporter.logInfo(
+            "Condensing older browser-agent history.",
+            context: "BrowserAgentSession.refreshRollingSummary",
+            metadata: [
+                "entriesToSummarize": String(entriesToSummarize.count),
+                "existingSummaryLength": String(rollingHistorySummary.count),
+                "goal": goal,
+            ]
+        )
+
+        do {
+            let updatedSummary = try await requestRollingSummaryUpdate(
+                goal: goal,
+                existingSummary: rollingHistorySummary,
+                newEntries: entriesToSummarize
+            )
+            rollingHistorySummary = normalizedRollingSummary(updatedSummary)
+            summarizedLogEntryCount = summaryCutoff
+            ConsoleErrorReporter.logInfo(
+                "Updated rolling browser-agent summary.",
+                context: "BrowserAgentSession.refreshRollingSummary",
+                metadata: [
+                    "summaryLength": String(rollingHistorySummary.count),
+                    "summarizedLogEntryCount": String(summarizedLogEntryCount),
+                ]
+            )
+        } catch {
+            rollingHistorySummary = fallbackRollingSummary(
+                goal: goal,
+                existingSummary: rollingHistorySummary,
+                newEntries: entriesToSummarize
+            )
+            summarizedLogEntryCount = summaryCutoff
+            ConsoleErrorReporter.log(
+                error,
+                context: "BrowserAgentSession.refreshRollingSummary",
+                metadata: [
+                    "fallbackUsed": "true",
+                    "goal": goal,
+                    "summarizedLogEntryCount": String(summarizedLogEntryCount),
+                ]
+            )
+        }
+    }
+
+    private func requestRollingSummaryUpdate(
+        goal: String,
+        existingSummary: String,
+        newEntries: [BrowserAgentLogEntry]
+    ) async throws -> String {
+        let systemPrompt = rollingSummarySystemPrompt(languageTag: modelLanguageStore.loadOrRecommended())
+        let userPrompt = rollingSummaryUserPrompt(
+            goal: goal,
+            existingSummary: existingSummary,
+            newEntries: newEntries
+        )
+        let tokenEstimate = await tokenEstimator.estimateTokenCount(for: "\(systemPrompt)\n\n\(userPrompt)")
+        let backend = backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
+
+        ConsoleErrorReporter.logInfo(
+            "Requesting rolling summary update.",
+            context: "BrowserAgentSession.requestRollingSummaryUpdate",
+            metadata: [
+                "backend": backend.rawValue,
+                "existingSummaryLength": String(existingSummary.count),
+                "newEntries": String(newEntries.count),
+                "tokenEstimate": String(tokenEstimate),
+            ]
+        )
+
+        if backend == .appleIntelligence {
+            anyLanguageModelClient.prewarm(
+                systemPrompt: systemPrompt,
+                promptPrefix: String(userPrompt.prefix(900)),
+                backend: backend
+            )
+        }
+
+        let stream = try await makeModelStream(
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            backend: backend,
+            maximumResponseTokens: 220,
+            temperature: 0.1
+        )
+        return try await collectOutput(from: stream)
+    }
+
+    private func makeModelStream(
+        systemPrompt: String,
+        userPrompt: String,
+        backend: ExecutionBackend,
+        maximumResponseTokens: Int,
+        temperature: Double
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        switch backend {
+        case .mlx:
+            return try await anyLanguageModelClient.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: temperature,
+                maximumResponseTokens: maximumResponseTokens,
+                backend: backend,
+                mlxModelID: mlxModelStore.loadSelectedModelID()
+            )
+        case .appleIntelligence:
+            return try await anyLanguageModelClient.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: temperature,
+                maximumResponseTokens: maximumResponseTokens,
+                backend: backend
+            )
+        case .byok:
+            return try await anyLanguageModelClient.streamChat(
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                temperature: temperature,
+                maximumResponseTokens: maximumResponseTokens,
+                backend: backend,
+                byok: byokSettingsStore.loadSettings()
+            )
+        }
+    }
+
+    private func collectOutput(from stream: AsyncThrowingStream<String, Error>) async throws -> String {
+        var output = ""
+        for try await chunk in stream {
+            if Task.isCancelled { break }
+            output += chunk
+        }
+        return output
     }
 
     private func waitForPageStability(after action: BrowserAgentAction) async throws {
@@ -674,7 +795,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     }
 
     private func browserAgentUserPrompt(goal: String, observation: BrowserPageObservation, step: Int) -> String {
-        let recentLogText = logEntries.suffix(6).map { entry in
+        let recentLogText = logEntries.suffix(recentLogWindowSize).map { entry in
             "[step \(entry.step)] \(entry.title): \(entry.detail)"
         }.joined(separator: "\n")
 
@@ -700,12 +821,81 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         Current title:
         \(observation.title)
 
+        Earlier summarized context:
+        \(rollingHistorySummary.isEmpty ? "(none yet)" : rollingHistorySummary)
+
         Recent steps:
         \(recentLogText.isEmpty ? "(none yet)" : recentLogText)
 
         Page state:
         \(trimmedState)
         """
+    }
+
+    private func rollingSummarySystemPrompt(languageTag: String) -> String {
+        """
+        You maintain the rolling memory for eisonAI's in-app browser agent.
+
+        Rewrite the browser-agent history into a compact working summary.
+
+        Requirements:
+        - Keep the summary concise and action-oriented.
+        - Preserve completed milestones, failed attempts, current page state, and the next unresolved subgoal.
+        - Prefer semantic descriptions over raw element indexes unless an index is still important.
+        - Mention repeated loops or dead ends if they occurred.
+        - Output plain text only, no bullets required, no Markdown fences.
+        - Write in language tag \(languageTag) when practical.
+        """
+    }
+
+    private func rollingSummaryUserPrompt(
+        goal: String,
+        existingSummary: String,
+        newEntries: [BrowserAgentLogEntry]
+    ) -> String {
+        let newEntriesText = newEntries.map { entry in
+            "[step \(entry.step)] \(entry.title): \(entry.detail)"
+        }.joined(separator: "\n")
+
+        return """
+        Goal:
+        \(goal)
+
+        Existing rolling summary:
+        \(existingSummary.isEmpty ? "(none yet)" : existingSummary)
+
+        New entries to fold in:
+        \(newEntriesText)
+
+        Return the updated rolling summary only.
+        """
+    }
+
+    private func normalizedRollingSummary(_ text: String) -> String {
+        let cleaned = text
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return rollingHistorySummary }
+        return String(cleaned.prefix(rollingSummaryCharacterLimit))
+    }
+
+    private func fallbackRollingSummary(
+        goal: String,
+        existingSummary: String,
+        newEntries: [BrowserAgentLogEntry]
+    ) -> String {
+        let fallbackLines = newEntries.map { entry in
+            "Step \(entry.step) \(entry.title): \(entry.detail)"
+        }
+        let merged = [
+            existingSummary.trimmingCharacters(in: .whitespacesAndNewlines),
+            "Goal: \(goal)",
+            fallbackLines.joined(separator: " "),
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: "\n")
+
+        return String(merged.prefix(rollingSummaryCharacterLimit))
     }
 
     private func extractJSONObject(from text: String) throws -> String {
