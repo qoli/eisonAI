@@ -46,9 +46,8 @@ build-maccatalyst/
 .venv-mlc312/
 /Docs/MessagingAWebExtensionsNativeApp
 
-# WebLLM bundled assets (very large)
-Shared (Extension)/Resources/webllm-assets/models/
-Shared (Extension)/Resources/webllm-assets/wasm/
+# Legacy WebLLM bundled assets kept outside the app bundle (very large)
+.local-webllm-assets/
 
 # MLC LLM packaging output (very large)
 dist/*
