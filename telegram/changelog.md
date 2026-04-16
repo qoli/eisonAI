@@ -1,19 +1,9 @@
-## 2.6
+## 未發佈 - 2026-01-09
 
-### 新增
-- 分享功能現在支持傳入文字
-- 分享功能現在可以分享完成後，自動打開 App（設定可關閉）
-- 新增系統翻譯功能，會自動化翻譯提示詞，改善了語言引導；
+### ⚡ 效能改善
+- **原生 MLC 推理優化**: 調整 `prefill_chunk_size=3400` 與 `context_window_size=4096`，改善長輸入延遲
 
-### 修正
-- 分享功能現在會正確優先處理 URL。
-- Auto 策略更新：從 1792 以上切換到 BYOK；
-- Local：Chunk 固定為 1792 分段
-
-### Local: Qwen3 0.6b q4
-- 現在會自動清理不必要的 Think 標籤；
-- 尋找到最佳化的 mlc-llm config 適配文件，現在 iPhone 15 Pro / iPad Pro m4 （測試環境）運行 Qwen3 0.6b 會表現更好了；
-- 現在會清洗向模型輸入的內容以免錯誤引導模型；
-
-### 移除
-- 移除了 Tokenizer 計算辦法的選擇
+### 🔧 技術改進
+- **xcframeworks 重新打包**: 產出包含 macCatalyst `arm64 + x86_64` 的通用 slices
+- **MLC 打包流程規範**: 更新 `Spec/MLC_LLM.md`，明確要求每次更新需包含 x86_64
+- **App 設定同步**: 同步 `dist/bundle/mlc-app-config.json` 至 app 端設定檔
