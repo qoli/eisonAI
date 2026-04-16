@@ -27,6 +27,7 @@ struct AIModelsSettingsView: View {
     @State private var catalogModels: [MLXCatalogModel] = []
     @State private var isRefreshingCatalog = false
     @State private var catalogError = ""
+    @State private var showAllCatalogModels = false
     @State private var modelOperationMessage = ""
     @State private var modelOperationIsError = false
     @State private var activeModelOperationIDs = Set<String>()
@@ -150,68 +151,21 @@ struct AIModelsSettingsView: View {
             }
 
             Section {
-                HStack {
-                    TextField("huggingface repo, e.g. mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-
-                    Button("Install") {
-                        installCustomRepo()
+                NavigationLink {
+                    mlxManagementPage
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("MLX Models")
+                        Text(mlxManagementSummary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
-                    .disabled(customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-
-                if !modelOperationMessage.isEmpty {
-                    Text(modelOperationMessage)
-                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
                 }
             } header: {
-                Text("Custom MLX Repo")
+                Text("Model Library")
             } footer: {
-                Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
+                Text("Manage installed MLX repos, browse the `mlx-community` catalog, or install a custom Hugging Face MLX repo.")
                     .foregroundStyle(.secondary)
-            }
-
-            Section {
-                HStack {
-                    Text("Catalog")
-                    Spacer()
-                    if isRefreshingCatalog {
-                        ProgressView()
-                    } else {
-                        Button("Refresh") {
-                            refreshCatalog()
-                        }
-                    }
-                }
-
-                if !catalogError.isEmpty {
-                    Text(catalogError)
-                        .foregroundStyle(.red)
-                }
-            } header: {
-                Text("MLX Catalog")
-            } footer: {
-                Text("Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`. The app still uses them with text prompts only.")
-                    .foregroundStyle(.secondary)
-            }
-
-            if !installedModels.isEmpty {
-                Section {
-                    ForEach(installedModels, id: \.id) { model in
-                        installedModelRow(model)
-                    }
-                } header: {
-                    Text("Installed")
-                }
-            }
-
-            Section {
-                ForEach(catalogModels, id: \.id) { model in
-                    catalogRow(model)
-                }
-            } header: {
-                Text("mlx-community")
             }
 
             Section {
@@ -371,9 +325,6 @@ struct AIModelsSettingsView: View {
         }
         .task {
             loadStateIfNeeded()
-            if catalogModels.isEmpty {
-                refreshCatalog()
-            }
         }
         .onChange(of: appBackend) { _, newValue in
             guard didLoad else { return }
@@ -465,6 +416,121 @@ struct AIModelsSettingsView: View {
 
         lines.append("Extension local execution has been removed. Safari uses Apple Intelligence or BYOK.")
         return lines.joined(separator: "\n")
+    }
+
+    private var mlxManagementSummary: String {
+        var parts: [String] = []
+        parts.append("\(installedModels.count) installed")
+        if let selectedMLXModelID {
+            parts.append("Selected: \(selectedMLXModelID)")
+        } else {
+            parts.append("No selected repo")
+        }
+        if isRefreshingCatalog {
+            parts.append("Refreshing catalog")
+        } else if !catalogModels.isEmpty {
+            parts.append("\(catalogModels.count) catalog items cached")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private var filteredCatalogModels: [MLXCatalogModel] {
+        guard !showAllCatalogModels else { return catalogModels }
+        let ramGiB = Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
+        return catalogModels.filter { model in
+            model.recommendation(forRAMGiB: ramGiB) != .likelyTooLarge
+        }
+    }
+
+    private var hiddenCatalogModelCount: Int {
+        max(catalogModels.count - filteredCatalogModels.count, 0)
+    }
+
+    private var mlxManagementPage: some View {
+        Form {
+            Section {
+                HStack {
+                    TextField("huggingface repo, e.g. mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    Button("Install") {
+                        installCustomRepo()
+                    }
+                    .disabled(customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                if !modelOperationMessage.isEmpty {
+                    Text(modelOperationMessage)
+                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
+                }
+            } header: {
+                Text("Custom MLX Repo")
+            } footer: {
+                Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                HStack {
+                    Text("Catalog")
+                    Spacer()
+                    if isRefreshingCatalog {
+                        ProgressView()
+                    } else {
+                        Button("Refresh") {
+                            refreshCatalog()
+                        }
+                    }
+                }
+
+                if hiddenCatalogModelCount > 0 {
+                    Button(showAllCatalogModels ? "Hide Likely Too Large" : "Show All Models") {
+                        showAllCatalogModels.toggle()
+                    }
+
+                    Text(showAllCatalogModels
+                         ? "Showing all models, including \(hiddenCatalogModelCount) likely too large for this device."
+                         : "\(hiddenCatalogModelCount) likely too large models are hidden.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+
+                if !catalogError.isEmpty {
+                    Text(catalogError)
+                        .foregroundStyle(.red)
+                }
+            } header: {
+                Text("MLX Catalog")
+            } footer: {
+                Text("Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`. The app still uses them with text prompts only.")
+                    .foregroundStyle(.secondary)
+            }
+
+            if !installedModels.isEmpty {
+                Section {
+                    ForEach(installedModels, id: \.id) { model in
+                        installedModelRow(model)
+                    }
+                } header: {
+                    Text("Installed")
+                }
+            }
+
+            Section {
+                ForEach(filteredCatalogModels, id: \.id) { model in
+                    catalogRow(model)
+                }
+            } header: {
+                Text("mlx-community")
+            }
+        }
+        .navigationTitle("MLX Models")
+        .task {
+            if catalogModels.isEmpty {
+                refreshCatalog()
+            }
+        }
     }
 
     @ViewBuilder

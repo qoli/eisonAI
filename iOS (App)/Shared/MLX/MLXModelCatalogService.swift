@@ -29,6 +29,19 @@ struct MLXCatalogModel: Codable, Hashable, Identifiable {
             case baseModel = "base_model"
             case pipelineTag = "pipeline_tag"
         }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            pipelineTag = try container.decodeIfPresent(String.self, forKey: .pipelineTag)
+
+            if let value = try? container.decode(String.self, forKey: .baseModel) {
+                baseModel = value
+            } else if let values = try? container.decode([String].self, forKey: .baseModel) {
+                baseModel = values.first
+            } else {
+                baseModel = nil
+            }
+        }
     }
 
     struct SafeTensorInfo: Codable, Hashable {
@@ -58,30 +71,33 @@ struct MLXCatalogModel: Codable, Hashable, Identifiable {
     }
 
     func recommendation(forRAMGiB ramGiB: Double) -> Recommendation {
-        guard let estimatedParameterCount else { return .unknown }
-        let billion = estimatedParameterCount / 1_000_000_000
-
-        switch ramGiB {
-        case ..<6:
-            if billion <= 3 { return .caution }
-            return .likelyTooLarge
-        case ..<8:
-            if billion <= 3 { return .recommended }
-            if billion <= 8 { return .caution }
-            return .likelyTooLarge
-        case ..<12:
-            if billion <= 8 { return .recommended }
-            if billion <= 16 { return .caution }
-            return .likelyTooLarge
-        case ..<18:
-            if billion <= 14 { return .recommended }
-            if billion <= 28 { return .caution }
-            return .likelyTooLarge
-        default:
-            if billion <= 28 { return .recommended }
-            if billion <= 48 { return .caution }
-            return .likelyTooLarge
+        guard ramGiB > 0, let requiredGiB = estimatedRuntimeMemoryGiB, requiredGiB > 0 else {
+            return .unknown
         }
+
+        let headroomRatio = ramGiB / requiredGiB
+        if headroomRatio >= 1.75 {
+            return .recommended
+        }
+        if headroomRatio >= 1.15 {
+            return .caution
+        }
+        return .likelyTooLarge
+    }
+
+    private var estimatedRuntimeMemoryGiB: Double? {
+        let gib = 1024.0 * 1024.0 * 1024.0
+
+        if let rawSafeTensorTotal {
+            let weightGiB = Double(rawSafeTensorTotal) / gib
+            return (weightGiB * 2.4) + 2.0
+        }
+
+        guard let estimatedParameterCount else { return nil }
+
+        // Fallback when the Hub response omits total safetensor bytes.
+        let fallbackWeightGiB = max((estimatedParameterCount / 1_000_000_000) * 0.25, 0.5)
+        return (fallbackWeightGiB * 2.4) + 2.0
     }
 
     init(
@@ -121,12 +137,15 @@ struct MLXModelCatalogService {
     private let session: URLSession
     private let decoder: JSONDecoder
     private let iso8601: ISO8601DateFormatter
+    private let iso8601WithoutFractionalSeconds: ISO8601DateFormatter
 
     init(session: URLSession = .shared) {
         self.session = session
         self.decoder = JSONDecoder()
         self.iso8601 = ISO8601DateFormatter()
         self.iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        self.iso8601WithoutFractionalSeconds = ISO8601DateFormatter()
+        self.iso8601WithoutFractionalSeconds.formatOptions = [.withInternetDateTime]
     }
 
     func fetchCatalog(limit: Int = 100) async throws -> [MLXCatalogModel] {
@@ -166,8 +185,7 @@ struct MLXModelCatalogService {
         ]
         let (data, response) = try await session.data(from: components.url!)
         try validate(response: response, data: data)
-        let raw = try decoder.decode(HuggingFaceModelResponse.self, from: data)
-        return raw.toCatalogModel(using: iso8601)
+        return try decodeModel(from: data)
     }
 
     private func fetchModels(
@@ -188,8 +206,25 @@ struct MLXModelCatalogService {
         ]
         let (data, response) = try await session.data(from: components.url!)
         try validate(response: response, data: data)
+        return try decodeModels(from: data)
+    }
+
+    func decodeModel(from data: Data) throws -> MLXCatalogModel {
+        let raw = try decoder.decode(HuggingFaceModelResponse.self, from: data)
+        return raw.toCatalogModel(
+            using: iso8601,
+            fallbackFormatter: iso8601WithoutFractionalSeconds
+        )
+    }
+
+    func decodeModels(from data: Data) throws -> [MLXCatalogModel] {
         let raw = try decoder.decode([HuggingFaceModelResponse].self, from: data)
-        return raw.map { $0.toCatalogModel(using: iso8601) }
+        return raw.map {
+            $0.toCatalogModel(
+                using: iso8601,
+                fallbackFormatter: iso8601WithoutFractionalSeconds
+            )
+        }
     }
 
     private func validate(response: URLResponse, data: Data) throws {
@@ -230,8 +265,13 @@ extension MLXModelCatalogService {
             case lastModified
         }
 
-        func toCatalogModel(using formatter: ISO8601DateFormatter) -> MLXCatalogModel {
-            let parsedDate = lastModified.flatMap { formatter.date(from: $0) }
+        func toCatalogModel(
+            using formatter: ISO8601DateFormatter,
+            fallbackFormatter: ISO8601DateFormatter
+        ) -> MLXCatalogModel {
+            let parsedDate = lastModified.flatMap { value in
+                formatter.date(from: value) ?? fallbackFormatter.date(from: value)
+            }
             let parameterCount = estimateParameterCount(from: safetensors?.parameters)
             return MLXCatalogModel(
                 id: id,
