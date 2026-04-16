@@ -57,6 +57,75 @@ struct BrowserAgentLogEntry: Identifiable, Equatable {
     let timestamp = Date()
 }
 
+struct BrowserAgentTaskState: Codable, Equatable {
+    enum Status: String, Codable {
+        case idle
+        case running
+        case completed
+        case failed
+        case cancelled
+    }
+
+    struct PageContext: Codable, Equatable {
+        var url: String
+        var title: String
+        var observationSummary: String
+    }
+
+    struct ActionRecord: Codable, Equatable {
+        enum Outcome: String, Codable {
+            case pending
+            case succeeded
+            case failed
+        }
+
+        var step: Int
+        var summary: String
+        var type: BrowserAgentActionType
+        var index: Int?
+        var targetURL: String?
+        var textPreview: String?
+        var option: String?
+        var direction: String?
+        var pages: Int?
+        var milliseconds: Int?
+        var outcome: Outcome
+        var resultMessage: String
+    }
+
+    var goal: String
+    var status: Status
+    var currentStep: Int
+    var maxSteps: Int
+    var currentPage: PageContext?
+    var pendingObjective: String
+    var latestThought: String
+    var latestModelSummary: String
+    var rollingSummary: String
+    var completedMilestones: [String]
+    var importantFacts: [String]
+    var knownFailures: [String]
+    var lastAction: ActionRecord?
+
+    static func idle(maxSteps: Int) -> BrowserAgentTaskState {
+        BrowserAgentTaskState(
+            goal: "",
+            status: .idle,
+            currentStep: 0,
+            maxSteps: maxSteps,
+            currentPage: nil,
+            pendingObjective: "",
+            latestThought: "",
+            latestModelSummary: "",
+            rollingSummary: "",
+            completedMilestones: [],
+            importantFacts: [],
+            knownFailures: [],
+            lastAction: nil
+        )
+    }
+}
+
 struct BrowserPageObservation: Codable {
     let url: String
     let title: String

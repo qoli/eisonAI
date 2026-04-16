@@ -13,6 +13,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     @Published private(set) var isLoading = false
     @Published private(set) var runState: BrowserAgentRunState = .idle
     @Published private(set) var logEntries: [BrowserAgentLogEntry] = []
+    @Published private(set) var taskState = BrowserAgentTaskState.idle(maxSteps: 30)
     @Published private(set) var latestSnapshot: UIImage?
     @Published var lastError: String?
 
@@ -33,6 +34,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     private let maxSteps = 30
     private let recentLogWindowSize = 6
     private let rollingSummaryCharacterLimit = 1_600
+    private let taskStateListLimit = 6
+    private let taskStateStringLimit = 240
 
     override init() {
         let contentController = WKUserContentController()
@@ -180,6 +183,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         logEntries = []
         rollingHistorySummary = ""
         summarizedLogEntryCount = 0
+        taskState = makeInitialTaskState(goal: prompt)
         ConsoleErrorReporter.logInfo(
             "Starting browser-agent run.",
             context: "BrowserAgentSession.runAgent",
@@ -202,6 +206,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         runTask = nil
         if runState.isRunning {
             runState = .cancelled
+            taskState.status = .cancelled
+            taskState.pendingObjective = ""
             appendLog(step: 0, title: "Stopped", detail: "Cancelled the current browser-agent run.", kind: .result)
             ConsoleErrorReporter.logInfo(
                 "Cancelled browser-agent run.",
@@ -307,16 +313,20 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                         "url": currentURLString,
                     ]
                 )
+                taskState.status = .running
+                taskState.currentStep = step
                 await refreshRollingSummaryIfNeeded(goal: goal)
                 syncPiPState()
 
                 let observation = try await pageBridge.observe(in: webView)
+                recordObservation(observation, step: step)
                 ConsoleErrorReporter.logInfo(
                     "Collected page observation.",
                     context: "BrowserAgentSession.observe",
                     metadata: observationMetadata(observation, step: step)
                 )
                 let response = try await requestNextStep(goal: goal, observation: observation, step: step)
+                recordModelResponse(response, step: step)
 
                 var responseMetadata: [String: String] = [
                     "status": response.status,
@@ -342,6 +352,9 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                 case "done":
                     let summary = response.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Task complete."
                     runState = .completed(summary)
+                    taskState.status = .completed
+                    taskState.pendingObjective = ""
+                    appendUniqueTaskStateLine(summary, to: \.completedMilestones)
                     appendLog(step: step, title: "Done", detail: summary, kind: .result)
                     ConsoleErrorReporter.logInfo(
                         "Browser-agent run completed.",
@@ -357,6 +370,9 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                 case "failed":
                     let summary = response.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "The browser agent could not complete the task."
                     runState = .failed(summary)
+                    taskState.status = .failed
+                    taskState.pendingObjective = ""
+                    appendUniqueTaskStateLine(summary, to: \.knownFailures)
                     appendLog(step: step, title: "Failed", detail: summary, kind: .error)
                     ConsoleErrorReporter.logInfo(
                         "Browser-agent run failed gracefully.",
@@ -373,6 +389,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                     guard let action = response.action else {
                         throw BrowserRunError.missingAction
                     }
+                    recordPlannedAction(action, step: step)
                     appendLog(step: step, title: action.summary, detail: response.summary ?? "Executing the next page action.", kind: .action)
                     ConsoleErrorReporter.logInfo(
                         "Executing browser action.",
@@ -381,6 +398,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                     )
 
                     let result = try await pageBridge.perform(action, in: webView)
+                    recordActionResult(result, for: action, step: step)
                     appendLog(
                         step: step,
                         title: result.success ? "Result" : "Action Error",
@@ -421,6 +439,9 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                 let message = error.localizedDescription
                 lastError = message
                 runState = .failed(message)
+                taskState.status = .failed
+                taskState.pendingObjective = ""
+                appendUniqueTaskStateLine(message, to: \.knownFailures)
                 appendLog(step: step, title: "Run Error", detail: message, kind: .error)
                 ConsoleErrorReporter.log(
                     error,
@@ -439,6 +460,9 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
 
         let summary = "Reached the step limit (\(maxSteps)) before completing the task."
         runState = .failed(summary)
+        taskState.status = .failed
+        taskState.pendingObjective = ""
+        appendUniqueTaskStateLine(summary, to: \.knownFailures)
         appendLog(step: maxSteps, title: "Stopped", detail: summary, kind: .error)
         syncPiPState()
     }
@@ -514,6 +538,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                 newEntries: entriesToSummarize
             )
             rollingHistorySummary = normalizedRollingSummary(updatedSummary)
+            taskState.rollingSummary = rollingHistorySummary
             summarizedLogEntryCount = summaryCutoff
             ConsoleErrorReporter.logInfo(
                 "Updated rolling browser-agent summary.",
@@ -529,6 +554,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                 existingSummary: rollingHistorySummary,
                 newEntries: entriesToSummarize
             )
+            taskState.rollingSummary = rollingHistorySummary
             summarizedLogEntryCount = summaryCutoff
             ConsoleErrorReporter.log(
                 error,
@@ -687,6 +713,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         if !currentURLString.isEmpty {
             addressText = currentURLString
         }
+        syncTaskStateLocation()
     }
 
     private func syncPiPState() {
@@ -807,6 +834,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         .joined(separator: "\n")
 
         let trimmedState = String(pageState.prefix(18_000))
+        let structuredTaskState = taskStatePromptJSON()
 
         return """
         Goal:
@@ -826,6 +854,9 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
 
         Recent steps:
         \(recentLogText.isEmpty ? "(none yet)" : recentLogText)
+
+        Structured task state (JSON):
+        \(structuredTaskState)
 
         Page state:
         \(trimmedState)
@@ -898,6 +929,166 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         return String(merged.prefix(rollingSummaryCharacterLimit))
     }
 
+    private func makeInitialTaskState(goal: String) -> BrowserAgentTaskState {
+        var state = BrowserAgentTaskState.idle(maxSteps: maxSteps)
+        state.goal = trimmedTaskStateValue(goal, limit: 320)
+        state.status = .running
+        state.currentStep = 1
+        state.pendingObjective = trimmedTaskStateValue(goal, limit: 220)
+        state.currentPage = BrowserAgentTaskState.PageContext(
+            url: trimmedTaskStateValue(currentURLString, limit: 260),
+            title: trimmedTaskStateValue(pageTitle, limit: 140),
+            observationSummary: ""
+        )
+        return state
+    }
+
+    private func syncTaskStateLocation() {
+        guard !currentURLString.isEmpty || !pageTitle.isEmpty else { return }
+        let existingSummary = taskState.currentPage?.observationSummary ?? ""
+        taskState.currentPage = BrowserAgentTaskState.PageContext(
+            url: trimmedTaskStateValue(currentURLString, limit: 260),
+            title: trimmedTaskStateValue(pageTitle, limit: 140),
+            observationSummary: existingSummary
+        )
+    }
+
+    private func recordObservation(_ observation: BrowserPageObservation, step: Int) {
+        taskState.currentStep = step
+        taskState.currentPage = BrowserAgentTaskState.PageContext(
+            url: trimmedTaskStateValue(observation.url, limit: 260),
+            title: trimmedTaskStateValue(observation.title, limit: 140),
+            observationSummary: compactObservationSummary(observation)
+        )
+    }
+
+    private func recordModelResponse(_ response: BrowserAgentResponse, step: Int) {
+        taskState.currentStep = step
+        taskState.latestThought = trimmedTaskStateValue(response.thought ?? "", limit: taskStateStringLimit)
+        taskState.latestModelSummary = trimmedTaskStateValue(response.summary ?? "", limit: taskStateStringLimit)
+
+        if response.status.caseInsensitiveCompare("continue") == .orderedSame,
+           let summary = response.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !summary.isEmpty {
+            taskState.pendingObjective = trimmedTaskStateValue(summary, limit: taskStateStringLimit)
+        }
+    }
+
+    private func recordPlannedAction(_ action: BrowserAgentAction, step: Int) {
+        taskState.lastAction = BrowserAgentTaskState.ActionRecord(
+            step: step,
+            summary: trimmedTaskStateValue(action.summary, limit: 140),
+            type: action.type,
+            index: action.index,
+            targetURL: trimmedTaskStateValue(action.url ?? "", limit: 260).nilIfEmpty,
+            textPreview: previewTaskStateText(action.text, limit: 80),
+            option: trimmedTaskStateValue(action.option ?? "", limit: 80).nilIfEmpty,
+            direction: trimmedTaskStateValue(action.direction ?? "", limit: 40).nilIfEmpty,
+            pages: action.pages,
+            milliseconds: action.milliseconds,
+            outcome: .pending,
+            resultMessage: ""
+        )
+    }
+
+    private func recordActionResult(_ result: BrowserBridgeActionResult, for action: BrowserAgentAction, step: Int) {
+        var lastAction = taskState.lastAction ?? BrowserAgentTaskState.ActionRecord(
+            step: step,
+            summary: trimmedTaskStateValue(action.summary, limit: 140),
+            type: action.type,
+            index: action.index,
+            targetURL: trimmedTaskStateValue(action.url ?? "", limit: 260).nilIfEmpty,
+            textPreview: previewTaskStateText(action.text, limit: 80),
+            option: trimmedTaskStateValue(action.option ?? "", limit: 80).nilIfEmpty,
+            direction: trimmedTaskStateValue(action.direction ?? "", limit: 40).nilIfEmpty,
+            pages: action.pages,
+            milliseconds: action.milliseconds,
+            outcome: .pending,
+            resultMessage: ""
+        )
+
+        lastAction.outcome = result.success ? .succeeded : .failed
+        lastAction.resultMessage = trimmedTaskStateValue(result.message, limit: taskStateStringLimit)
+        taskState.lastAction = lastAction
+
+        if result.success {
+            switch action.type {
+            case .navigate:
+                if let url = action.url, !url.isEmpty {
+                    appendUniqueTaskStateLine("Navigated toward \(url).", to: \.importantFacts)
+                }
+            case .input:
+                appendUniqueTaskStateLine("Filled a page field for the current task.", to: \.importantFacts)
+            case .select:
+                appendUniqueTaskStateLine("Updated a select control on the page.", to: \.importantFacts)
+            case .pressEnter:
+                appendUniqueTaskStateLine("Submitted the focused field with Enter.", to: \.importantFacts)
+            case .click, .scroll, .wait:
+                break
+            }
+        } else {
+            appendUniqueTaskStateLine(
+                "Step \(step) \(action.summary) failed: \(result.message)",
+                to: \.knownFailures
+            )
+        }
+    }
+
+    private func appendUniqueTaskStateLine(
+        _ rawValue: String,
+        to keyPath: WritableKeyPath<BrowserAgentTaskState, [String]>
+    ) {
+        let normalized = trimmedTaskStateValue(rawValue, limit: taskStateStringLimit)
+        guard !normalized.isEmpty else { return }
+
+        var lines = taskState[keyPath: keyPath]
+        if lines.contains(normalized) { return }
+        lines.append(normalized)
+        if lines.count > taskStateListLimit {
+            lines.removeFirst(lines.count - taskStateListLimit)
+        }
+        taskState[keyPath: keyPath] = lines
+    }
+
+    private func taskStatePromptJSON() -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        guard let data = try? encoder.encode(taskState),
+              let json = String(data: data, encoding: .utf8)
+        else {
+            return "{}"
+        }
+        return json
+    }
+
+    private func compactObservationSummary(_ observation: BrowserPageObservation) -> String {
+        let summary = [
+            observation.header,
+            observation.content,
+            observation.footer,
+        ]
+        .joined(separator: "\n")
+        .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return trimmedTaskStateValue(summary, limit: 320)
+    }
+
+    private func previewTaskStateText(_ text: String?, limit: Int) -> String? {
+        guard let text else { return nil }
+        let preview = trimmedTaskStateValue(text, limit: limit)
+        return preview.isEmpty ? nil : preview
+    }
+
+    private func trimmedTaskStateValue(_ value: String, limit: Int) -> String {
+        let cleaned = value
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return "" }
+        return String(cleaned.prefix(limit))
+    }
+
     private func extractJSONObject(from text: String) throws -> String {
         let cleaned = text
             .replacingOccurrences(of: "```json", with: "")
@@ -920,6 +1111,12 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             return url
         }
         return URL(string: "https://\(trimmed)")
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 

@@ -128,6 +128,9 @@ struct BrowserRootView: View {
     private var stepLog: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 10) {
+                if !session.taskState.goal.isEmpty {
+                    BrowserTaskStateCard(taskState: session.taskState)
+                }
                 ForEach(session.logEntries.suffix(10)) { entry in
                     BrowserLogCard(entry: entry)
                 }
@@ -183,6 +186,80 @@ private struct BrowserLogCard: View {
         .padding(12)
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct BrowserTaskStateCard: View {
+    let taskState: BrowserAgentTaskState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Task State")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(taskState.status.rawValue.capitalized)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(statusTint)
+            }
+
+            Text(taskState.goal)
+                .font(.footnote.weight(.medium))
+
+            if !taskState.pendingObjective.isEmpty {
+                Text("Next: \(taskState.pendingObjective)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let page = taskState.currentPage,
+               !page.url.isEmpty || !page.title.isEmpty {
+                Text("Page: \(page.title.isEmpty ? page.url : page.title)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if let lastAction = taskState.lastAction {
+                Text("Last action: \(lastAction.summary) · \(lastAction.outcome.rawValue)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if let milestone = taskState.completedMilestones.last {
+                Text("Completed: \(milestone)")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .lineLimit(2)
+            }
+
+            if let failure = taskState.knownFailures.last {
+                Text("Latest issue: \(failure)")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+            }
+        }
+        .padding(12)
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var statusTint: Color {
+        switch taskState.status {
+        case .idle:
+            return .secondary
+        case .running:
+            return .blue
+        case .completed:
+            return .green
+        case .failed:
+            return .red
+        case .cancelled:
+            return .orange
+        }
     }
 }
 
