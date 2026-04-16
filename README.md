@@ -10,11 +10,14 @@
   <img src="https://raw.githubusercontent.com/qoli/eisonAI/refs/heads/main/assets/iPhone-Medata-Preview.jpg" alt="EisonAI Screenshot" width="600">
 </p>
 
-**EisonAI** is an macOS / iOS / iPadOS Safari Web Extension + App that turns “structure” into a visible entry point for reading. You don’t have to follow the author’s linear narrative—see the key points and structure first, then decide where to dive in.
+**EisonAI** is an iOS / iPadOS Safari Web Extension + app that turns structure into the entry point for reading. Instead of following the author’s linear order first, you can inspect key points and relationships up front, then decide where to dive deeper.
 
-The Safari popup uses **WebLLM (WebGPU + WebWorker)** for on-device inference with `Qwen3-0.6B`. The app uses **MLCSwift** (and optional Apple Intelligence) for summaries and long-document processing.
+The project now uses a unified inference stack built on **AnyLanguageModel**:
 
-This project adopts a **bundled assets** strategy: models and wasm are packaged into the extension bundle. The popup reads only local resources, does no runtime downloads, and does not rely on persistent storage inside the iOS extension.
+- The **Safari popup** runs through **Apple Intelligence** or **BYOK** only.
+- The **app** can run with **Apple Intelligence**, **BYOK**, or downloaded **MLX** models from Hugging Face.
+- Local model management lives in **Settings → AI Models → MLX Models**.
+- Only **MLX** repos are supported for downloaded local models. **GGUF / llama.cpp** are not supported.
 
 ---
 
@@ -28,21 +31,23 @@ This project adopts a **bundled assets** strategy: models and wasm are packaged 
 
 ## 🌟 Product Concept
 
-- **Cognitive Index™**: Make structure visible *before* content to reduce the cost of finding where meaning is created.
-- **Read less linearly**: Reading doesn’t have to follow narrative order.
-- **Think more deliberately**: Reserve attention for judgment and understanding, not for maintaining context.
+- **Cognitive Index™**: Make structure visible before content to reduce the cost of locating where meaning is created.
+- **Read less linearly**: Reading does not have to follow narrative order.
+- **Think more deliberately**: Spend attention on judgment and understanding, not on holding context in working memory.
 - **Make structure visible**: See relationships and key points first, then choose your path deeper.
 
 ## 🚀 Feature Overview
 
 - **Safari Extension**: Generate summaries and structured highlights inside Safari without leaving the browser.
-- **Cognitive Index™**: Structured output surfaces key points to help quickly locate meaning-dense sections.
-- **Long-Document Support**: Chunked processing for long content, supporting roughly 15,000-token scale.
-- **Local-First Privacy**: On-device inference and storage.
-- **CloudKit Sync**: Seamlessly sync your Library across devices.
-- **Library & Tags**: Save, tag, and search your processed articles.
-- **Language of Thought**: Choose the language the model “thinks and outputs” in, adjustable anytime.
-- **Open Source**: Auditable privacy and behavior.
+- **Unified Inference Routing**: Route between local and cloud paths using Apple Intelligence, MLX, and BYOK.
+- **MLX Model Library**: Browse `mlx-community`, hide obviously oversized models by default, and install custom Hugging Face MLX repos.
+- **BYOK Providers**: Configure your own OpenAI-compatible, Anthropic, Gemini, or Ollama endpoint and model.
+- **Cognitive Index™**: Structured output surfaces key points to help you quickly locate meaning-dense sections.
+- **Long-Document Support**: Chunked processing for long content, with local routing and BYOK overflow handling.
+- **CloudKit Sync**: Sync your Library across devices.
+- **Library & Tags**: Save, tag, and search processed articles.
+- **Language of Thought**: Adjust the model’s output language at any time.
+- **Open Source**: Privacy and runtime behavior remain inspectable.
 
 ---
 
@@ -60,51 +65,89 @@ This project adopts a **bundled assets** strategy: models and wasm are packaged 
 
 ## 🧠 What is eisonAI?
 
-Imagine this: You are reading a book, a webpage, or some documents, and you often find yourself thinking:
+Imagine this: you are reading a book, a webpage, or a document, and you keep thinking:
 
-> "Wait, where did I see that key point just now?"  
-> "I know I've seen this before, but I forgot where I saved it."  
-> "I have so many ideas in my head, but they get messy as soon as I try to write them down."
+> "Where was that key point again?"  
+> "I know I saved this before, but I forgot where."  
+> "I have the idea in my head, but it gets messy as soon as I try to write it down."
 
-**eisonAI** is the assistant that helps you remember, organize, and retrieve these things.
+**EisonAI** is the assistant that helps you remember, organize, and retrieve those pieces without breaking your flow.
 
 ### What is Cognitive Index™?
 
-The name sounds complex, but the meaning is simple:
+The idea is simple:
 
-> **It's not just about remembering the "content", but remembering "what this is used for".**
+> **Do not just remember the content. Remember what it is for.**
 
 For example:
 - Not just saving an article.
-- But knowing whether:
-    - It is an "inspiration".
-    - It is "background material".
-    - Or it is a "citation for later use".
+- But knowing whether it is:
+- Inspiration.
+- Background material.
+- A citation you want to use later.
 
-It's like: **A library doesn't just pile books up randomly; it knows where the fiction, reference, and comic sections are.**  
-eisonAI is here to help you build this "library in your brain".
+It is closer to how a library works: not a random pile of books, but a structure that tells you where things belong and how to get back to them.
 
-### Core Goal: Protecting Your Flow
+### Core Goal: Protecting Flow
 
-What is Flow? It means:
+EisonAI is designed around a simple loop:
 
-> **You are thinking smoothly without constant interruptions.**
+1. You see something worth keeping.
+2. You send it to eisonAI without stopping your thinking.
+3. You come back later and can actually find it.
 
-What eisonAI wants to do:
-1. You see something good → Throw it to eisonAI.
-2. You keep thinking → No need to worry about categorizing or organizing.
-3. You need it later → Find it instantly.
-
-> 🛟 It acts like an "assistant that tidies up for you", allowing your brain to focus on the important thinking tasks.
+The goal is to reduce the organizational drag around reading and note capture so the thinking part stays uninterrupted.
 
 ---
 
-## 🛠 System Requirements
+## 🛠 Requirements
 
 - **OS**: iOS / iPadOS 18.0+
-- **Apple Intelligence** (Optional): iOS 18.1+ and enabled device
-- **Device**: Recommended iPhone 14 Pro / iPad Pro (M1) or newer for best inference performance.
+- **Safari extension target**: iPhone / iPad devices
+- **Apple Intelligence path**: requires a supported device and the current Foundation Models runtime available to the app target
+- **Downloaded local models**: Hugging Face **MLX** repos only
+
+## 🔧 Development Setup
+
+1. Clone this repository.
+2. Clone `AnyLanguageModel` as a sibling directory next to this repo.
+
+Example:
+
+```text
+Github/
+  eisonAI/
+  AnyLanguageModel/
+```
+
+The local package shim in [`Packages/EisonAIModelKit/Package.swift`](Packages/EisonAIModelKit/Package.swift) enables the `MLX` trait from that sibling checkout.
+
+3. Open `eisonAI.xcodeproj` in Xcode.
+4. Use the appropriate scheme:
+- `iOS` for device builds with the Safari extension.
+- `eisonAI-Sim` for simulator-only app builds.
+
+Useful commands:
+
+```bash
+open eisonAI.xcodeproj
+```
+
+```bash
+xcodebuild -scheme 'eisonAI-Sim' -project eisonAI.xcodeproj -configuration Debug -destination 'generic/platform=iOS Simulator' build
+```
+
+```bash
+xcodebuild -scheme 'iOS' -project eisonAI.xcodeproj -configuration Debug -destination 'generic/platform=iOS' build
+```
+
+## 🧩 Runtime Notes
+
+- Safari extension local execution through WebLLM / WebGPU has been removed.
+- The popup now uses **Apple Intelligence** or **BYOK** through the native bridge.
+- The app downloads MLX models at runtime from Hugging Face instead of bundling local model assets into the extension.
+- The built-in MLX catalog queries `mlx-community` across `text-generation`, `image-text-to-text`, and `any-to-any`, then merges and ranks the results by `lastModified`.
 
 ## 📄 License
 
-This project is licensed under the **PolyForm Noncommercial License 1.0.0**. See `LICENSE` for more details.
+This project is licensed under the **PolyForm Noncommercial License 1.0.0**. See `LICENSE` for details.
