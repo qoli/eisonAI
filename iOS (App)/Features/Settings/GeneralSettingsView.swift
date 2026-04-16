@@ -1,10 +1,12 @@
 import SwiftUI
 
 struct GeneralSettingsView: View {
+    private let browserPrototypeStore = BrowserPrototypeSettingsStore()
     private let shareOpenAppStore = ShareOpenAppSettingsStore()
     private let sharePollingStore = SharePollingSettingsStore()
     private let modelLanguageStore = ModelLanguageStore()
 
+    @State private var browserPrototypeEnabled = false
     @State private var shareOpenAppEnabled = true
     @State private var sharePollingEnabled = true
     @State private var modelLanguageTag = ""
@@ -55,11 +57,29 @@ struct GeneralSettingsView: View {
             } footer: {
                 Text("When enabled, eisonAI opens automatically after you share.")
             }
+
+            Section {
+                Toggle(
+                    "Enable Browser Prototype",
+                    isOn: Binding(
+                        get: { browserPrototypeEnabled },
+                        set: { newValue in
+                            browserPrototypeEnabled = newValue
+                            browserPrototypeStore.setEnabled(newValue)
+                        }
+                    )
+                )
+            } header: {
+                Text("Prototype")
+            } footer: {
+                Text("Adds a top-level Browser tab with the experimental in-app browser agent and PiP monitor.")
+            }
         }
         .navigationTitle("General")
         .onAppear {
             if !didLoad {
                 didLoad = true
+                browserPrototypeEnabled = browserPrototypeStore.isEnabled()
                 shareOpenAppEnabled = shareOpenAppStore.isEnabled()
                 sharePollingEnabled = sharePollingStore.isEnabled()
                 modelLanguageTag = modelLanguageStore.loadOrRecommended()

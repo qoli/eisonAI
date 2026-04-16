@@ -31,11 +31,11 @@ private struct RootGateView: View {
     var body: some View {
         Group {
             if onboardingCompleted {
-                LibraryRootView()
+                appHome
             } else if !hasCheckedEntitlements {
                 ProgressView()
             } else if hasLifetimeAccess {
-                LibraryRootView()
+                appHome
             } else {
                 OnboardingView {
                     onboardingCompleted = true
@@ -45,6 +45,11 @@ private struct RootGateView: View {
         .task {
             await refreshLifetimeAccessIfNeeded()
         }
+    }
+
+    @ViewBuilder
+    private var appHome: some View {
+        LibraryRootView()
     }
 
     @MainActor

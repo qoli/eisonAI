@@ -17,9 +17,12 @@ struct LibraryRootView: View {
     @State private var activeKeyPointInput: KeyPointInput?
     @State private var pollingTask: Task<Void, Never>?
     @State private var fullReloadToken = UUID()
+    @State private var isBrowserPresented = false
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(AppConfig.sharePollingEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var sharePollingEnabled = true
+    @AppStorage(AppConfig.browserPrototypeEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
+    private var browserPrototypeEnabled = false
     @State private var isSyncErrorSheetPresented = false
 
     private let sharePayloadStore = SharePayloadStore()
@@ -145,10 +148,17 @@ struct LibraryRootView: View {
                     entry: entry
                 )
             }
+            .navigationDestination(isPresented: $isBrowserPresented) {
+                BrowserRootView()
+            }
             .onChange(of: viewModel.entries) { _, newEntries in
                 if let selectedTag, !newEntries.contains(where: { $0.metadata.tags.contains(selectedTag) }) {
                     self.selectedTag = nil
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .browserAgentRestoreUI)) { _ in
+                guard browserPrototypeEnabled else { return }
+                isBrowserPresented = true
             }
     }
 
@@ -233,6 +243,14 @@ struct LibraryRootView: View {
                 syncStatusButton
 
                 Divider()
+
+                if browserPrototypeEnabled {
+                    Button {
+                        isBrowserPresented = true
+                    } label: {
+                        Label("Browser", systemImage: "globe")
+                    }
+                }
 
                 NavigationLink {
                     SettingsView()

@@ -76,6 +76,7 @@ struct AppConfigDebugView: View {
             DefaultsEntry(name: "mlxInstalledModelsKey", key: AppConfig.mlxInstalledModelsKey),
             DefaultsEntry(name: "sharePollingEnabledKey", key: AppConfig.sharePollingEnabledKey),
             DefaultsEntry(name: "shareOpenAppAfterShareKey", key: AppConfig.shareOpenAppAfterShareKey),
+            DefaultsEntry(name: "browserPrototypeEnabledKey", key: AppConfig.browserPrototypeEnabledKey),
             DefaultsEntry(name: "tokenEstimatorEncodingKey", key: AppConfig.tokenEstimatorEncodingKey),
             DefaultsEntry(name: "longDocumentChunkTokenSizeKey", key: AppConfig.longDocumentChunkTokenSizeKey),
             DefaultsEntry(name: "longDocumentMaxChunkCountKey", key: AppConfig.longDocumentMaxChunkCountKey),

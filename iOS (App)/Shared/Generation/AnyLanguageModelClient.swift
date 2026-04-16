@@ -125,6 +125,17 @@ final class AnyLanguageModelClient {
                         }
                         continuation.finish()
                     } catch {
+                        ConsoleErrorReporter.log(
+                            error,
+                            context: "AnyLanguageModelClient.streamChat",
+                            metadata: [
+                                "backend": backend.rawValue,
+                                "systemPromptCount": String(systemPrompt.count),
+                                "userPromptCount": String(userPrompt.count),
+                                "mlxModelID": mlxModelID ?? "",
+                                "byokProvider": byok?.provider.rawValue ?? ""
+                            ]
+                        )
                         continuation.finish(throwing: error)
                     }
                 }

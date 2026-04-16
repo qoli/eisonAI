@@ -39,6 +39,10 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>$(INFOPLIST_KEY_UILaunchStoryboardName)</string>
 	<key>UISupportedInterfaceOrientations</key>

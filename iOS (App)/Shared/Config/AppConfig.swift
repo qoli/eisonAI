@@ -29,6 +29,7 @@ enum AppConfig {
     static let mlxInstalledModelsKey = "eison.mlx.installedModels"
     static let sharePollingEnabledKey = "eison.share.polling.enabled.v2"
     static let shareOpenAppAfterShareKey = "eison.share.openAppAfterShare"
+    static let browserPrototypeEnabledKey = "eison.browser.prototype.enabled"
     static let tokenEstimatorEncodingKey = "eison.tokenEstimator.encoding"
     static let longDocumentChunkTokenSizeKey = "eison.longDocument.chunkTokenSize"
     static let longDocumentMaxChunkCountKey = "eison.longDocument.maxChunkCount"
