@@ -33,7 +33,7 @@ final class MLXModelCatalogServiceTests: XCTestCase {
         XCTAssertEqual(models[0].pipelineTag, "text-generation")
         XCTAssertEqual(models[0].baseModel, "Rakuten/RakutenAI-3.0")
         XCTAssertEqual(models[0].rawSafeTensorTotal, 12345)
-        XCTAssertEqual(models[0].estimatedParameterCount, 1815, accuracy: 0.001)
+        XCTAssertEqual(models[0].estimatedParameterCount, 1600, accuracy: 0.001)
     }
 
     func testDecodeModelAcceptsStringBaseModelAndDateWithoutFractionalSeconds() throws {
@@ -63,6 +63,31 @@ final class MLXModelCatalogServiceTests: XCTestCase {
         XCTAssertEqual(model.baseModel, "org/Test-Base")
         XCTAssertNotNil(model.lastModified)
         XCTAssertEqual(model.estimatedParameterCount, 42, accuracy: 0.001)
+    }
+
+    func testNamedModelSizeWinsOverAuxiliaryTensorCounts() throws {
+        let json = """
+        {
+          "id": "mlx-community/gemma-4-26b-a4b-it-5bit",
+          "cardData": {
+            "base_model": "google/gemma-4-26b-a4b-it",
+            "pipeline_tag": "image-text-to-text"
+          },
+          "lastModified": "2026-04-12T17:55:26.000Z",
+          "safetensors": {
+            "parameters": {
+              "BF16": 1358865998,
+              "U32": 3994270720
+            },
+            "total": 5353136718
+          }
+        }
+        """
+
+        let service = MLXModelCatalogService()
+        let model = try service.decodeModel(from: Data(json.utf8))
+
+        XCTAssertEqual(model.estimatedParameterCount, 26_000_000_000, accuracy: 0.001)
     }
 
     func testRecommendationScalesBeyond18GiB() {

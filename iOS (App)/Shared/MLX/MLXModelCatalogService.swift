@@ -272,7 +272,11 @@ extension MLXModelCatalogService {
             let parsedDate = lastModified.flatMap { value in
                 formatter.date(from: value) ?? fallbackFormatter.date(from: value)
             }
-            let parameterCount = estimateParameterCount(from: safetensors?.parameters)
+            let parameterCount = estimateParameterCount(
+                id: id,
+                baseModel: cardData?.baseModel,
+                parameters: safetensors?.parameters
+            )
             return MLXCatalogModel(
                 id: id,
                 pipelineTag: pipelineTag ?? cardData?.pipelineTag ?? "unknown",
@@ -283,17 +287,56 @@ extension MLXModelCatalogService {
             )
         }
 
-        private func estimateParameterCount(from parameters: [String: Int64]?) -> Double? {
+        private func estimateParameterCount(
+            id: String,
+            baseModel: String?,
+            parameters: [String: Int64]?
+        ) -> Double? {
+            if let namedCount = parseNamedParameterCount(from: [baseModel, id]) {
+                return namedCount
+            }
+
             guard let parameters, !parameters.isEmpty else { return nil }
 
+            let u32 = Double(parameters["U32"] ?? 0)
+            let u8 = Double(parameters["U8"] ?? 0)
             let bf16 = Double(parameters["BF16"] ?? 0)
             let f16 = Double(parameters["F16"] ?? 0)
             let f32 = Double(parameters["F32"] ?? 0)
-            let u32 = Double(parameters["U32"] ?? 0)
-            let u8 = Double(parameters["U8"] ?? 0)
 
-            let total = bf16 + f16 + f32 + (u32 * 8) + (u8 * 2)
-            return total > 0 ? total : nil
+            if u32 > 0 {
+                return u32 * 8
+            }
+            if u8 > 0 {
+                return u8 * 2
+            }
+
+            let denseTotal = bf16 + f16 + f32
+            return denseTotal > 0 ? denseTotal : nil
+        }
+
+        private func parseNamedParameterCount(from candidates: [String?]) -> Double? {
+            let pattern = #"(?:^|[^0-9])(\d+(?:\.\d+)?)\s*[bB](?=$|[^a-zA-Z])"#
+            guard let regex = try? NSRegularExpression(pattern: pattern) else {
+                return nil
+            }
+
+            var largestBillionCount = 0.0
+            for candidate in candidates {
+                guard let candidate, !candidate.isEmpty else { continue }
+                let range = NSRange(candidate.startIndex..<candidate.endIndex, in: candidate)
+                for match in regex.matches(in: candidate, range: range) {
+                    guard match.numberOfRanges >= 2,
+                          let valueRange = Range(match.range(at: 1), in: candidate),
+                          let value = Double(candidate[valueRange])
+                    else {
+                        continue
+                    }
+                    largestBillionCount = max(largestBillionCount, value)
+                }
+            }
+
+            return largestBillionCount > 0 ? largestBillionCount * 1_000_000_000 : nil
         }
     }
 }
