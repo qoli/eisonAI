@@ -1,39 +1,24 @@
 import SwiftUI
 
 struct LabsSettingsView: View {
-    @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
-    private var localQwenEnabled = false
-
     var body: some View {
         Form {
             Section {
                 InstalledMemoryView()
                     .listRowInsets(EdgeInsets())
                     .padding(.vertical, 4)
+            } header: {
+                Text("Device")
+            } footer: {
+                Text("Local model configuration has moved into AI Models.")
             }
 
             Section {
-                Toggle("Enable Local Qwen3 0.6B", isOn: $localQwenEnabled)
-            } header: {
-                Text("Local Models")
-            } footer: {
-                Text("Required to show Qwen3 0.6B in model selectors.")
+                Text("MLC-LLM and WebLLM have been removed. Use AI Models to configure Apple Intelligence, BYOK, and downloaded MLX repos.")
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("Labs")
-        .onChange(of: localQwenEnabled) { _, newValue in
-            if !newValue {
-                downgradeBackendIfNeeded()
-            }
-        }
-    }
-
-    private func downgradeBackendIfNeeded() {
-        let store = GenerationBackendSettingsStore()
-        guard store.loadSelectedBackend() == .local else { return }
-        if AppleIntelligenceAvailability.currentStatus() != .available {
-            store.saveSelectedBackend(.byok)
-        }
     }
 }
 

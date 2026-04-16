@@ -8,26 +8,20 @@
 
 /* Begin PBXBuildFile section */
 		0B30AC938F36F5E292B932EE /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
-		0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */; };
 		0CF6E99791912B97F1975260 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
-		2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 294E0FEFBA424690A81535DA /* libtokenizers_c.xcframework */; };
 		2BDA4184F6F345EA88F54044 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		3217618FF4110B1C4BD86D3E /* LongDocumentFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04FE8C648BD191A244BDF99A /* LongDocumentFallbackTests.swift */; };
-		420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E163CC02CEA447148E85410D /* libsentencepiece.xcframework */; };
-		461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 69E3C302CAE70743D02A6776 /* MLCSwift */; };
 		46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
-		49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */; };
-		5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */; };
 		7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		7FD1EA87400136DB1B190D3E /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		9F3C30D0F51B3881139A7055 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D3110499DD03E86D955EEA0 /* XCTest.framework */; };
+		A1F642F126514D8F91A90311 /* EisonAIModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1F642F426514D8F91A90311 /* EisonAIModelKit */; };
+		A1F642F226514D8F91A90311 /* EisonAIModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1F642F426514D8F91A90311 /* EisonAIModelKit */; };
 		A992C7988F21F97D541F39A4 /* LongDocumentSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C58F38B79BFBAADD38B0A5 /* LongDocumentSettingsStoreTests.swift */; };
 		AFB91E0F7EEFCA42D6DD6FFA /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
 		B58D37997912BCFE0369DDE7 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
 		B7A96ECC5457200A45D8F26B /* GPTTokenEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A02892B81249D6EA6AE7F8B /* GPTTokenEstimatorTests.swift */; };
 		CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
-		E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */; };
-		EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */ = {isa = PBXBuildFile; productRef = EA31AC152EF3D31F0067EC57 /* MLCSwift */; };
 		EA77263C2BC5B6B3005A194D /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		EA7726522BC5B6B3005A194D /* eisonAI Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EA77266C2BC5B6B3005A194D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
@@ -133,7 +127,6 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				contentReadability.js,
-				"webllm-assets",
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
@@ -168,7 +161,7 @@
 		EAF756F32EF3D23700CA34C3 /* Config */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 9DDBBB27833B4BD296E4C98C /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Config; sourceTree = "<group>"; };
 		EAF756FE2EF3D23700CA34C3 /* Features */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Features; sourceTree = "<group>"; };
 		EAF757042EF3D23700CA34C3 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
-		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (_locales, images, webllm, "webllm-assets", ); path = Resources; sourceTree = "<group>"; };
+		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (_locales, images, webllm, ); path = Resources; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -177,6 +170,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0B30AC938F36F5E292B932EE /* AnyLanguageModel in Frameworks */,
+				A1F642F126514D8F91A90311 /* EisonAIModelKit in Frameworks */,
 				B58D37997912BCFE0369DDE7 /* OrderedCollections in Frameworks */,
 				F859CD0359BA4345930FE1C0 /* Drops in Frameworks */,
 				46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */,
@@ -199,17 +193,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */,
+				A1F642F226514D8F91A90311 /* EisonAIModelKit in Frameworks */,
 				AFB91E0F7EEFCA42D6DD6FFA /* OrderedCollections in Frameworks */,
 				EABCD6822F00650B0013F6F9 /* Drops in Frameworks */,
 				EA8B1B272EF55A2500D8845B /* MarkdownUI in Frameworks */,
-				461DF39F68714E604A5DFEBF /* MLCSwift in Frameworks */,
-				EA31AC162EF3D31F0067EC57 /* MLCSwift in Frameworks */,
-				0CCF59E8E99F4EE58CD042D5 /* libmlc_llm.xcframework in Frameworks */,
-				E443DF2C0C69448EAFF44EAD /* libtvm_runtime.xcframework in Frameworks */,
-				49D3A1FC589944CB99CEA24A /* libtvm_ffi_static.xcframework in Frameworks */,
-				5CF8F8D1C9084768A2AF102C /* libtokenizers_cpp.xcframework in Frameworks */,
-				2932343E46774EA9B21006F0 /* libtokenizers_c.xcframework in Frameworks */,
-				420E189BDA304483A37AD2B9 /* libsentencepiece.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -384,6 +371,13 @@
 				EAF757042EF3D23700CA34C3 /* Shared */,
 			);
 			name = "eisonAI (Sim)";
+			packageProductDependencies = (
+				371150D3FE8FFDA40696F57E /* AnyLanguageModel */,
+				A1F642F426514D8F91A90311 /* EisonAIModelKit */,
+				E1B8F3DD4832B58FA919FD61 /* OrderedCollections */,
+				EABCD6812F00650B0013F6F9 /* Drops */,
+				EA8B1B262EF55A2500D8845B /* MarkdownUI */,
+			);
 			productName = "eisonAI Sim";
 			productReference = 74B02F09B47C4524B75D5AFD /* eisonAI Sim.app */;
 			productType = "com.apple.product-type.application";
@@ -395,7 +389,6 @@
 				EA77262F2BC5B6B3005A194D /* Sources */,
 				EA7726302BC5B6B3005A194D /* Frameworks */,
 				EA7726312BC5B6B3005A194D /* Resources */,
-				4A22CB56A85E4D69868AE546 /* ShellScript */,
 				EA7726852BC5B6B3005A194D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -413,6 +406,13 @@
 				EAF757042EF3D23700CA34C3 /* Shared */,
 			);
 			name = iOS;
+			packageProductDependencies = (
+				371150D3FE8FFDA40696F57E /* AnyLanguageModel */,
+				A1F642F426514D8F91A90311 /* EisonAIModelKit */,
+				E1B8F3DD4832B58FA919FD61 /* OrderedCollections */,
+				EABCD6812F00650B0013F6F9 /* Drops */,
+				EA8B1B262EF55A2500D8845B /* MarkdownUI */,
+			);
 			productName = "eisonAI (iOS)";
 			productReference = EA7726332BC5B6B3005A194D /* eisonAI.app */;
 			productType = "com.apple.product-type.application";
@@ -493,8 +493,8 @@
 			);
 			mainGroup = EA7726162BC5B6B2005A194D;
 			packageReferences = (
-				EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */,
 				19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */,
+				A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */,
 				EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */,
 				EA9655212F18CBE700936E0D /* XCRemoteSwiftPackageReference "swift-collections" */,
@@ -557,22 +557,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		4A22CB56A85E4D69868AE546 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 12;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -e\nTARGET_RESOURCES_DIR=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}\"\nif [ -d \"${TARGET_RESOURCES_DIR}/webllm-assets\" ]; then\n  rm -rf \"${TARGET_RESOURCES_DIR}/webllm-assets\"\nfi\n";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0237DD9DDD158B5EC8D05487 /* Sources */ = {
@@ -1086,20 +1070,6 @@
 					"-weak_framework",
 					FoundationModels,
 				);
-				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64/libtvm_runtime.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64/libmodel_iphone.a",
-				);
-				"OTHER_LDFLAGS[sdk=macosx*]" = (
-					"$(inherited)",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64_x86_64-maccatalyst/libmlc_llm.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_runtime.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_ffi_static.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64_x86_64-maccatalyst/libmodel_iphone.a",
-				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
 				REGISTER_APP_GROUPS = YES;
@@ -1158,28 +1128,6 @@
 					WebKit,
 					"-weak_framework",
 					FoundationModels,
-				);
-				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
-					"$(inherited)",
-					"-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
-					"-Wl,-export_dynamic",
-					"-Wl,-exported_symbol,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
-					"-Wl,-exported_symbols_list,$(PROJECT_DIR)/Scripts/mlc_exported_symbols.txt",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64/libmlc_llm.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64/libtvm_runtime.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64/libtvm_ffi_static.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64/libmodel_iphone.a",
-				);
-				"OTHER_LDFLAGS[sdk=macosx*]" = (
-					"$(inherited)",
-					"-Wl,-u,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
-					"-Wl,-export_dynamic",
-					"-Wl,-exported_symbol,_qwen3_q4f16_1_37d26ba247cc02f647af18ad629c48d2___tvm_ffi__library_bin",
-					"-Wl,-exported_symbols_list,$(PROJECT_DIR)/Scripts/mlc_exported_symbols.txt",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmlc_llm.xcframework/ios-arm64_x86_64-maccatalyst/libmlc_llm.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_runtime.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_runtime.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libtvm_ffi_static.xcframework/ios-arm64_x86_64-maccatalyst/libtvm_ffi_static.a",
-					"-Wl,-force_load,$(PROJECT_DIR)/dist/xcframeworks/libmodel_iphone.xcframework/ios-arm64_x86_64-maccatalyst/libmodel_iphone.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI;
 				PRODUCT_NAME = eisonAI;
@@ -1329,17 +1277,13 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		0D648BB9D0960542D5CAB482 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "../mlc-llm/ios/MLCSwift";
-		};
 		19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../AnyLanguageModel;
 		};
-		EA31AC142EF3D31F0067EC57 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */ = {
+		A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../mlc-llm/ios/MLCSwift";
+			relativePath = Packages/EisonAIModelKit;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -1376,19 +1320,15 @@
 			package = 19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */;
 			productName = AnyLanguageModel;
 		};
-		69E3C302CAE70743D02A6776 /* MLCSwift */ = {
+		A1F642F426514D8F91A90311 /* EisonAIModelKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 0D648BB9D0960542D5CAB482 /* XCLocalSwiftPackageReference "../mlc-llm/ios/MLCSwift" */;
-			productName = MLCSwift;
+			package = A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */;
+			productName = EisonAIModelKit;
 		};
 		E1B8F3DD4832B58FA919FD61 /* OrderedCollections */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = EA9655212F18CBE700936E0D /* XCRemoteSwiftPackageReference "swift-collections" */;
 			productName = OrderedCollections;
-		};
-		EA31AC152EF3D31F0067EC57 /* MLCSwift */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MLCSwift;
 		};
 		EA8B1B262EF55A2500D8845B /* MarkdownUI */ = {
 			isa = XCSwiftPackageProductDependency;

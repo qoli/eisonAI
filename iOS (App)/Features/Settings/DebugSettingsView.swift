@@ -6,12 +6,6 @@ struct DebugSettingsView: View {
     var body: some View {
         Form {
             Section("Demos") {
-                NavigationLink("Qwen3 0.6B (MLC Swift)") {
-                    MLCQwenDemoView()
-                }
-                Text("A single-turn, streaming chat demo using the native MLC Swift SDK.")
-                    .foregroundStyle(.secondary)
-
                 NavigationLink("Clipboard 2000-Token Splitter") {
                     ClipboardTokenChunkingView()
                 }

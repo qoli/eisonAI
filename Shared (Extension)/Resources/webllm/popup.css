@@ -421,3 +421,22 @@ progress::-webkit-progress-value {
   text-transform: capitalize;
 
 }
+
+.popup-button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.popup-button.secondary {
+  color: var(--link);
+}
+
+.popup-button:hover {
+  opacity: 0.9;
+}

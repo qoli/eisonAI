@@ -6,14 +6,14 @@ struct AutoStrategySettingsStore {
 
     enum LocalModelPreference: String, CaseIterable {
         case appleIntelligence
-        case qwen3
+        case mlx
 
         var displayName: String {
             switch self {
             case .appleIntelligence:
                 return "Apple Intelligence"
-            case .qwen3:
-                return "Qwen3 0.6B"
+            case .mlx:
+                return "Selected MLX Model"
             }
         }
     }
@@ -26,6 +26,9 @@ struct AutoStrategySettingsStore {
         guard let raw = defaults?.string(forKey: AppConfig.autoLocalModelPreferenceKey),
               let preference = LocalModelPreference(rawValue: raw)
         else {
+            if defaults?.string(forKey: AppConfig.autoLocalModelPreferenceKey) == "qwen3" {
+                return .mlx
+            }
             return .appleIntelligence
         }
         return preference

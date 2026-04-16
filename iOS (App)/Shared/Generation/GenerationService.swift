@@ -4,10 +4,10 @@ import Foundation
 final class GenerationService {
     static let shared = GenerationService()
 
-    private let defaultMLC = MLCClient()
     private let defaultAnyLanguageModels = AnyLanguageModelClient()
     private let backendSettings = GenerationBackendSettingsStore()
     private let byokSettingsStore = BYOKSettingsStore()
+    private let mlxStore = MLXModelStore()
     private let tokenEstimator = GPTTokenEstimator.shared
 
     private let rawLibraryStore = RawLibraryStore()
@@ -20,12 +20,10 @@ final class GenerationService {
     func generateTitleIfNeeded(
         force: Bool,
         fileURL: URL,
-        mlc: MLCClient? = nil,
         anyLanguageModels: AnyLanguageModelClient? = nil,
         backendSettings: GenerationBackendSettingsStore? = nil,
         byokSettingsStore: BYOKSettingsStore? = nil
     ) async -> RawHistoryItem? {
-        let mlc = mlc ?? defaultMLC
         let anyLanguageModels = anyLanguageModels ?? defaultAnyLanguageModels
         let backendSettings = backendSettings ?? self.backendSettings
         let byokSettingsStore = byokSettingsStore ?? self.byokSettingsStore
@@ -46,9 +44,15 @@ final class GenerationService {
             let backend = backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
             log("title generation backend=\(backend.rawValue) tokenEstimate=\(tokenEstimate)")
             switch backend {
-            case .mlc:
-                try await mlc.loadIfNeeded()
-                stream = try await mlc.streamChat(systemPrompt: systemPrompt, userPrompt: userPrompt)
+            case .mlx:
+                stream = try await anyLanguageModels.streamChat(
+                    systemPrompt: systemPrompt,
+                    userPrompt: userPrompt,
+                    temperature: 0.2,
+                    maximumResponseTokens: 128,
+                    backend: backend,
+                    mlxModelID: mlxStore.loadSelectedModelID()
+                )
             case .appleIntelligence:
                 let prefix = clampText(userPrompt, maxChars: 800)
                 log("title generation appleIntelligence prefix=\(describePrompt(prefix))")
@@ -78,11 +82,6 @@ final class GenerationService {
                 output += chunk
             }
             if Task.isCancelled { return nil }
-
-            if backend == .mlc, isQwen3Model(mlc.loadedModelID) {
-                log("title generation stripping <think> tags for qwen3")
-                output = stripThinkTags(output)
-            }
 
             let title = sanitizeTitle(output)
             guard !title.isEmpty else { return nil }
@@ -120,11 +119,6 @@ final class GenerationService {
         guard text.count > maxChars else { return text }
         let idx = text.index(text.startIndex, offsetBy: maxChars)
         return String(text[..<idx])
-    }
-
-    private func isQwen3Model(_ modelID: String?) -> Bool {
-        guard let modelID else { return false }
-        return modelID.lowercased().contains("qwen3-0.6b")
     }
 
     private func stripThinkTags(_ text: String) -> String {

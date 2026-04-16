@@ -17,20 +17,37 @@ enum GenerationBackend: String, CaseIterable, Codable {
     }
 }
 
+enum ExtensionGenerationBackendSelection: String, CaseIterable, Codable {
+    case auto = "auto"
+    case appleIntelligence = "apple"
+    case byok = "byok"
+
+    var displayName: String {
+        switch self {
+        case .auto:
+            return "Auto"
+        case .appleIntelligence:
+            return "Apple Intelligence"
+        case .byok:
+            return "BYOK"
+        }
+    }
+}
+
 enum ExecutionBackendType: String {
     case local
     case byok
 }
 
 enum ExecutionBackend: String {
-    case mlc = "mlc"
+    case mlx = "mlx"
     case appleIntelligence = "apple"
     case byok = "byok"
 
     var displayName: String {
         switch self {
-        case .mlc:
-            return "Qwen3 0.6B"
+        case .mlx:
+            return "MLX"
         case .appleIntelligence:
             return "Apple Intelligence"
         case .byok:
@@ -40,11 +57,11 @@ enum ExecutionBackend: String {
 }
 
 struct LocalModelAvailability {
-    let isQwenAvailable: Bool
+    let isMLXAvailable: Bool
     let isAppleAvailable: Bool
 
     var hasAnyLocal: Bool {
-        isQwenAvailable || isAppleAvailable
+        isMLXAvailable || isAppleAvailable
     }
 }
 
@@ -52,13 +69,15 @@ struct GenerationBackendSettingsStore {
     private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
 
     func loadSelectedBackend() -> GenerationBackend {
-        guard let raw = defaults?.string(forKey: AppConfig.generationBackendKey) else {
+        guard let raw = defaults?.string(forKey: AppConfig.appGenerationBackendKey)
+            ?? defaults?.string(forKey: AppConfig.legacyGenerationBackendKey)
+        else {
             return .local
         }
         if let backend = GenerationBackend(rawValue: raw) {
             return backend
         }
-        if raw == ExecutionBackend.mlc.rawValue || raw == ExecutionBackend.appleIntelligence.rawValue {
+        if raw == ExecutionBackend.mlx.rawValue || raw == ExecutionBackend.appleIntelligence.rawValue {
             return .local
         }
         if raw == ExecutionBackend.byok.rawValue {
@@ -68,7 +87,7 @@ struct GenerationBackendSettingsStore {
     }
 
     func saveSelectedBackend(_ backend: GenerationBackend) {
-        defaults?.set(backend.rawValue, forKey: AppConfig.generationBackendKey)
+        defaults?.set(backend.rawValue, forKey: AppConfig.appGenerationBackendKey)
     }
 
     func resolveExecutionBackendType(tokenCount: Int?) -> ExecutionBackendType {
@@ -101,10 +120,10 @@ struct GenerationBackendSettingsStore {
     }
 
     func localModelAvailability() -> LocalModelAvailability {
-        let qwenEnabled = LabsSettingsStore().isLocalQwenEnabled()
+        let mlxConfigured = MLXModelStore().hasConfiguredModel()
         let appleAvailable = AppleIntelligenceAvailability.currentStatus() == .available
         return LocalModelAvailability(
-            isQwenAvailable: qwenEnabled,
+            isMLXAvailable: mlxConfigured,
             isAppleAvailable: appleAvailable
         )
     }
@@ -115,11 +134,37 @@ struct GenerationBackendSettingsStore {
         switch preference {
         case .appleIntelligence:
             if availability.isAppleAvailable { return .appleIntelligence }
-            if availability.isQwenAvailable { return .mlc }
-        case .qwen3:
-            if availability.isQwenAvailable { return .mlc }
+            if availability.isMLXAvailable { return .mlx }
+        case .mlx:
+            if availability.isMLXAvailable { return .mlx }
             if availability.isAppleAvailable { return .appleIntelligence }
         }
         return nil
+    }
+}
+
+struct ExtensionGenerationBackendSettingsStore {
+    private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+
+    func loadSelectedBackend() -> ExtensionGenerationBackendSelection {
+        guard let raw = defaults?.string(forKey: AppConfig.extensionGenerationBackendKey)
+            ?? defaults?.string(forKey: AppConfig.legacyGenerationBackendKey)
+        else {
+            return .auto
+        }
+        if let selection = ExtensionGenerationBackendSelection(rawValue: raw) {
+            return selection
+        }
+        if raw == GenerationBackend.local.rawValue || raw == ExecutionBackend.appleIntelligence.rawValue {
+            return .appleIntelligence
+        }
+        if raw == GenerationBackend.byok.rawValue || raw == ExecutionBackend.byok.rawValue {
+            return .byok
+        }
+        return .auto
+    }
+
+    func saveSelectedBackend(_ backend: ExtensionGenerationBackendSelection) {
+        defaults?.set(backend.rawValue, forKey: AppConfig.extensionGenerationBackendKey)
     }
 }

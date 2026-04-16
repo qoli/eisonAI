@@ -1,6 +1,8 @@
 import Foundation
 
-#if canImport(AnyLanguageModel)
+#if canImport(EisonAIModelKit)
+    import EisonAIModelKit
+#elseif canImport(AnyLanguageModel)
     import AnyLanguageModel
 #endif
 
@@ -16,7 +18,7 @@ enum AppleIntelligenceAvailability {
             return .notSupported
         }
 
-        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+        #if canImport(FoundationModels) && (canImport(EisonAIModelKit) || canImport(AnyLanguageModel))
             let model = SystemLanguageModel.default
             switch model.availability {
             case .available:

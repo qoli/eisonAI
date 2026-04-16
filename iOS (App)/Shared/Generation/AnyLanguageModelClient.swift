@@ -1,6 +1,8 @@
 import Foundation
 
-#if canImport(AnyLanguageModel)
+#if canImport(EisonAIModelKit)
+import EisonAIModelKit
+#elseif canImport(AnyLanguageModel)
 import AnyLanguageModel
 #endif
 
@@ -36,7 +38,7 @@ final class AnyLanguageModelClient {
         guard backend == .appleIntelligence else { return }
         guard AppleIntelligenceAvailability.currentStatus() == .available else { return }
 
-        #if canImport(AnyLanguageModel)
+        #if canImport(EisonAIModelKit) || canImport(AnyLanguageModel)
             guard #available(iOS 26.0, *) else { return }
             let trimmedPrefix = promptPrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
             if let prewarmedSession,
@@ -55,17 +57,42 @@ final class AnyLanguageModelClient {
         #endif
     }
 
+    func prepareLocalModel(modelID: String) async throws {
+        #if canImport(EisonAIModelKit)
+            let model = MLXLanguageModel(modelId: modelID)
+            let session = LanguageModelSession(model: model, instructions: "Reply with OK.")
+            _ = try await session.respond(
+                to: "OK",
+                options: GenerationOptions(
+                    sampling: nil,
+                    temperature: 0.1,
+                    maximumResponseTokens: 1
+                )
+            )
+        #else
+            throw ClientError.invalidConfiguration("MLX support is unavailable in this target.")
+        #endif
+    }
+
+    func unloadLocalModel(modelID: String) async {
+        #if canImport(EisonAIModelKit)
+            let model = MLXLanguageModel(modelId: modelID)
+            await model.removeFromCache()
+        #endif
+    }
+
     func streamChat(
         systemPrompt: String,
         userPrompt: String,
         temperature: Double? = 0.2,
         maximumResponseTokens: Int? = 2048,
         backend: ExecutionBackend,
-        byok: BYOKSettings? = nil
+        byok: BYOKSettings? = nil,
+        mlxModelID: String? = nil
     ) async throws -> AsyncThrowingStream<String, Error> {
-        let model = try buildModel(backend: backend, byok: byok)
+        let model = try buildModel(backend: backend, byok: byok, mlxModelID: mlxModelID)
 
-        #if canImport(AnyLanguageModel)
+        #if canImport(EisonAIModelKit) || canImport(AnyLanguageModel)
             let session =
                 takePrewarmedSession(systemPrompt: systemPrompt, userPrompt: userPrompt)
                 ?? LanguageModelSession(model: model, instructions: systemPrompt)
@@ -107,14 +134,24 @@ final class AnyLanguageModelClient {
         #endif
     }
 
-    #if canImport(AnyLanguageModel)
+    #if canImport(EisonAIModelKit) || canImport(AnyLanguageModel)
         private func buildModel(
             backend: ExecutionBackend,
-            byok: BYOKSettings?
+            byok: BYOKSettings?,
+            mlxModelID: String?
         ) throws -> any LanguageModel {
             switch backend {
-            case .mlc:
-                throw ClientError.invalidConfiguration("MLC is not supported by AnyLanguageModel.")
+            case .mlx:
+                #if canImport(EisonAIModelKit)
+                    let modelID = mlxModelID?.trimmingCharacters(in: .whitespacesAndNewlines)
+                        ?? MLXModelStore().loadSelectedModelID()
+                    guard let modelID, !modelID.isEmpty else {
+                        throw ClientError.invalidConfiguration("Select an MLX model first.")
+                    }
+                    return MLXLanguageModel(modelId: modelID)
+                #else
+                    throw ClientError.invalidConfiguration("MLX support is unavailable in this target.")
+                #endif
             case .appleIntelligence:
                 try ensureAppleAvailable()
                 if #available(iOS 26.0, *) {

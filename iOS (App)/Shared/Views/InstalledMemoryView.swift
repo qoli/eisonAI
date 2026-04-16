@@ -3,9 +3,7 @@ import SwiftUI
 
 struct InstalledMemoryView: View {
     let ramGiBOverride: Double?
-
-    @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
-    private var localQwenEnabled = false
+    private let modelStore = MLXModelStore()
 
     init(ramGiBOverride: Double? = nil) {
         self.ramGiBOverride = ramGiBOverride
@@ -42,6 +40,10 @@ struct InstalledMemoryView: View {
         AppleIntelligenceAvailability.currentStatus() == .available
     }
 
+    private var selectedMLXModelID: String? {
+        modelStore.loadSelectedModelID()
+    }
+
     private var ramLevelColors: [Color] {
         if ramGiB < 6 {
             return [.gray, .gray, .red]
@@ -59,16 +61,23 @@ struct InstalledMemoryView: View {
         if appleAvailable {
             return "Apple Intelligence is available for local runs."
         }
-        if !localQwenEnabled {
-            return "Local models are off. Enable Qwen3 0.6B in Settings → Labs."
+        if let selectedMLXModelID {
+            switch ramTier {
+            case .insufficient:
+                return "\(selectedMLXModelID) is configured, but this device is likely better suited to BYOK."
+            case .limited:
+                return "\(selectedMLXModelID) may run, but memory pressure can be high."
+            case .sufficient:
+                return "\(selectedMLXModelID) should be usable as a local MLX model."
+            }
         }
         switch ramTier {
         case .insufficient:
-            return "This device isn’t suited for local models. We recommend BYOK."
+            return "This device isn’t suited for larger local MLX models. We recommend BYOK."
         case .limited:
-            return "Local Qwen3 0.6B may run but can be unstable."
+            return "Smaller MLX models may run, but choose cautiously."
         case .sufficient:
-            return "This device can run Qwen3 0.6B locally."
+            return "This device can support local MLX models."
         }
     }
 

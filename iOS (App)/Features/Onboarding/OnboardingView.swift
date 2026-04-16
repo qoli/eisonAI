@@ -175,8 +175,6 @@ struct OnboardingView: View {
     @State private var hasLoadedStore = false
     @State private var didApplyRamPreset = false
     @State private var ramSelectedBackend: GenerationBackend = .auto
-    @AppStorage(AppConfig.localQwenEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
-    private var localQwenEnabled = false
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
 
@@ -209,9 +207,13 @@ struct OnboardingView: View {
         appleAvailable ? .local : .byok
     }
 
+    private var hasConfiguredMLXModel: Bool {
+        MLXModelStore().hasConfiguredModel()
+    }
+
     private var ramBackendOptions: [GenerationBackend] {
         var options: [GenerationBackend] = [.auto]
-        if appleAvailable || (localQwenEnabled && ramTier != .insufficient) {
+        if appleAvailable || (hasConfiguredMLXModel && ramTier != .insufficient) {
             options.append(.local)
         }
         options.append(.byok)

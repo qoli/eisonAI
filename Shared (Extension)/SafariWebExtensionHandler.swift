@@ -2,8 +2,8 @@
 //  SafariWebExtensionHandler.swift
 //  Shared (Extension)
 //
-//  Native messaging is used only for lightweight configuration (e.g. system prompt).
-//  LLM inference runs in the extension popup via WebLLM (bundled assets).
+//  Native messaging is used for lightweight configuration and native streaming.
+//  Safari summarization now runs through Apple Intelligence or BYOK only.
 //
 
 import CryptoKit
@@ -17,12 +17,11 @@ import SafariServices
 
 enum GenerationBackendSelection: String {
     case auto
-    case local
+    case appleIntelligence = "apple"
     case byok
 }
 
 enum ExecutionBackend: String {
-    case mlc
     case appleIntelligence = "apple"
     case byok
 }
@@ -299,11 +298,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         guard let stored = sharedDefaults()?.string(forKey: AppConfig.autoLocalModelPreferenceKey) else {
             return "appleIntelligence"
         }
-        return stored == "qwen3" ? "qwen3" : "appleIntelligence"
-    }
-
-    private func loadLocalQwenEnabled() -> Bool {
-        sharedDefaults()?.bool(forKey: AppConfig.localQwenEnabledKey) ?? false
+        return stored == "qwen3" ? "mlx" : stored
     }
 
     private func loadLongDocumentMaxChunks() -> Int {
@@ -452,24 +447,35 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     private func loadGenerationBackendSelection() -> GenerationBackendSelection {
-        guard let raw = sharedDefaults()?.string(forKey: AppConfig.generationBackendKey) else {
-            return .local
+        guard let raw = sharedDefaults()?.string(forKey: AppConfig.extensionGenerationBackendKey)
+            ?? sharedDefaults()?.string(forKey: AppConfig.legacyGenerationBackendKey)
+        else {
+            return .auto
         }
         if let selection = GenerationBackendSelection(rawValue: raw) {
             return selection
         }
-        if raw == ExecutionBackend.mlc.rawValue || raw == ExecutionBackend.appleIntelligence.rawValue {
-            return .local
+        if raw == "local" || raw == ExecutionBackend.appleIntelligence.rawValue {
+            return .appleIntelligence
         }
         if raw == ExecutionBackend.byok.rawValue {
             return .byok
         }
-        return .local
+        return .auto
     }
 
     private func isFoundationModelsExtensionEnabled() -> Bool {
-        let backend = loadGenerationBackendSelection()
-        return backend == .auto || backend == .byok || backend == .local
+        true
+    }
+
+    private func isAppleIntelligenceAvailableForExtension() -> Bool {
+        guard #available(iOS 26.0, macOS 26.0, *) else { return false }
+        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+            if case .available = SystemLanguageModel.default.availability {
+                return true
+            }
+        #endif
+        return false
     }
 
     private func loadBYOKSettings() -> BYOKSettingsPayload {
@@ -492,10 +498,10 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         switch selection {
         case .byok:
             return .byok
-        case .local:
+        case .appleIntelligence:
             return .appleIntelligence
         case .auto:
-            return .byok
+            return isAppleIntelligenceAvailableForExtension() ? .appleIntelligence : .byok
         }
     }
 
@@ -669,7 +675,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                     "payload": [
                         "strategyThreshold": loadAutoStrategyThreshold(),
                         "localPreference": loadAutoLocalPreference(),
-                        "qwenEnabled": loadLocalQwenEnabled(),
                         "appleAvailability": applePayload,
                     ],
                 ])
@@ -1097,12 +1102,6 @@ actor FoundationModelsStreamManager {
         byok: BYOKSettingsPayload
     ) async -> [String: Any] {
         switch backend {
-        case .mlc:
-            return [
-                "enabled": false,
-                "available": false,
-                "reason": "Using WebLLM backend.",
-            ]
         case .byok:
             if let error = validateBYOK(byok) {
                 return [
@@ -1173,9 +1172,6 @@ actor FoundationModelsStreamManager {
         byok: BYOKSettingsPayload,
         tokenEstimate: Int?
     ) async throws {
-        if backend == .mlc {
-            throw StreamError.notSupported
-        }
         if backend == .byok {
             return
         }
@@ -1225,9 +1221,6 @@ actor FoundationModelsStreamManager {
         byok: BYOKSettingsPayload,
         tokenEstimate: Int?
     ) async throws -> String {
-        if backend == .mlc {
-            throw StreamError.notSupported
-        }
         if backend == .byok, let error = validateBYOK(byok) {
             throw StreamError.unavailable(error)
         }
@@ -1358,8 +1351,6 @@ actor FoundationModelsStreamManager {
             byok: BYOKSettingsPayload
         ) throws -> any LanguageModel {
             switch backend {
-            case .mlc:
-                throw StreamError.notSupported
             case .appleIntelligence:
                 guard #available(iOS 26.0, macOS 26.0, *) else {
                     throw StreamError.notSupported

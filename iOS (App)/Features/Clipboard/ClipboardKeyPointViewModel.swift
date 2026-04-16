@@ -1,6 +1,11 @@
-import AnyLanguageModel
 import Foundation
 import UIKit
+
+#if canImport(EisonAIModelKit)
+import EisonAIModelKit
+#elseif canImport(AnyLanguageModel)
+import AnyLanguageModel
+#endif
 
 @MainActor
 final class ClipboardKeyPointViewModel: ObservableObject {
@@ -27,10 +32,10 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     /// 格式為：如果是長文 pipeline，就顯示為 1/3，如果不是長文 pipeline，就保持 ""；
     /// 如果正在處理 Chunk 2，就顯示文 2/3
 
-    private let mlc = MLCClient()
     private let anyLanguageModels = AnyLanguageModelClient()
     private let backendSettings = GenerationBackendSettingsStore()
     private let byokSettingsStore = BYOKSettingsStore()
+    private let mlxModelStore = MLXModelStore()
     private let extractor = ReadabilityWebExtractor()
     private let store = RawLibraryStore()
     private let tokenEstimator = GPTTokenEstimator.shared
@@ -52,9 +57,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         chunkStatus = ""
         shouldDismiss = false
         errorMessage = nil
-        Task { [mlc] in
-            await mlc.reset()
-        }
     }
 
     // KEYPOINT_CLIPBOARD_FLOW: main pipeline entry for clipboard/share inputs
@@ -222,7 +224,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 _ = await GenerationService.shared.generateTitleIfNeeded(
                     force: false,
                     fileURL: savedFileURL,
-                    mlc: self.mlc,
                     anyLanguageModels: self.anyLanguageModels,
                     backendSettings: self.backendSettings,
                     byokSettingsStore: self.byokSettingsStore
@@ -332,15 +333,19 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let modelId: String
         let summary: String
         switch backend {
-        case .mlc:
-            status = "Model…"
-            let stream = try await mlc.streamChat(
+        case .mlx:
+            status = "Loading Model…"
+            let stream = try await anyLanguageModels.streamChat(
                 systemPrompt: systemPrompt,
-                userPrompt: userPrompt
+                userPrompt: userPrompt,
+                temperature: 0.2,
+                maximumResponseTokens: 2048,
+                backend: backend,
+                mlxModelID: mlxModelStore.loadSelectedModelID()
             )
             status = "Generating"
             summary = try await collectStream(stream, updateOutput: true)
-            modelId = mlc.loadedModelID ?? ""
+            modelId = mlxModelStore.loadSelectedModelID() ?? "mlx"
         case .appleIntelligence:
             let prewarmPrefix = Self.clampText(userPrompt, maxChars: Self.prewarmPrefixMaxChars)
             anyLanguageModels.prewarm(
@@ -440,28 +445,15 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
             let anchorText: String
             switch backend {
-            case .mlc:
-                status = "Model…"
-                let stream = try await mlc.streamChat(
-                    systemPrompt: anchorSystemPrompt,
-                    userPrompt: anchorUserPrompt,
-                    forceReload: true
-                )
-                status = "Generating"
-                anchorText = try await collectStream(
-                    stream,
-                    updateOutput: true,
-                    label: "longdoc-anchor-\(chunk.index)",
-                    appendToOutput: true
-                )
-            case .appleIntelligence, .byok:
+            case .mlx, .appleIntelligence, .byok:
                 let stream = try await anyLanguageModels.streamChat(
                     systemPrompt: anchorSystemPrompt,
                     userPrompt: anchorUserPrompt,
                     temperature: 0.2,
                     maximumResponseTokens: Self.readingAnchorMaxResponseTokens,
                     backend: backend,
-                    byok: byok
+                    byok: byok,
+                    mlxModelID: backend == .mlx ? mlxModelStore.loadSelectedModelID() : nil
                 )
                 anchorText = try await collectStream(
                     stream,
@@ -496,16 +488,17 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         let summary: String
         let modelId: String
         switch backend {
-        case .mlc:
-            status = "Model…"
-            let stream = try await mlc.streamChat(
+        case .mlx:
+            let stream = try await anyLanguageModels.streamChat(
                 systemPrompt: summarySystemPrompt,
                 userPrompt: summaryUserPrompt,
-                forceReload: true
+                temperature: 0.2,
+                maximumResponseTokens: 2048,
+                backend: backend,
+                mlxModelID: mlxModelStore.loadSelectedModelID()
             )
-            status = "Generating"
             summary = try await collectStream(stream, updateOutput: true, label: "longdoc-summary")
-            modelId = mlc.loadedModelID ?? ""
+            modelId = mlxModelStore.loadSelectedModelID() ?? "mlx"
         case .appleIntelligence:
             let prewarmPrefix = Self.clampText(summaryUserPrompt, maxChars: Self.prewarmPrefixMaxChars)
             anyLanguageModels.prewarm(

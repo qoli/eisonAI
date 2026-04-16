@@ -1,13 +1,11 @@
 import Foundation
 
 struct LabsSettingsStore {
-    private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
-
     func isLocalQwenEnabled() -> Bool {
-        defaults?.bool(forKey: AppConfig.localQwenEnabledKey) ?? false
+        false
     }
 
-    func setLocalQwenEnabled(_ value: Bool) {
-        defaults?.set(value, forKey: AppConfig.localQwenEnabledKey)
+    func setLocalQwenEnabled(_: Bool) {
+        // Legacy no-op. Local MLC/Qwen support has been removed.
     }
 }
