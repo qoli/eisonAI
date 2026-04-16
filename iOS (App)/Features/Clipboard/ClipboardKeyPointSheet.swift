@@ -136,7 +136,6 @@ struct ClipboardKeyPointSheet: View {
             .ifIPhone({ view in
                 view.glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
             })
-//            .glassedEffect(in: RoundedRectangle(cornerRadius: 16), interactive: true)
             .opacity(showsTokenOverlay ? 1 : 0)
             .animation(.easeInOut(duration: 0.2), value: showsTokenOverlay)
         }
