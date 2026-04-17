@@ -35,6 +35,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     private let maxSteps = 30
     private let recentLogWindowSize = 6
     private let rollingSummaryCharacterLimit = 1_600
+    private let browserResponseRetryLimit = 2
 
     override init() {
         let contentController = WKUserContentController()
@@ -519,39 +520,13 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             )
         }
 
-        let stream = try await makeModelStream(
-            systemPrompt: systemPrompt,
-            userPrompt: userPrompt,
+        return try await requestBrowserAgentResponse(
+            goal: goal,
+            step: step,
             backend: backend,
-            maximumResponseTokens: 700,
-            temperature: 0.2
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt
         )
-        let output = try await collectOutput(from: stream)
-        ConsoleErrorReporter.logMessage(
-            output,
-            context: "BrowserAgentSession.requestNextStep.rawOutput",
-            metadata: [
-                "backend": backend.rawValue,
-                "goal": goal,
-                "outputLength": String(output.count),
-                "step": String(step),
-            ]
-        )
-
-        let response = try BrowserAgentResponseParser.parse(output)
-        let normalizedData = try JSONEncoder().encode(response)
-        let json = String(decoding: normalizedData, as: UTF8.self)
-        ConsoleErrorReporter.logMessage(
-            json,
-            context: "BrowserAgentSession.requestNextStep.extractedJSON",
-            metadata: [
-                "backend": backend.rawValue,
-                "goal": goal,
-                "jsonLength": String(json.count),
-                "step": String(step),
-            ]
-        )
-        return response
     }
 
     private func refreshRollingSummaryIfNeeded(goal: String) async {
@@ -707,6 +682,229 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             output += chunk
         }
         return output
+    }
+
+    private func requestBrowserAgentResponse(
+        goal: String,
+        step: Int,
+        backend: ExecutionBackend,
+        systemPrompt: String,
+        userPrompt: String
+    ) async throws -> BrowserAgentResponse {
+        var lastError: Error = BrowserAgentModelOutputError.emptyResponse
+
+        for attempt in 1 ... browserResponseRetryLimit {
+            let attemptPrompt = browserAgentRetryPrompt(base: userPrompt, attempt: attempt)
+            let output = try await requestModelOutput(
+                systemPrompt: systemPrompt,
+                userPrompt: attemptPrompt,
+                backend: backend,
+                maximumResponseTokens: 700,
+                temperature: 0.2
+            )
+
+            logBrowserAgentRawOutput(
+                output,
+                context: "BrowserAgentSession.requestNextStep.rawOutput",
+                goal: goal,
+                step: step,
+                backend: backend,
+                phase: attempt == 1 ? "primary" : "retry-\(attempt)"
+            )
+
+            let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedOutput.isEmpty else {
+                lastError = BrowserAgentModelOutputError.emptyResponse
+                ConsoleErrorReporter.logInfo(
+                    attempt < browserResponseRetryLimit
+                        ? "Browser agent model returned an empty response. Retrying with a stricter reminder."
+                        : "Browser agent model returned an empty response.",
+                    context: "BrowserAgentSession.requestNextStep.retry",
+                    metadata: [
+                        "attempt": String(attempt),
+                        "backend": backend.rawValue,
+                        "goal": goal,
+                        "step": String(step),
+                    ]
+                )
+                continue
+            }
+
+            do {
+                let response = try BrowserAgentResponseParser.parse(output)
+                logBrowserAgentNormalizedResponse(
+                    response,
+                    goal: goal,
+                    step: step,
+                    backend: backend,
+                    phase: attempt == 1 ? "primary" : "retry-\(attempt)"
+                )
+                return response
+            } catch let parseError as BrowserAgentResponseParserError {
+                lastError = parseError
+
+                do {
+                    if let repairedResponse = try await attemptBrowserAgentResponseRepair(
+                        rawOutput: output,
+                        parseError: parseError,
+                        goal: goal,
+                        step: step,
+                        backend: backend
+                    ) {
+                        return repairedResponse
+                    }
+                } catch {
+                    ConsoleErrorReporter.log(
+                        error,
+                        context: "BrowserAgentSession.requestNextStep.repairRequest",
+                        metadata: [
+                            "attempt": String(attempt),
+                            "backend": backend.rawValue,
+                            "goal": goal,
+                            "step": String(step),
+                        ]
+                    )
+                }
+
+                ConsoleErrorReporter.logInfo(
+                    attempt < browserResponseRetryLimit
+                        ? "Browser agent response was not parseable. Retrying the original step request."
+                        : "Browser agent response was not parseable.",
+                    context: "BrowserAgentSession.requestNextStep.retry",
+                    metadata: [
+                        "attempt": String(attempt),
+                        "backend": backend.rawValue,
+                        "goal": goal,
+                        "reason": parseError.localizedDescription,
+                        "step": String(step),
+                    ]
+                )
+            }
+        }
+
+        throw lastError
+    }
+
+    private func requestModelOutput(
+        systemPrompt: String,
+        userPrompt: String,
+        backend: ExecutionBackend,
+        maximumResponseTokens: Int,
+        temperature: Double
+    ) async throws -> String {
+        let stream = try await makeModelStream(
+            systemPrompt: systemPrompt,
+            userPrompt: userPrompt,
+            backend: backend,
+            maximumResponseTokens: maximumResponseTokens,
+            temperature: temperature
+        )
+        return try await collectOutput(from: stream)
+    }
+
+    private func attemptBrowserAgentResponseRepair(
+        rawOutput: String,
+        parseError: BrowserAgentResponseParserError,
+        goal: String,
+        step: Int,
+        backend: ExecutionBackend
+    ) async throws -> BrowserAgentResponse? {
+        let repairedOutput = try await requestModelOutput(
+            systemPrompt: browserAgentRepairSystemPrompt(languageTag: modelLanguageStore.loadOrRecommended()),
+            userPrompt: browserAgentRepairUserPrompt(rawOutput: rawOutput, parseError: parseError),
+            backend: backend,
+            maximumResponseTokens: 700,
+            temperature: 0
+        )
+
+        logBrowserAgentRawOutput(
+            repairedOutput,
+            context: "BrowserAgentSession.requestNextStep.repairOutput",
+            goal: goal,
+            step: step,
+            backend: backend,
+            phase: "repair"
+        )
+
+        let trimmedOutput = repairedOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedOutput.isEmpty else {
+            ConsoleErrorReporter.logInfo(
+                "Browser agent response repair returned empty output.",
+                context: "BrowserAgentSession.requestNextStep.repair",
+                metadata: [
+                    "backend": backend.rawValue,
+                    "goal": goal,
+                    "step": String(step),
+                ]
+            )
+            return nil
+        }
+
+        do {
+            let response = try BrowserAgentResponseParser.parse(repairedOutput)
+            logBrowserAgentNormalizedResponse(
+                response,
+                goal: goal,
+                step: step,
+                backend: backend,
+                phase: "repair"
+            )
+            return response
+        } catch {
+            ConsoleErrorReporter.log(
+                error,
+                context: "BrowserAgentSession.requestNextStep.repair",
+                metadata: [
+                    "backend": backend.rawValue,
+                    "goal": goal,
+                    "step": String(step),
+                ]
+            )
+            return nil
+        }
+    }
+
+    private func logBrowserAgentRawOutput(
+        _ output: String,
+        context: String,
+        goal: String,
+        step: Int,
+        backend: ExecutionBackend,
+        phase: String
+    ) {
+        ConsoleErrorReporter.logMessage(
+            output,
+            context: context,
+            metadata: [
+                "backend": backend.rawValue,
+                "goal": goal,
+                "outputLength": String(output.count),
+                "phase": phase,
+                "step": String(step),
+            ]
+        )
+    }
+
+    private func logBrowserAgentNormalizedResponse(
+        _ response: BrowserAgentResponse,
+        goal: String,
+        step: Int,
+        backend: ExecutionBackend,
+        phase: String
+    ) {
+        guard let normalizedData = try? JSONEncoder().encode(response) else { return }
+        let json = String(decoding: normalizedData, as: UTF8.self)
+        ConsoleErrorReporter.logMessage(
+            json,
+            context: "BrowserAgentSession.requestNextStep.extractedJSON",
+            metadata: [
+                "backend": backend.rawValue,
+                "goal": goal,
+                "jsonLength": String(json.count),
+                "phase": phase,
+                "step": String(step),
+            ]
+        )
     }
 
     private func waitForPageStability(after action: BrowserAgentAction) async throws {
@@ -877,6 +1075,19 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         """
     }
 
+    private func browserAgentRetryPrompt(base: String, attempt: Int) -> String {
+        guard attempt > 1 else { return base }
+
+        return """
+        \(base)
+
+        Important retry instruction:
+        - Your previous response was empty or could not be parsed.
+        - Return exactly one JSON object that matches the schema.
+        - Do not add prose, Markdown fences, comments, or explanations.
+        """
+    }
+
     private func browserAgentUserPrompt(goal: String, observation: BrowserPageObservation, step: Int) -> String {
         let recentLogText = logEntries.suffix(recentLogWindowSize).map { entry in
             "[step \(entry.step)] \(entry.title): \(entry.detail)"
@@ -916,6 +1127,55 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
 
         Page state:
         \(trimmedState)
+        """
+    }
+
+    private func browserAgentRepairSystemPrompt(languageTag: String) -> String {
+        """
+        You repair eisonAI browser-agent outputs into valid JSON.
+
+        Requirements:
+        - Return exactly one JSON object.
+        - Preserve the intended action and fields when possible.
+        - Use only this schema:
+          {
+            "evaluationPreviousGoal": string,
+            "memory": string,
+            "nextGoal": string,
+            "status": "continue" | "done" | "failed",
+            "summary": string,
+            "action": {
+              "type": "click" | "input" | "select" | "scroll" | "wait" | "navigate" | "pressEnter",
+              "index": number?,
+              "text": string?,
+              "option": string?,
+              "direction": "up" | "down"?,
+              "pages": number?,
+              "milliseconds": number?,
+              "url": string?
+            }
+          }
+        - If status is "done" or "failed", omit action.
+        - If status is "continue", include action.
+        - Do not use Markdown fences.
+        - Write string fields in language tag \(languageTag) when practical.
+        """
+    }
+
+    private func browserAgentRepairUserPrompt(
+        rawOutput: String,
+        parseError: BrowserAgentResponseParserError
+    ) -> String {
+        """
+        The previous browser-agent response was not valid enough to parse.
+
+        Parse failure:
+        \(parseError.localizedDescription)
+
+        Raw response:
+        \(rawOutput)
+
+        Return the repaired JSON object only.
         """
     }
 
@@ -1025,6 +1285,17 @@ private enum BrowserRunError: LocalizedError {
         switch self {
         case .missingAction:
             return "The browser agent did not return a next action."
+        }
+    }
+}
+
+private enum BrowserAgentModelOutputError: LocalizedError {
+    case emptyResponse
+
+    var errorDescription: String? {
+        switch self {
+        case .emptyResponse:
+            return "The browser agent model returned an empty response."
         }
     }
 }
