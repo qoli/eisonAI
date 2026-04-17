@@ -4,7 +4,8 @@ import WebKit
 
 @MainActor
 final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegate {
-    private static let defaultHomeURL = URL(string: "https://www.google.com")!
+    private static let defaultHomeURL = URL(string: "https://www.wikipedia.org")!
+    private static let defaultPageZoom: CGFloat = 1.0
 
     @Published var addressText = ""
     @Published var agentPrompt = ""
@@ -50,6 +51,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsLinkPreview = true
+        webView.pageZoom = Self.defaultPageZoom
         self.webView = webView
         super.init()
 
@@ -61,6 +63,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             context: "BrowserAgentSession.init",
             metadata: [
                 "defaultHomeURL": Self.defaultHomeURL.absoluteString,
+                "defaultPageZoom": String(format: "%.2f", Self.defaultPageZoom),
             ]
         )
         syncPiPState()
@@ -506,12 +509,46 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             temperature: 0.2
         )
         let output = try await collectOutput(from: stream)
+        ConsoleErrorReporter.logMessage(
+            output,
+            context: "BrowserAgentSession.requestNextStep.rawOutput",
+            metadata: [
+                "backend": backend.rawValue,
+                "goal": goal,
+                "outputLength": String(output.count),
+                "step": String(step),
+            ]
+        )
 
         let json = try extractJSONObject(from: output)
+        ConsoleErrorReporter.logMessage(
+            json,
+            context: "BrowserAgentSession.requestNextStep.extractedJSON",
+            metadata: [
+                "backend": backend.rawValue,
+                "goal": goal,
+                "jsonLength": String(json.count),
+                "step": String(step),
+            ]
+        )
         guard let data = json.data(using: .utf8) else {
             throw BrowserRunError.invalidModelOutput
         }
-        return try JSONDecoder().decode(BrowserAgentResponse.self, from: data)
+        do {
+            return try JSONDecoder().decode(BrowserAgentResponse.self, from: data)
+        } catch {
+            ConsoleErrorReporter.log(
+                error,
+                context: "BrowserAgentSession.requestNextStep.decode",
+                metadata: [
+                    "backend": backend.rawValue,
+                    "goal": goal,
+                    "json": json,
+                    "step": String(step),
+                ]
+            )
+            throw error
+        }
     }
 
     private func refreshRollingSummaryIfNeeded(goal: String) async {
@@ -608,7 +645,19 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             maximumResponseTokens: 220,
             temperature: 0.1
         )
-        return try await collectOutput(from: stream)
+        let output = try await collectOutput(from: stream)
+        ConsoleErrorReporter.logMessage(
+            output,
+            context: "BrowserAgentSession.requestRollingSummaryUpdate.rawOutput",
+            metadata: [
+                "backend": backend.rawValue,
+                "existingSummaryLength": String(existingSummary.count),
+                "goal": goal,
+                "newEntries": String(newEntries.count),
+                "outputLength": String(output.count),
+            ]
+        )
+        return output
     }
 
     private func makeModelStream(

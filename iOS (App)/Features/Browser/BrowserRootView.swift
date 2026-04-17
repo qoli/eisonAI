@@ -3,19 +3,42 @@ import WebKit
 
 struct BrowserRootView: View {
     @StateObject private var session = BrowserAgentSession()
+    @State private var isStepLogVisible = false
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            BrowserWebViewContainer(webView: session.webView)
-            Divider()
-            stepLog
+            browserViewport
         }
         .navigationTitle("Browser")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             composer
+        }
+    }
+
+    private var browserViewport: some View {
+        ZStack(alignment: .bottomTrailing) {
+            BrowserWebViewContainer(webView: session.webView)
+
+            VStack(alignment: .trailing, spacing: 12) {
+                if isStepLogVisible {
+                    stepLogOverlay
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                        isStepLogVisible.toggle()
+                    }
+                } label: {
+                    Label(isStepLogVisible ? "Hide Log" : "Show Log", systemImage: isStepLogVisible ? "sidebar.trailing" : "sidebar.right")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            .padding(16)
         }
     }
 
@@ -125,7 +148,7 @@ struct BrowserRootView: View {
         .background(.ultraThinMaterial)
     }
 
-    private var stepLog: some View {
+    private var stepLogOverlay: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 10) {
                 if !session.taskState.goal.isEmpty {
@@ -137,8 +160,18 @@ struct BrowserRootView: View {
             }
             .padding()
         }
-        .frame(height: 220)
-        .background(Color(.secondarySystemBackground))
+        .frame(maxWidth: 360, maxHeight: 320)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(alignment: .topLeading) {
+            Text("Run Log")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+        }
+        .padding(.top, 14)
+        .shadow(color: .black.opacity(0.12), radius: 18, y: 8)
     }
 }
 
