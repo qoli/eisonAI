@@ -14,7 +14,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     @Published private(set) var isLoading = false
     @Published private(set) var runState: BrowserAgentRunState = .idle
     @Published private(set) var logEntries: [BrowserAgentLogEntry] = []
-    @Published private(set) var taskState = BrowserAgentTaskState.idle(maxSteps: 30)
+    @Published private(set) var taskState = BrowserAgentTaskState.idle(maxSteps: 90)
     @Published private(set) var latestSnapshot: UIImage?
     @Published var lastError: String?
 
@@ -32,7 +32,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     private var runTask: Task<Void, Never>?
     private var rollingHistorySummary = ""
     private var summarizedLogEntryCount = 0
-    private let maxSteps = 30
+    private let maxSteps = 90
     private let recentLogWindowSize = 6
     private let rollingSummaryCharacterLimit = 1_600
     private let browserResponseRetryLimit = 2
