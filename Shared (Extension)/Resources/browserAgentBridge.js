@@ -11,10 +11,21 @@
 
   const controller = new PageController({
     enableMask: false,
-    viewportExpansion: 0,
+    viewportExpansion: 400,
     keepSemanticTags: true,
     includeAttributes: ["data-*", "placeholder", "name", "type", "value"],
   });
+
+  async function runAction(operation) {
+    try {
+      return await operation();
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
 
   async function wait(milliseconds) {
     await new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -58,21 +69,29 @@
         case "observe":
           return controller.getBrowserState();
         case "click":
-          return controller.clickElement(Number(payload.index));
+          return runAction(() => controller.clickElement(Number(payload.index)));
         case "input":
-          return controller.inputText(Number(payload.index), String(payload.text ?? ""));
+          return runAction(() =>
+            controller.inputText(Number(payload.index), String(payload.text ?? ""))
+          );
         case "select":
-          return controller.selectOption(Number(payload.index), String(payload.option ?? ""));
+          return runAction(() =>
+            controller.selectOption(Number(payload.index), String(payload.option ?? ""))
+          );
         case "scroll":
-          return controller.scroll({
-            down: String(payload.direction ?? "down").toLowerCase() !== "up",
-            numPages: Math.max(1, Number(payload.pages ?? 1)),
-            index: Number.isFinite(payload.index) ? Number(payload.index) : undefined,
-          });
+          return runAction(() =>
+            controller.scroll({
+              down: String(payload.direction ?? "down").toLowerCase() !== "up",
+              numPages: Math.max(1, Number(payload.pages ?? 1)),
+              index: Number.isFinite(payload.index) ? Number(payload.index) : undefined,
+            })
+          );
         case "wait":
           return wait(Math.max(250, Number(payload.milliseconds ?? 800)));
         case "pressEnter":
-          return pressEnter(Number.isFinite(payload.index) ? Number(payload.index) : undefined);
+          return runAction(() =>
+            pressEnter(Number.isFinite(payload.index) ? Number(payload.index) : undefined)
+          );
         default:
           throw new Error(`Unsupported browser-agent command: ${command}`);
       }

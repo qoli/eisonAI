@@ -240,10 +240,24 @@ private struct BrowserTaskStateCard: View {
             Text(taskState.goal)
                 .font(.footnote.weight(.medium))
 
-            if !taskState.pendingObjective.isEmpty {
-                Text("Next: \(taskState.pendingObjective)")
+            if !taskState.nextGoal.isEmpty {
+                Text("Next: \(taskState.nextGoal)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if !taskState.latestEvaluation.isEmpty {
+                Text("Eval: \(taskState.latestEvaluation)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            if !taskState.latestMemory.isEmpty {
+                Text("Memory: \(taskState.latestMemory)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
 
             if let page = taskState.currentPage,
@@ -261,6 +275,13 @@ private struct BrowserTaskStateCard: View {
                     .lineLimit(1)
             }
 
+            if !taskState.lastStepSummary.isEmpty {
+                Text("Summary: \(taskState.lastStepSummary)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
             if let milestone = taskState.completedMilestones.last {
                 Text("Completed: \(milestone)")
                     .font(.caption)
@@ -268,7 +289,12 @@ private struct BrowserTaskStateCard: View {
                     .lineLimit(2)
             }
 
-            if let failure = taskState.knownFailures.last {
+            if !taskState.lastValidationError.isEmpty {
+                Text("Latest issue: \(taskState.lastValidationError)")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .lineLimit(2)
+            } else if let failure = taskState.knownFailures.last {
                 Text("Latest issue: \(failure)")
                     .font(.caption)
                     .foregroundStyle(.red)

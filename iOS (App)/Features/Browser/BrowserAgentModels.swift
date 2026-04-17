@@ -98,9 +98,11 @@ struct BrowserAgentTaskState: Codable, Equatable {
     var currentStep: Int
     var maxSteps: Int
     var currentPage: PageContext?
-    var pendingObjective: String
-    var latestThought: String
-    var latestModelSummary: String
+    var latestEvaluation: String
+    var latestMemory: String
+    var nextGoal: String
+    var lastStepSummary: String
+    var lastValidationError: String
     var rollingSummary: String
     var completedMilestones: [String]
     var importantFacts: [String]
@@ -114,9 +116,11 @@ struct BrowserAgentTaskState: Codable, Equatable {
             currentStep: 0,
             maxSteps: maxSteps,
             currentPage: nil,
-            pendingObjective: "",
-            latestThought: "",
-            latestModelSummary: "",
+            latestEvaluation: "",
+            latestMemory: "",
+            nextGoal: "",
+            lastStepSummary: "",
+            lastValidationError: "",
             rollingSummary: "",
             completedMilestones: [],
             importantFacts: [],
@@ -137,6 +141,12 @@ struct BrowserPageObservation: Codable {
 struct BrowserBridgeActionResult: Codable {
     let success: Bool
     let message: String
+}
+
+enum BrowserAgentResponseStatus: String, Codable {
+    case `continue`
+    case done
+    case failed
 }
 
 enum BrowserAgentActionType: String, Codable {
@@ -180,8 +190,10 @@ struct BrowserAgentAction: Codable {
 }
 
 struct BrowserAgentResponse: Codable {
-    let thought: String?
-    let status: String
+    let evaluationPreviousGoal: String
+    let memory: String
+    let nextGoal: String
+    let status: BrowserAgentResponseStatus
     let summary: String?
     let action: BrowserAgentAction?
 }
