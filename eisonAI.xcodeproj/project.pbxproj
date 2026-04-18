@@ -1320,15 +1320,15 @@
 			package = 19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */;
 			productName = AnyLanguageModel;
 		};
-		A8E53E4412F8745B400FA777 /* Textual */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A8E53E4312F8745B400FA777 /* XCRemoteSwiftPackageReference "textual" */;
-			productName = Textual;
-		};
 		A1F642F426514D8F91A90311 /* EisonAIModelKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */;
 			productName = EisonAIModelKit;
+		};
+		A8E53E4412F8745B400FA777 /* Textual */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A8E53E4312F8745B400FA777 /* XCRemoteSwiftPackageReference "textual" */;
+			productName = Textual;
 		};
 		E1B8F3DD4832B58FA919FD61 /* OrderedCollections */ = {
 			isa = XCSwiftPackageProductDependency;

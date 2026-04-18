@@ -15,9 +15,12 @@ struct LibraryItemDetailView: View {
 
     @State private var item: RawHistoryItem?
     @State private var isGeneratingTitle: Bool = false
+    @State private var isPreparingPDFExport: Bool = false
     @State private var isTagEditorPresented: Bool = false
     @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
     @State private var regenerateRequest: RegenerateRequest?
+    @State private var exportedPDFURL: URL?
+    @State private var pdfExportTask: Task<Void, Never>?
 
     private let rawLibraryStore = RawLibraryStore()
 
@@ -64,6 +67,25 @@ struct LibraryItemDetailView: View {
         let summaryText = (item?.summaryText ?? entry.metadata.summaryText)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return summaryText
+    }
+
+    private var pdfExportFileName: String {
+        let trimmedTitle = displayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeTitle = trimmedTitle.isEmpty ? "eisonai-note" : trimmedTitle
+        return "\(safeTitle)-\(entry.metadata.id.prefix(8))"
+    }
+
+    private var pdfExportContent: LibraryItemPDFExportContent {
+        let sourceURLText = entry.metadata.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .init(
+            title: displayTitle,
+            createdAtText: Self.dateFormatter.string(from: entry.metadata.createdAt),
+            sourceURLText: sourceURLText.isEmpty ? nil : sourceURLText,
+            tags: item?.tags ?? entry.metadata.tags,
+            summaryText: (item?.summaryText ?? entry.metadata.summaryText)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            articleText: item?.articleText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        )
     }
 
     var body: some View {
@@ -127,6 +149,27 @@ struct LibraryItemDetailView: View {
                         copyNoteLink()
                     } label: {
                         Label("Copy Note Link", systemImage: "doc.on.doc")
+                    }
+
+                    Divider()
+
+                    if let exportedPDFURL {
+                        ShareLink(
+                            item: exportedPDFURL,
+                            preview: SharePreview(pdfExportFileName)
+                        ) {
+                            Label("Export PDF", systemImage: "doc.richtext")
+                        }
+                    } else {
+                        Button {
+                            preparePDFExport()
+                        } label: {
+                            Label(
+                                isPreparingPDFExport ? "Preparing PDF…" : "Export PDF",
+                                systemImage: "doc.richtext"
+                            )
+                        }
+                        .disabled(isPreparingPDFExport)
                     }
 
                     Divider()
@@ -245,6 +288,7 @@ struct LibraryItemDetailView: View {
             item = viewModel.loadDetail(for: entry)
             log("tag editor reload done item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
+            preparePDFExport()
         }) {
             TagEditorView(fileURL: entry.fileURL, title: "Tags")
         }
@@ -253,6 +297,7 @@ struct LibraryItemDetailView: View {
             item = viewModel.loadDetail(for: entry)
             log("regenerate summary reload done item=\(item != nil ? "ok" : "nil")")
             viewModel.reload()
+            preparePDFExport()
         }) { request in
             ClipboardKeyPointSheet(
                 input: request.input,
@@ -267,6 +312,10 @@ struct LibraryItemDetailView: View {
             log("detail load result item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
             requestGenerateTitle(force: false)
+            preparePDFExport()
+        }
+        .onDisappear {
+            pdfExportTask?.cancel()
         }
     }
 
@@ -333,6 +382,7 @@ struct LibraryItemDetailView: View {
             let result = try rawLibraryStore.updateTags(fileURL: entry.fileURL, tags: updatedTags)
             item = result.item
             recentTagEntries = result.cache
+            preparePDFExport()
         } catch {
             log("apply recent tag failed: \(error.localizedDescription)")
         }
@@ -485,6 +535,59 @@ struct LibraryItemDetailView: View {
             await MainActor.run {
                 self.item = updated
                 viewModel.reload()
+                preparePDFExport()
+            }
+        }
+    }
+
+    private func preparePDFExport() {
+        let content = pdfExportContent
+        guard !content.summaryText.isEmpty || !content.articleText.isEmpty else {
+            log("pdf export skipped empty-content")
+            exportedPDFURL = nil
+            isPreparingPDFExport = false
+            return
+        }
+
+        pdfExportTask?.cancel()
+        isPreparingPDFExport = true
+
+        let fileName = pdfExportFileName
+        log(
+            """
+            pdf export prepare file=\(fileName).pdf \
+            titleCount=\(content.title.count) \
+            summaryCount=\(content.summaryText.count) \
+            articleCount=\(content.articleText.count)
+            """
+        )
+        pdfExportTask = Task {
+            do {
+                let url = try await LibraryItemPDFExporter.export(
+                    content: content,
+                    preferredFileName: fileName
+                )
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    exportedPDFURL = url
+                    isPreparingPDFExport = false
+                    log("pdf export ready path=\(url.path)")
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    isPreparingPDFExport = false
+                    log("pdf export canceled")
+                }
+            } catch {
+                await MainActor.run {
+                    exportedPDFURL = nil
+                    isPreparingPDFExport = false
+                    log("pdf export failed error=\(error.localizedDescription)")
+                    showDrop(
+                        title: "PDF Export Failed",
+                        subtitle: error.localizedDescription
+                    )
+                }
             }
         }
     }
@@ -604,9 +707,16 @@ private func copyToPasteboard(_ value: String) {
         .components(separatedBy: .newlines)
         .joined()
 
-    let drop = Drop(
+    showDrop(
         title: "Copy To Pasteboard",
-        subtitle: "\(String(oneLine.prefix(18)))...",
+        subtitle: "\(String(oneLine.prefix(18)))..."
+    )
+}
+
+private func showDrop(title: String, subtitle: String? = nil) {
+    let drop = Drop(
+        title: title,
+        subtitle: subtitle ?? ""
     )
     Drops.show(drop)
 }
