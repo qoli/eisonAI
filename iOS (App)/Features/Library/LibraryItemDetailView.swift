@@ -105,41 +105,12 @@ struct LibraryItemDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if isGeneratingTitle {
-                    ProgressView()
-                }
-            }
-
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            }
-
-            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     viewModel.toggleFavorite(entry)
                 } label: {
                     Label(isFavorite ? "Unfavorite" : "Favorite", systemImage: isFavorite ? "star.fill" : "star")
                 }
                 .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-            }
-
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            }
-
-            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(
-                        item: url,
-                        subject: Text(displayTitle)
-                    ) {
-                        Label("Share website", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
-
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
             }
 
             // Detail-Menu
@@ -149,27 +120,6 @@ struct LibraryItemDetailView: View {
                         copyNoteLink()
                     } label: {
                         Label("Copy Note Link", systemImage: "doc.on.doc")
-                    }
-
-                    Divider()
-
-                    if let exportedPDFURL {
-                        ShareLink(
-                            item: exportedPDFURL,
-                            preview: SharePreview(pdfExportFileName)
-                        ) {
-                            Label("Export PDF", systemImage: "doc.richtext")
-                        }
-                    } else {
-                        Button {
-                            preparePDFExport()
-                        } label: {
-                            Label(
-                                isPreparingPDFExport ? "Preparing PDF…" : "Export PDF",
-                                systemImage: "doc.richtext"
-                            )
-                        }
-                        .disabled(isPreparingPDFExport)
                     }
 
                     Divider()
@@ -255,32 +205,51 @@ struct LibraryItemDetailView: View {
                 Spacer()
             }
 
-            if let summaryText = copyableSummaryText {
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
+            ToolbarItem(placement: .bottomBar) {
+                Menu {
+                    if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                        Link(destination: url) {
+                            Label("Open Link", systemImage: "link")
+                        }
+                        .accessibilityLabel("Open Page URL")
 
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        copyToPasteboard(summaryText)
-                    } label: {
-                        Label("Copy Full Text", systemImage: "document.on.document")
+                        Divider()
                     }
-                    .accessibilityLabel("Copy Full Text")
-                }
-            }
 
-            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
-
-                ToolbarItem(placement: .bottomBar) {
-                    Link(destination: url) {
-                        Label("Open Link", systemImage: "link")
+                    if let exportedPDFURL {
+                        ShareLink(
+                            item: exportedPDFURL,
+                            preview: SharePreview(pdfExportFileName)
+                        ) {
+                            Label("Export PDF", systemImage: "doc.richtext")
+                        }
+                    } else {
+                        Button {
+                            preparePDFExport()
+                        } label: {
+                            Label(
+                                isPreparingPDFExport ? "Preparing PDF…" : "Export PDF",
+                                systemImage: "doc.richtext"
+                            )
+                        }
+                        .disabled(isPreparingPDFExport)
                     }
-                    .accessibilityLabel("Open Page URL")
+
+                    if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                        Divider()
+
+                        ShareLink(
+                            item: url,
+                            subject: Text(displayTitle)
+                        ) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                } label: {
+                    Label("Actions", systemImage: "square.and.arrow.up")
                 }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Content Actions")
             }
         }
         .sheet(isPresented: $isTagEditorPresented, onDismiss: {
@@ -316,20 +285,6 @@ struct LibraryItemDetailView: View {
         }
         .onDisappear {
             pdfExportTask?.cancel()
-        }
-    }
-
-    var copyableSummaryText: String? {
-        if let summaryText = item?.summaryText {
-            var copyText = summaryText
-
-            if let url = URL(string: entry.metadata.url) {
-                copyText.append("\n\n\(url.absoluteString)")
-            }
-
-            return copyText
-        } else {
-            return nil
         }
     }
 
