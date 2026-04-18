@@ -7,6 +7,9 @@ set -euo pipefail
 project_path="$(cd "$(dirname "$0")" && pwd)"
 project_xcode="$project_path/eisonAI.xcodeproj"
 copilot_wrapper="/Volumes/Data/Github/macOSAgentBot/callCopilot.sh"
+copilot_home_seed="$HOME/.copilot"
+copilot_run_root="$project_path/logs/new_version_copilot"
+copilot_task_complete_grace_period=30
 
 usage() {
     echo "使用方式: ./new_version.sh <version> <platform> <method>"
@@ -62,16 +65,115 @@ validate_changelog_outputs() {
     return 0
 }
 
+seed_copilot_home() {
+    local destination="$1"
+
+    mkdir -p "$destination/session-state"
+
+    if [ -f "$copilot_home_seed/config.json" ]; then
+        cp "$copilot_home_seed/config.json" "$destination/config.json"
+    fi
+
+    if [ -f "$copilot_home_seed/mcp-config.json" ]; then
+        cp "$copilot_home_seed/mcp-config.json" "$destination/mcp-config.json"
+    fi
+
+    if [ -d "$copilot_home_seed/mcp-oauth-config" ]; then
+        cp -R "$copilot_home_seed/mcp-oauth-config" "$destination/mcp-oauth-config"
+    fi
+}
+
+monitor_copilot_task_complete() {
+    local session_name="$1"
+    local copilot_home="$2"
+    local events_file=""
+
+    while tmux has-session -t "$session_name" 2>/dev/null; do
+        events_file="$(find "$copilot_home/session-state" -mindepth 2 -maxdepth 2 -name events.jsonl -print -quit 2>/dev/null || true)"
+        if [ -n "$events_file" ]; then
+            break
+        fi
+        sleep 1
+    done
+
+    if [ -z "$events_file" ]; then
+        return 0
+    fi
+
+    echo "監控 Copilot session 事件：$events_file"
+
+    while tmux has-session -t "$session_name" 2>/dev/null; do
+        if rg -q '"type":"session\.task_complete".*"success":true' "$events_file"; then
+            echo "偵測到 session.task_complete，${copilot_task_complete_grace_period} 秒後自動關閉 tmux session：$session_name"
+            sleep "$copilot_task_complete_grace_period"
+
+            if tmux has-session -t "$session_name" 2>/dev/null; then
+                tmux kill-session -t "$session_name"
+            fi
+            return 0
+        fi
+        sleep 1
+    done
+
+    return 0
+}
+
 run_copilot_prompt() {
     local prompt_text="$1"
+    local run_dir
+    local copilot_home
+    local prompt_file
+    local runner_script
+    local session_name
+    local monitor_pid=""
+    local attach_status=0
 
-    "$copilot_wrapper" \
-        --autopilot \
-        --allow-all \
-        --no-ask-user \
-        --no-remote \
-        --max-autopilot-continues 12 \
-        -p "$prompt_text"
+    mkdir -p "$copilot_run_root"
+    run_dir="$(mktemp -d "$copilot_run_root/run.XXXXXX")"
+    copilot_home="$run_dir/copilot-home"
+    prompt_file="$run_dir/prompt.txt"
+    runner_script="$run_dir/run-copilot.sh"
+    session_name="new-version-$$-$(date +%s)-$RANDOM"
+
+    seed_copilot_home "$copilot_home"
+    printf '%s' "$prompt_text" > "$prompt_file"
+
+    {
+        echo '#!/bin/bash'
+        echo 'set -euo pipefail'
+        printf 'cd %q\n' "$project_path"
+        printf 'PROMPT_FILE=%q\n' "$prompt_file"
+        printf 'COPILOT_HOME=%q exec %q \\\n' "$copilot_home" "$copilot_wrapper"
+        echo '    --autopilot \'
+        echo '    --allow-all \'
+        echo '    --no-ask-user \'
+        echo '    --no-remote \'
+        echo '    --max-autopilot-continues 12 \'
+        echo '    -i "$(cat "$PROMPT_FILE")"'
+    } > "$runner_script"
+    chmod +x "$runner_script"
+
+    echo "Copilot 執行目錄：$run_dir"
+    echo "tmux session：$session_name"
+
+    tmux new-session -d -s "$session_name" "$runner_script"
+    monitor_copilot_task_complete "$session_name" "$copilot_home" &
+    monitor_pid=$!
+
+    if [ -n "${TMUX:-}" ]; then
+        TMUX= tmux attach-session -t "$session_name" || attach_status=$?
+    else
+        tmux attach-session -t "$session_name" || attach_status=$?
+    fi
+
+    if [ -n "$monitor_pid" ] && kill -0 "$monitor_pid" 2>/dev/null; then
+        kill "$monitor_pid" 2>/dev/null || true
+        wait "$monitor_pid" 2>/dev/null || true
+    fi
+
+    if [ "$attach_status" -ne 0 ] && tmux has-session -t "$session_name" 2>/dev/null; then
+        return "$attach_status"
+    fi
 }
 
 generate_changelog_with_retry() {
@@ -125,6 +227,11 @@ new_version="$1"
 
 if [ ! -x "$copilot_wrapper" ]; then
     echo "找不到可執行的 callCopilot.sh：$copilot_wrapper"
+    exit 1
+fi
+
+if ! command -v tmux >/dev/null 2>&1; then
+    echo "找不到 tmux，請先安裝 tmux。" >&2
     exit 1
 fi
 
