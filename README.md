@@ -141,6 +141,15 @@ xcodebuild -scheme 'eisonAI-Sim' -project eisonAI.xcodeproj -configuration Debug
 xcodebuild -scheme 'iOS' -project eisonAI.xcodeproj -configuration Debug -destination 'generic/platform=iOS' build
 ```
 
+Xcode automation helpers:
+
+```bash
+Scripts/run_xcode.sh
+Scripts/export_xcode_console.sh
+```
+
+See [Docs/xcode-automation.md](Docs/xcode-automation.md) for usage details, prerequisites, and limitations.
+
 ## 🧩 Runtime Notes
 
 - Safari extension local execution through WebLLM / WebGPU has been removed.

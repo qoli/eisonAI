@@ -142,6 +142,15 @@ xcodebuild -scheme 'eisonAI-Sim' -project eisonAI.xcodeproj -configuration Debug
 xcodebuild -scheme 'iOS' -project eisonAI.xcodeproj -configuration Debug -destination 'generic/platform=iOS' build
 ```
 
+Xcode 自動化輔助腳本：
+
+```bash
+Scripts/run_xcode.sh
+Scripts/export_xcode_console.sh
+```
+
+完整用法、前提條件與限制請見 [Docs/xcode-automation.md](Docs/xcode-automation.md)。
+
 ## 🧩 執行時說明
 
 - Safari extension 已移除 WebLLM / WebGPU 的本地執行路徑
