@@ -14,6 +14,14 @@ struct AIModelsSettingsView: View {
     private let longDocumentMaxChunkOptions: [Int] = LongDocumentDefaults.allowedMaxChunkCounts
     private static let modelPickerPlaceholderTag = "__byok_model_placeholder__"
     private static let modelPickerCustomTag = "__byok_model_custom__"
+    private static let fileSizeFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useGB, .useMB, .useKB]
+        formatter.countStyle = .file
+        formatter.includesUnit = true
+        formatter.isAdaptive = true
+        return formatter
+    }()
 
     @State private var didLoad = false
     @State private var appBackend: GenerationBackend = .local
@@ -28,6 +36,7 @@ struct AIModelsSettingsView: View {
     @State private var isRefreshingCatalog = false
     @State private var catalogError = ""
     @State private var showAllCatalogModels = false
+    @State private var showCustomRepoSection = false
     @State private var modelOperationMessage = ""
     @State private var modelOperationIsError = false
     @State private var activeModelOperationIDs = Set<String>()
@@ -446,65 +455,42 @@ struct AIModelsSettingsView: View {
         max(catalogModels.count - filteredCatalogModels.count, 0)
     }
 
+    private var mlxCommunityFooterText: String {
+        var parts: [String] = [
+            "Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`."
+        ]
+
+        if hiddenCatalogModelCount > 0 {
+            parts.append(
+                showAllCatalogModels
+                    ? "Showing all models, including \(hiddenCatalogModelCount) likely too large for this device."
+                    : "\(hiddenCatalogModelCount) likely too large models are hidden. Use the toolbar to reveal them."
+            )
+        }
+
+        return parts.joined(separator: " ")
+    }
+
     private var mlxManagementPage: some View {
         Form {
-            Section {
-                HStack {
-                    TextField("huggingface repo, e.g. mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+            if showCustomRepoSection {
+                Section {
+                    HStack {
+                        TextField("huggingface repo, e.g. mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
 
-                    Button("Install") {
-                        installCustomRepo()
-                    }
-                    .disabled(customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-
-                if !modelOperationMessage.isEmpty {
-                    Text(modelOperationMessage)
-                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
-                }
-            } header: {
-                Text("Custom MLX Repo")
-            } footer: {
-                Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                HStack {
-                    Text("Catalog")
-                    Spacer()
-                    if isRefreshingCatalog {
-                        ProgressView()
-                    } else {
-                        Button("Refresh") {
-                            refreshCatalog()
+                        Button("Install") {
+                            installCustomRepo()
                         }
+                        .disabled(customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
-                }
-
-                if hiddenCatalogModelCount > 0 {
-                    Button(showAllCatalogModels ? "Hide Likely Too Large" : "Show All Models") {
-                        showAllCatalogModels.toggle()
-                    }
-
-                    Text(showAllCatalogModels
-                         ? "Showing all models, including \(hiddenCatalogModelCount) likely too large for this device."
-                         : "\(hiddenCatalogModelCount) likely too large models are hidden.")
-                        .font(.footnote)
+                } header: {
+                    Text("Custom MLX Repo")
+                } footer: {
+                    Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
                         .foregroundStyle(.secondary)
                 }
-
-                if !catalogError.isEmpty {
-                    Text(catalogError)
-                        .foregroundStyle(.red)
-                }
-            } header: {
-                Text("MLX Catalog")
-            } footer: {
-                Text("Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`. The app still uses them with text prompts only.")
-                    .foregroundStyle(.secondary)
             }
 
             if !installedModels.isEmpty {
@@ -518,14 +504,59 @@ struct AIModelsSettingsView: View {
             }
 
             Section {
+                if !modelOperationMessage.isEmpty {
+                    Text(modelOperationMessage)
+                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
+                }
+
+                if !catalogError.isEmpty {
+                    Text(catalogError)
+                        .foregroundStyle(.red)
+                }
+
                 ForEach(filteredCatalogModels, id: \.id) { model in
                     catalogRow(model)
                 }
             } header: {
                 Text("mlx-community")
+            } footer: {
+                Text(mlxCommunityFooterText)
+                    .foregroundStyle(.secondary)
             }
         }
         .navigationTitle("MLX Models")
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if isRefreshingCatalog {
+                    ProgressView()
+                }
+
+                Menu {
+                    Toggle(isOn: $showCustomRepoSection) {
+                        Label("Show Custom MLX Repo", systemImage: "text.cursor")
+                    }
+
+                    Button {
+                        refreshCatalog()
+                    } label: {
+                        Label("Refresh Catalog", systemImage: "arrow.clockwise")
+                    }
+                    .disabled(isRefreshingCatalog)
+
+                    Button {
+                        showAllCatalogModels.toggle()
+                    } label: {
+                        Label(
+                            showAllCatalogModels ? "Hide Likely Too Large" : "Show All Models",
+                            systemImage: "line.3.horizontal.decrease.circle"
+                        )
+                    }
+                    .disabled(!showAllCatalogModels && hiddenCatalogModelCount == 0)
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                }
+            }
+        }
         .task {
             if catalogModels.isEmpty {
                 refreshCatalog()
@@ -572,7 +603,7 @@ struct AIModelsSettingsView: View {
     @ViewBuilder
     private func catalogRow(_ model: MLXCatalogModel) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(model.id)
+            Text(model.displayName)
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
@@ -636,9 +667,10 @@ struct AIModelsSettingsView: View {
 
     private func catalogMetadataLine(_ model: MLXCatalogModel) -> String {
         let params = model.estimatedParameterLabel
+        let size = model.rawSafeTensorTotal.map { Self.fileSizeFormatter.string(fromByteCount: $0) }
         let base = model.baseModel?.trimmingCharacters(in: .whitespacesAndNewlines)
         let date = model.lastModified.map { Self.relativeDateFormatter.localizedString(for: $0, relativeTo: .now) } ?? "unknown date"
-        let fields: [String] = [model.pipelineTag, params, base, date].compactMap { value in
+        let fields: [String] = [model.pipelineTag, size, params, base, date].compactMap { value in
             guard let value else { return nil }
             return value.isEmpty ? nil : value
         }
