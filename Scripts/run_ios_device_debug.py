@@ -45,6 +45,10 @@ def parse_args():
         help=f"Bundle identifier to launch (default: {DEFAULT_BUNDLE_ID}).",
     )
     parser.add_argument(
+        "--payload-url",
+        help="Optional deeplink or payload URL passed to the app during launch.",
+    )
+    parser.add_argument(
         "--process-name",
         default=DEFAULT_PROCESS_NAME,
         help=f"Process name filter for syslog (default: {DEFAULT_PROCESS_NAME}).",
@@ -339,18 +343,21 @@ def install_app(device, app_path, paths, cwd):
 
 
 def launch_app(args, device, paths, cwd):
+    command = [
+        "xcrun",
+        "devicectl",
+        "device",
+        "process",
+        "launch",
+        "--device",
+        device["udid"],
+        "--terminate-existing",
+    ]
+    if args.payload_url:
+        command.extend(["--payload-url", args.payload_url])
+    command.append(args.bundle_id)
     return devicectl_json(
-        [
-            "xcrun",
-            "devicectl",
-            "device",
-            "process",
-            "launch",
-            "--device",
-            device["udid"],
-            "--terminate-existing",
-            args.bundle_id,
-        ],
+        command,
         paths["launch_json"],
         paths["launch_log"],
         cwd,
@@ -364,6 +371,7 @@ def record_metadata(paths, args, device, app_path):
         "scheme": args.scheme,
         "project": str(Path(args.project).resolve()),
         "bundleID": args.bundle_id,
+        "payloadURL": args.payload_url,
         "processName": args.process_name,
         "appPath": str(app_path),
     }

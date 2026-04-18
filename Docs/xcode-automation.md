@@ -134,3 +134,40 @@ Scripts/export_xcode_console.sh
 1. 喚起 Xcode
 2. 觸發目前 scheme 的 `Run`
 3. 將 debug console 內容落檔到 `logs/xcode/`
+
+## MLX 下載 Deeplink 測試
+
+若要縮短真機上的 MLX 下載測試流程，可直接使用：
+
+```bash
+Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit
+```
+
+這支腳本會串起三步：
+
+1. 呼叫 `Scripts/run_xcode.sh`，用 Xcode 對當前選中的真機做一次 `Run`
+2. 透過 `devicectl --payload-url` 觸發：
+
+```text
+eisonai://mlx-download?repo=<repo-id>&source=catalog&autoSelect=1
+```
+
+3. 呼叫 `Scripts/run_ios_device_debug.py --skip-build --skip-install` 拉取真機日誌
+
+常見變體：
+
+```bash
+Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --device 'My iPhone'
+Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --log-seconds 90 --echo-logs
+Scripts/test_mlx_download_deeplink.sh my-org/custom-model --source custom --auto-select 0
+```
+
+輸出：
+
+- 真機日誌仍會寫到 `logs/ios_device_runs/<timestamp>/device.log`
+- `launch.json` / `launch.log` 內也會包含 payload launch 的資訊
+
+注意：
+
+- 這條 deeplink 只負責「開始 MLX 下載」，不會幫你導航到 `Settings > AI Models > MLX Models`
+- `Scripts/run_xcode.sh` 仍然依賴 Xcode 當前已選好正確的 scheme / destination
