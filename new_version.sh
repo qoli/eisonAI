@@ -9,7 +9,7 @@ project_xcode="$project_path/eisonAI.xcodeproj"
 copilot_wrapper="/Volumes/Data/Github/macOSAgentBot/callCopilot.sh"
 copilot_home_seed="$HOME/.copilot"
 copilot_run_root="$project_path/logs/new_version_copilot"
-copilot_task_complete_grace_period=30
+copilot_task_complete_grace_period=10
 
 usage() {
     echo "使用方式: ./new_version.sh <version> <platform> <method>"
