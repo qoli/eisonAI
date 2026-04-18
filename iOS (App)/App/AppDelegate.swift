@@ -11,7 +11,6 @@ import UIKit
 final class AppDelegate: NSObject, UIApplicationDelegate {
     private static let startupLogger = Logger(subsystem: "com.qoli.eisonAI", category: "StartupProbe")
     private static let lifecycleLogger = Logger(subsystem: "com.qoli.eisonAI", category: "AppLifecycle")
-    private static let deepLinkLogger = Logger(subsystem: "com.qoli.eisonAI", category: "DeepLink")
 
     #if targetEnvironment(macCatalyst)
         private var sceneObserverTokens: [NSObjectProtocol] = []
@@ -27,6 +26,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         emitStartupLogProbe()
+        if MLXDebugAutomation.current.shouldDirectDownloadOnLaunch {
+            MLXDownloadDeepLinkHandler.shared.handleDebugStartupTriggerIfPresent(origin: "debugStartup")
+        }
         if let launchURL = launchOptions?[.url] as? URL {
             _ = handleIncomingURL(launchURL, origin: "launchOptions")
         }
@@ -85,67 +87,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     private func handleIncomingURL(_ url: URL, origin: String) -> Bool {
-        handleMLXDownloadURL(url, origin: origin)
-    }
-
-    private func handleMLXDownloadURL(_ url: URL, origin: String) -> Bool {
-        guard url.scheme?.lowercased() == "eisonai" else { return false }
-        guard url.host?.lowercased() == AppConfig.mlxDownloadDeepLinkHost else { return false }
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            Self.deepLinkLogger.xcodeError("Failed to parse MLX download deeplink origin=\(origin) url=\(url.absoluteString)")
-            return true
-        }
-
-        let repoID = components.queryItems?
-            .first(where: { $0.name == AppConfig.mlxDownloadDeepLinkRepoQueryItem })?
-            .value?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !repoID.isEmpty else {
-            Self.deepLinkLogger.xcodeError("MLX download deeplink missing repo origin=\(origin) url=\(url.absoluteString)")
-            return true
-        }
-
-        let sourceValue = components.queryItems?
-            .first(where: { $0.name == AppConfig.mlxDownloadDeepLinkSourceQueryItem })?
-            .value?
-            .lowercased() ?? MLXDownloadJob.Source.catalog.rawValue
-        let source = MLXDownloadJob.Source(rawValue: sourceValue) ?? .catalog
-
-        let autoSelectValue = components.queryItems?
-            .first(where: { $0.name == AppConfig.mlxDownloadDeepLinkAutoSelectQueryItem })?
-            .value?
-            .lowercased()
-        let autoSelect = switch autoSelectValue {
-        case "0", "false", "no":
-            false
-        default:
-            true
-        }
-
-        Self.deepLinkLogger.xcodeNotice(
-            "Received MLX download deeplink origin=\(origin) repo=\(repoID) source=\(source.rawValue) autoSelect=\(autoSelect) url=\(url.absoluteString)"
-        )
-
-        Task {
-            let catalogService = MLXModelCatalogService()
-            do {
-                let model = try await catalogService.fetchModel(repoID: repoID)
-                try await MLXDownloadCoordinator.shared.startInstall(
-                    model: model,
-                    source: source,
-                    autoSelect: autoSelect
-                )
-                Self.deepLinkLogger.xcodeNotice(
-                    "Started MLX download via deeplink repo=\(repoID) source=\(source.rawValue) autoSelect=\(autoSelect)"
-                )
-            } catch {
-                Self.deepLinkLogger.xcodeError(
-                    "Failed MLX download deeplink repo=\(repoID) source=\(source.rawValue) autoSelect=\(autoSelect) error=\(error.localizedDescription)"
-                )
-            }
-        }
-
-        return true
+        MLXDownloadDeepLinkHandler.shared.handle(url, origin: origin)
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {

@@ -191,7 +191,7 @@ def normalize_device(device):
 
 
 def device_is_eligible(entry):
-    if entry["deviceType"] != "iPhone":
+    if entry["deviceType"] not in {"iPhone", "iPad"}:
         return False
     if entry["pairingState"] != "paired":
         return False
@@ -200,26 +200,26 @@ def device_is_eligible(entry):
     return True
 
 
-def connected_iphones():
-    phones = []
+def connected_ios_devices():
+    devices = []
     for device in load_devices():
         entry = normalize_device(device)
         if device_is_eligible(entry):
-            phones.append(entry)
-    return phones
+            devices.append(entry)
+    return devices
 
 
-def all_iphones():
-    phones = []
+def all_ios_devices():
+    devices = []
     for device in load_devices():
         entry = normalize_device(device)
-        if entry["deviceType"] == "iPhone":
-            phones.append(entry)
-    return phones
+        if entry["deviceType"] in {"iPhone", "iPad"}:
+            devices.append(entry)
+    return devices
 
 
 def format_device_error(prefix, devices):
-    lines = [f"[ERROR] {prefix}", "Connected iPhones:"]
+    lines = [f"[ERROR] {prefix}", "Connected iPhone/iPad devices:"]
     for device in devices:
         lines.append(
             "  - "
@@ -232,7 +232,7 @@ def format_device_error(prefix, devices):
 
 
 def select_device(selector):
-    devices = connected_iphones()
+    devices = connected_ios_devices()
     if selector:
         selector_lower = selector.lower()
         matches = [
@@ -251,23 +251,23 @@ def select_device(selector):
         if len(matches) == 1:
             return matches[0]
         if not matches:
-            raise SystemExit(f"[ERROR] No connected iPhone matched: {selector}")
-        raise SystemExit(format_device_error("Multiple connected iPhones matched the selector.", matches))
+            raise SystemExit(f"[ERROR] No connected iPhone/iPad matched: {selector}")
+        raise SystemExit(format_device_error("Multiple connected iPhone/iPad devices matched the selector.", matches))
 
     if len(devices) == 1:
         return devices[0]
     if not devices:
-        iphones = all_iphones()
-        if iphones:
-            raise SystemExit(format_device_error("No eligible iPhone was found.", iphones))
-        raise SystemExit("[ERROR] No connected iPhone with Developer Mode enabled was found.")
-    raise SystemExit(format_device_error("Multiple connected iPhones found. Pass --device.", devices))
+        ios_devices = all_ios_devices()
+        if ios_devices:
+            raise SystemExit(format_device_error("No eligible iPhone/iPad device was found.", ios_devices))
+        raise SystemExit("[ERROR] No connected iPhone/iPad with Developer Mode enabled was found.")
+    raise SystemExit(format_device_error("Multiple connected iPhone/iPad devices found. Pass --device.", devices))
 
 
 def list_devices_and_exit():
-    devices = all_iphones()
+    devices = all_ios_devices()
     if not devices:
-        print("[INFO] No connected iPhones with Developer Mode enabled were found.")
+        print("[INFO] No connected iPhone/iPad devices with Developer Mode enabled were found.")
         return
     for device in devices:
         print(
@@ -373,7 +373,7 @@ def record_metadata(paths, args, device, app_path):
         "bundleID": args.bundle_id,
         "payloadURL": args.payload_url,
         "processName": args.process_name,
-        "appPath": str(app_path),
+        "appPath": str(app_path) if app_path else None,
     }
     paths["metadata"].write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -390,7 +390,6 @@ def stream_device_logs(args, device, paths):
             device["udid"],
             "--process",
             args.process_name,
-            "--exit",
         ]
     )
     print(f"[INFO] Capturing device logs to {log_path}")
@@ -459,7 +458,10 @@ def main():
     print(f"[INFO] Run root: {paths['run_root']}")
 
     if args.skip_build:
-        app_path = locate_existing_app(args.app_path, args.output_root)
+        if args.skip_install and not args.app_path:
+            app_path = None
+        else:
+            app_path = locate_existing_app(args.app_path, args.output_root)
     else:
         app_path = build_app(args, paths, device["udid"])
 

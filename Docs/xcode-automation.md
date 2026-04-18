@@ -143,31 +143,40 @@ Scripts/export_xcode_console.sh
 Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit
 ```
 
-這支腳本會串起三步：
+這支腳本會串起三步，而且全程只走 Xcode Run：
 
-1. 呼叫 `Scripts/run_xcode.sh`，用 Xcode 對當前選中的真機做一次 `Run`
-2. 透過 `devicectl --payload-url` 觸發：
-
-```text
-eisonai://mlx-download?repo=<repo-id>&source=catalog&autoSelect=1
-```
-
-3. 呼叫 `Scripts/run_ios_device_debug.py --skip-build --skip-install` 拉取真機日誌
+1. 暫時修改當前 scheme 的 `LaunchAction > CommandLineArguments`
+2. 呼叫 `Scripts/run_xcode.sh`，用 Xcode 對當前選中的真機做一次 `Run`
+3. 等待一段時間後，呼叫 `Scripts/export_xcode_console.sh` 匯出 Xcode console
 
 常見變體：
 
 ```bash
-Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --device 'My iPhone'
-Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --log-seconds 90 --echo-logs
+Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --wait-before-export 90
 Scripts/test_mlx_download_deeplink.sh my-org/custom-model --source custom --auto-select 0
+Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --reuse-open-xcode
+Scripts/test_mlx_download_deeplink.sh mlx-community/Qwen3-0.6B-4bit --purge-existing 1
 ```
 
 輸出：
 
-- 真機日誌仍會寫到 `logs/ios_device_runs/<timestamp>/device.log`
-- `launch.json` / `launch.log` 內也會包含 payload launch 的資訊
+- Xcode console 會寫到 `logs/xcode/<timestamp>.log`
+- 腳本結束時會自動恢復原本的 scheme 檔案，不保留測試用啟動參數
 
 注意：
 
-- 這條 deeplink 只負責「開始 MLX 下載」，不會幫你導航到 `Settings > AI Models > MLX Models`
+- 這條流程不再依賴 `run_ios_device_debug.py`
+- 腳本預設會先重開一次 Xcode，確保剛寫入的 scheme `CommandLineArguments` 會被重新載入
+- 若你確認目前開著的 Xcode 已重新讀到 scheme，也可以加 `--reuse-open-xcode` 跳過重開
+- app 啟動時會讀取以下 command line arguments，並自動開始 MLX 下載：
+
+```text
+-eisonai-debug-mlx-download-repo <repo-id>
+-eisonai-debug-mlx-download-source <catalog|custom>
+-eisonai-debug-mlx-download-auto-select <0|1>
+-eisonai-debug-mlx-purge-existing <0|1>
+```
+
 - `Scripts/run_xcode.sh` 仍然依賴 Xcode 當前已選好正確的 scheme / destination
+- 這條測試只負責「開始 MLX 下載」，不會幫你導航到 `Settings > AI Models > MLX Models`
+- `--purge-existing 1` 會在 app 啟動時先刪除本地 MLX repo 與 installed state，強制下一輪走真實下載而不是命中 cache

@@ -52,17 +52,17 @@ private enum MLXSimulatorDiagnostics {
     }
 
     static func notice(_ message: String) {
-        logger.notice("\(message, privacy: .public)")
+        logger.xcodeNotice(message)
         append(level: "NOTICE", message: message)
     }
 
     static func warning(_ message: String) {
-        logger.warning("\(message, privacy: .public)")
+        logger.xcodeWarning(message)
         append(level: "WARN", message: message)
     }
 
     static func error(_ message: String) {
-        logger.error("\(message, privacy: .public)")
+        logger.xcodeError(message)
         append(level: "ERROR", message: message)
     }
 
@@ -87,7 +87,7 @@ private enum MLXSimulatorDiagnostics {
                 try handle.write(contentsOf: data)
             }
         } catch {
-            logger.error("Failed to append diagnostics log: \(error.localizedDescription, privacy: .public)")
+            logger.xcodeError("Failed to append diagnostics log: \(error.localizedDescription)")
         }
     }
 }
@@ -111,6 +111,85 @@ private struct MLXSimulatorDownloadState: Equatable {
             "repoFiles=\(repoFileCount) weightPresent=\(repoHasWeightFile) " +
             "lockCount=\(lockCount) tempFiles=\(tempFileCount) largestTemp=\(tempName) size=\(tempSize) mtime=\(tempMTime) " +
             "files=[\(repoFilesSummary)]"
+    }
+}
+
+private enum MLXDownloadDiagnostics {
+    nonisolated(unsafe) private static let fileLock = NSLock()
+    private static let logger = Logger(
+        subsystem: "com.qoli.eisonAI",
+        category: "MLXDownload"
+    )
+
+    static var logFileURL: URL? {
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: AppConfig.appGroupIdentifier
+        ) else {
+            return nil
+        }
+
+        var url = containerURL
+        for component in AppConfig.mlxDownloadPathComponents {
+            url.appendPathComponent(component, isDirectory: true)
+        }
+        return url.appendingPathComponent("mlx-download.log", isDirectory: false)
+    }
+
+    static func notice(_ message: String) {
+        logger.xcodeNotice(message)
+        append(level: "NOTICE", message: message)
+    }
+
+    static func warning(_ message: String) {
+        logger.xcodeWarning(message)
+        append(level: "WARN", message: message)
+    }
+
+    static func error(_ message: String) {
+        logger.xcodeError(message)
+        append(level: "ERROR", message: message)
+    }
+
+    private static func append(level: String, message: String) {
+        guard let logFileURL else { return }
+        let line = "\(Date().ISO8601Format()) [\(level)] \(message)\n"
+        fileLock.lock()
+        defer { fileLock.unlock() }
+
+        do {
+            let directory = logFileURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+            if !FileManager.default.fileExists(atPath: logFileURL.path) {
+                try line.write(to: logFileURL, atomically: true, encoding: .utf8)
+                return
+            }
+
+            let handle = try FileHandle(forWritingTo: logFileURL)
+            defer { try? handle.close() }
+            try handle.seekToEnd()
+            if let data = line.data(using: .utf8) {
+                try handle.write(contentsOf: data)
+            }
+        } catch {
+            logger.xcodeError("Failed to append MLX download diagnostics log: \(error.localizedDescription)")
+        }
+    }
+}
+
+private final class MLXDownloadProgressLogState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Double = -1
+
+    func shouldLog(fraction: Double) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if fraction >= 1 || value < 0 || fraction - value >= 0.05 {
+            value = fraction
+            return true
+        }
+        return false
     }
 }
 #endif
@@ -216,6 +295,9 @@ final class AnyLanguageModelClient {
         progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
     ) async throws -> DownloadedLocalModelAssets {
         #if canImport(EisonAIModelKit) && canImport(MLXLMCommon) && canImport(Hub)
+            MLXDownloadDiagnostics.notice(
+                "download begin model=\(modelID) logFile=\(MLXDownloadDiagnostics.logFileURL?.path ?? "unavailable") state={\(describeDownloadedLocalModelAssets(modelID: modelID))}"
+            )
             return try await resolveLocalModelAssets(
                 modelID: modelID,
                 progressHandler: progressHandler
@@ -245,17 +327,77 @@ final class AnyLanguageModelClient {
         #endif
     }
 
+    nonisolated static func describeDownloadedLocalModelAssets(modelID: String) -> String {
+        #if canImport(Hub)
+            let repoURL = HubApi().localRepoLocation(Hub.Repo(id: modelID))
+            let repoFiles = (try? FileManager.default.contentsOfDirectory(
+                at: repoURL,
+                includingPropertiesForKeys: nil
+            ).map(\.lastPathComponent).sorted()) ?? []
+
+            let hasWeightFile = repoFiles.contains(where: { $0.hasSuffix(".safetensors") })
+            let hasConfigFile = repoFiles.contains("config.json")
+            let hasTokenizer = repoFiles.contains("tokenizer.json")
+
+            return "repo=\(repoURL.path) fileCount=\(repoFiles.count) hasWeight=\(hasWeightFile) hasConfig=\(hasConfigFile) hasTokenizer=\(hasTokenizer) files=[\(repoFiles.joined(separator: ","))]"
+        #else
+            return "hub-unavailable"
+        #endif
+    }
+
     func unloadLocalModel(modelID: String) async {
         #if canImport(EisonAIModelKit)
             #if targetEnvironment(simulator)
-                Self.logger.notice(
-                    "Skipping MLX cache unload on simulator for model '\(modelID, privacy: .public)'"
-                )
+                Self.logger.xcodeNotice("Skipping MLX cache unload on simulator for model '\(modelID)'")
                 return
             #else
             let model = MLXLanguageModel(modelId: modelID)
             await model.removeFromCache()
             #endif
+        #endif
+    }
+
+    func deleteLocalModel(modelID: String) async throws {
+        await unloadLocalModel(modelID: modelID)
+        try Self.deleteLocalModelArtifacts(modelID: modelID)
+    }
+
+    nonisolated static func deleteLocalModelArtifacts(modelID: String) throws {
+        #if canImport(Hub)
+            let fileManager = FileManager.default
+            let hub = HubApi()
+            let repoURL = hub.localRepoLocation(Hub.Repo(id: modelID))
+            let repoCacheName = "models--\(modelID.replacingOccurrences(of: "/", with: "--"))"
+
+            let containerURL = fileManager
+                .urls(for: .documentDirectory, in: .userDomainMask)
+                .first?
+                .deletingLastPathComponent()
+
+            var candidatePaths: [URL] = [repoURL]
+            if let containerURL {
+                let hubCacheRoot = containerURL
+                    .appending(path: "Library/Caches/huggingface/hub", directoryHint: .isDirectory)
+                candidatePaths.append(
+                    hubCacheRoot.appending(path: repoCacheName, directoryHint: .isDirectory)
+                )
+                candidatePaths.append(
+                    hubCacheRoot
+                        .appending(path: ".locks", directoryHint: .isDirectory)
+                        .appending(path: repoCacheName, directoryHint: .isDirectory)
+                )
+            }
+
+            for url in candidatePaths {
+                guard fileManager.fileExists(atPath: url.path) else { continue }
+                try fileManager.removeItem(at: url)
+            }
+
+            MLXDownloadDiagnostics.notice(
+                "deleted local model artifacts model=\(modelID) state={\(describeDownloadedLocalModelAssets(modelID: modelID))}"
+            )
+        #else
+            throw ClientError.invalidConfiguration("MLX delete support is unavailable in this target.")
         #endif
     }
 
@@ -437,6 +579,7 @@ final class AnyLanguageModelClient {
             ) async throws -> DownloadedLocalModelAssets {
                 let configuration = ModelConfiguration(id: modelID)
                 let downloader = MLXHubDownloaderBridge(upstream: HubApi())
+                let progressLogState = MLXDownloadProgressLogState()
                 #if targetEnvironment(simulator)
                     MLXSimulatorDiagnostics.notice(
                         "begin resolve model=\(modelID) logFile=\(MLXSimulatorDiagnostics.logFileURL.path)"
@@ -454,10 +597,15 @@ final class AnyLanguageModelClient {
                         useLatest: false
                     ) { progress in
                         progressHandler(progress)
-                        #if targetEnvironment(simulator)
                         let fraction = progress.totalUnitCount > 0
                             ? Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
-                            : 0
+                            : progress.fractionCompleted
+                        if progressLogState.shouldLog(fraction: fraction) {
+                            MLXDownloadDiagnostics.notice(
+                                "download progress model=\(modelID) completed=\(progress.completedUnitCount) total=\(progress.totalUnitCount) fraction=\(String(format: "%.3f", fraction))"
+                            )
+                        }
+                        #if targetEnvironment(simulator)
                         MLXSimulatorDiagnostics.notice(
                             "progress model=\(modelID) completed=\(progress.completedUnitCount) total=\(progress.totalUnitCount) fraction=\(String(format: "%.3f", fraction))"
                         )
@@ -486,11 +634,17 @@ final class AnyLanguageModelClient {
                         """
                     )
                     #endif
+                    MLXDownloadDiagnostics.notice(
+                        "download resolved model=\(modelID) modelDir=\(resolved.modelDirectory.path) tokenizerDir=\(resolved.tokenizerDirectory.path) state={\(describeDownloadedLocalModelAssets(modelID: modelID))}"
+                    )
                     return DownloadedLocalModelAssets(
                         modelDirectory: resolved.modelDirectory,
                         tokenizerDirectory: resolved.tokenizerDirectory
                     )
                 } catch {
+                    MLXDownloadDiagnostics.error(
+                        "download resolve failed model=\(modelID) error=\(error.localizedDescription) state={\(describeDownloadedLocalModelAssets(modelID: modelID))}"
+                    )
                     #if targetEnvironment(simulator)
                     let state = collectSimulatorDownloadState(modelID: modelID)
                     MLXSimulatorDiagnostics.error(
@@ -527,7 +681,7 @@ final class AnyLanguageModelClient {
                         unchangedTempSamples += 1
                         if unchangedTempSamples == 5 {
                             MLXSimulatorDiagnostics.warning(
-                                "download appears stalled model=\(modelID) \(state.summary)"
+                                "download idle without observable temp-file growth model=\(modelID) \(state.summary)"
                             )
                         }
                     } else {

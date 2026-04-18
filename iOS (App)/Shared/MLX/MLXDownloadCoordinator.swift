@@ -1,44 +1,6 @@
-@preconcurrency import BackgroundTasks
 import Combine
 import Foundation
 import OSLog
-
-private protocol MLXDownloadTaskBridge: AnyObject, Sendable {
-    var onExpiration: (() -> Void)? { get set }
-    func setInitialProgress(totalUnitCount: Int64, completedUnitCount: Int64)
-    func update(title: String, subtitle: String, totalUnitCount: Int64, completedUnitCount: Int64)
-    func complete(success: Bool, title: String, subtitle: String, totalUnitCount: Int64, completedUnitCount: Int64)
-}
-
-@available(iOS 26.0, *)
-private final class BGContinuedProcessingTaskBridge: MLXDownloadTaskBridge, @unchecked Sendable {
-    private let task: BGContinuedProcessingTask
-
-    init(task: BGContinuedProcessingTask) {
-        self.task = task
-    }
-
-    var onExpiration: (() -> Void)? {
-        get { nil }
-        set { task.expirationHandler = newValue }
-    }
-
-    func setInitialProgress(totalUnitCount: Int64, completedUnitCount: Int64) {
-        task.progress.totalUnitCount = max(totalUnitCount, 100)
-        task.progress.completedUnitCount = completedUnitCount
-    }
-
-    func update(title: String, subtitle: String, totalUnitCount: Int64, completedUnitCount: Int64) {
-        task.updateTitle(title, subtitle: subtitle)
-        task.progress.totalUnitCount = max(totalUnitCount, 100)
-        task.progress.completedUnitCount = completedUnitCount
-    }
-
-    func complete(success: Bool, title: String, subtitle: String, totalUnitCount: Int64, completedUnitCount: Int64) {
-        update(title: title, subtitle: subtitle, totalUnitCount: totalUnitCount, completedUnitCount: completedUnitCount)
-        task.setTaskCompleted(success: success)
-    }
-}
 
 final class MLXDownloadCoordinator: ObservableObject {
     enum DownloadError: LocalizedError {
@@ -59,24 +21,23 @@ final class MLXDownloadCoordinator: ObservableObject {
     private let jobStore: MLXDownloadJobStore
     private let modelStore: MLXModelStore
     private let catalogService: MLXModelCatalogService
-    private let scheduler: BGTaskScheduler
     private let logger = Logger(subsystem: "com.qoli.eisonAI", category: "MLXDownloadCoordinator")
 
     private var activeTask: Task<Void, Never>?
-    private var registeredTaskIdentifiers = Set<String>()
     private var pendingCancellationReason: String?
     private var lastPersistedProgressAt: Date = .distantPast
+    private var lastLoggedProgressFraction = -1.0
+    private var lastProgressEventAt: Date = .distantPast
+    private var lastObservedCompletedUnitCount: Int64 = 0
 
     init(
         jobStore: MLXDownloadJobStore = MLXDownloadJobStore(),
         modelStore: MLXModelStore = MLXModelStore(),
-        catalogService: MLXModelCatalogService = MLXModelCatalogService(),
-        scheduler: BGTaskScheduler = .shared
+        catalogService: MLXModelCatalogService = MLXModelCatalogService()
     ) {
         self.jobStore = jobStore
         self.modelStore = modelStore
         self.catalogService = catalogService
-        self.scheduler = scheduler
         self.currentJob = jobStore.loadCurrentJob()
     }
 
@@ -84,8 +45,30 @@ final class MLXDownloadCoordinator: ObservableObject {
         currentJob?.isActive == true
     }
 
+    var currentJobLogSummary: String {
+        jobSummary(currentJob)
+    }
+
     func refreshState() {
-        publish(jobStore.loadCurrentJob(), persist: false)
+        guard let persisted = jobStore.loadCurrentJob() else {
+            publish(nil, persist: false)
+            logNotice("Refreshed MLX download state: nil")
+            return
+        }
+
+        if persisted.isActive, activeTask == nil {
+            let recoveredJob = persisted.updating(
+                state: .failed,
+                errorMessage: .some("Download was interrupted. Retry the installation."),
+                updatedAt: .now
+            )
+            publish(recoveredJob, persist: true)
+            logWarning("Recovered interrupted foreground-only MLX download job={\(jobSummary(recoveredJob))}")
+            return
+        }
+
+        publish(persisted, persist: false)
+        logNotice("Refreshed MLX download state: \(jobSummary(persisted))")
     }
 
     func startInstall(
@@ -97,7 +80,7 @@ final class MLXDownloadCoordinator: ObservableObject {
             throw DownloadError.anotherJobInProgress(currentJob.modelID)
         }
 
-        let taskIdentifier = "\(AppConfig.mlxDownloadTaskIdentifierPrefix).\(UUID().uuidString)"
+        let taskIdentifier = UUID().uuidString
         let job = MLXDownloadJob(
             taskIdentifier: taskIdentifier,
             modelID: model.id,
@@ -108,187 +91,81 @@ final class MLXDownloadCoordinator: ObservableObject {
             catalogModel: model
         )
 
-        publish(job, persist: true)
-
-        if shouldUseContinuedProcessingTask {
-            do {
-                try registerTaskHandlerIfNeeded(for: taskIdentifier)
-                if #available(iOS 26.0, *) {
-                    try submitContinuedProcessingTask(for: job)
-                }
-                logger.notice("Submitted continued task for \(job.modelID, privacy: .public)")
-                return
-            } catch {
-                logger.error(
-                    "Failed to submit continued task for \(job.modelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
-            }
+        await MainActor.run {
+            applyPublishedJob(job, persist: true, throttleProgressPersistence: false)
+            logNotice("Install requested source=\(source.rawValue) job={\(jobSummary(job))}")
+            startForegroundDownload(for: job)
         }
-
-        startForegroundDownload(for: job)
     }
 
-    func registerPersistedBackgroundTaskHandlerIfNeeded() {
-        refreshState()
-        guard shouldUseContinuedProcessingTask,
-              let currentJob,
-              currentJob.isActive
-        else {
+    func cancelCurrentJob() async {
+        guard let currentJob else { return }
+
+        logWarning("User requested cancellation for job={\(jobSummary(currentJob))}")
+        pendingCancellationReason = "Cancelled by user."
+
+        if let activeTask {
+            activeTask.cancel()
             return
         }
 
-        do {
-            try registerTaskHandlerIfNeeded(for: currentJob.taskIdentifier)
-        } catch {
-            logger.error(
-                "Failed to register persisted continued task \(currentJob.taskIdentifier, privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
+        guard currentJob.isActive else { return }
+        await cancelDownload(forJobID: currentJob.jobID)
     }
 
-    private var shouldUseContinuedProcessingTask: Bool {
-        #if targetEnvironment(simulator)
-            return false
-        #else
-            if #available(iOS 26.0, *) {
-                return true
-            }
-            return false
-        #endif
+    func dismissCurrentJob() {
+        guard let currentJob else { return }
+        guard !currentJob.isActive else { return }
+
+        logNotice("Dismissing terminal MLX download job={\(jobSummary(currentJob))}")
+        publish(nil, persist: true)
     }
 
     private func startForegroundDownload(for job: MLXDownloadJob) {
         guard activeTask == nil else { return }
         pendingCancellationReason = nil
+        lastLoggedProgressFraction = -1.0
+        logNotice("Starting foreground MLX download job={\(jobSummary(job))}")
         activeTask = Task { [weak self] in
-            await self?.runDownload(forJobID: job.jobID, taskBridge: nil)
+            await self?.runDownload(forJobID: job.jobID)
         }
     }
 
-    private func registerTaskHandlerIfNeeded(for taskIdentifier: String) throws {
-        guard shouldUseContinuedProcessingTask else { return }
-        guard !registeredTaskIdentifiers.contains(taskIdentifier) else { return }
-
-        let success = scheduler.register(forTaskWithIdentifier: taskIdentifier, using: nil) { [weak self] task in
-            guard let self else { return }
-            if #available(iOS 26.0, *),
-               let continuedTask = task as? BGContinuedProcessingTask
-            {
-                self.handleContinuedProcessingTask(continuedTask)
-            }
-        }
-
-        guard success else {
-            throw NSError(
-                domain: "EisonAI.MLXDownloadCoordinator",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Background task identifier isn't permitted: \(taskIdentifier)"]
-            )
-        }
-
-        registeredTaskIdentifiers.insert(taskIdentifier)
-    }
-
-    @available(iOS 26.0, *)
-    private func submitContinuedProcessingTask(for job: MLXDownloadJob) throws {
-        let request = BGContinuedProcessingTaskRequest(
-            identifier: job.taskIdentifier,
-            title: "Downloading MLX Model",
-            subtitle: job.displayName
-        )
-        request.strategy = .queue
-        try scheduler.submit(request)
-    }
-
-    @available(iOS 26.0, *)
-    private func handleContinuedProcessingTask(_ task: BGContinuedProcessingTask) {
-        let taskIdentifier = task.identifier
-        guard let job = matchingJob(for: taskIdentifier) else {
-            logger.error("No persisted MLX download job matches task \(taskIdentifier, privacy: .public)")
-            task.setTaskCompleted(success: false)
-            return
-        }
-
-        if activeTask != nil {
-            logger.error("Ignoring duplicate continued task for \(taskIdentifier, privacy: .public)")
-            task.setTaskCompleted(success: false)
-            return
-        }
-
-        let taskBridge = BGContinuedProcessingTaskBridge(task: task)
-        taskBridge.update(
-            title: "Downloading MLX Model",
-            subtitle: job.displayName,
-            totalUnitCount: job.totalUnitCount,
-            completedUnitCount: job.completedUnitCount
-        )
-        taskBridge.onExpiration = { [weak self] in
-            self?.pendingCancellationReason = "Background download was cancelled by the system."
-            self?.activeTask?.cancel()
-        }
-
-        activeTask = Task { [weak self] in
-            await self?.runDownload(forJobID: job.jobID, taskBridge: taskBridge)
-        }
-    }
-
-    private func matchingJob(for taskIdentifier: String) -> MLXDownloadJob? {
-        if let currentJob, currentJob.taskIdentifier == taskIdentifier {
-            return currentJob
-        }
-
-        guard let persisted = jobStore.loadCurrentJob(),
-              persisted.taskIdentifier == taskIdentifier
-        else {
-            return nil
-        }
-
-        publish(persisted, persist: false)
-        return persisted
-    }
-
-    private func runDownload(
-        forJobID jobID: String,
-        taskBridge: MLXDownloadTaskBridge?
-    ) async {
+    private func runDownload(forJobID jobID: String) async {
         guard let initialJob = currentJobForID(jobID) else {
-            taskBridge?.complete(
-                success: false,
-                title: "MLX Download Failed",
-                subtitle: "Missing download state",
-                totalUnitCount: 1,
-                completedUnitCount: 0
-            )
             await clearActiveTask()
             return
         }
 
         let runningJob = initialJob.updating(state: .running, errorMessage: .some(nil))
         publish(runningJob, persist: true)
+        lastProgressEventAt = .now
+        lastObservedCompletedUnitCount = runningJob.completedUnitCount
+        let stallMonitorTask = makeStallMonitorTask(for: runningJob)
+        defer { stallMonitorTask.cancel() }
+        logNotice(
+            "MLX download run begin job={\(jobSummary(runningJob))} assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: runningJob.modelID))}"
+        )
 
         do {
             _ = try await AnyLanguageModelClient.downloadLocalModelAssets(modelID: runningJob.modelID) { [weak self] progress in
-                self?.handleProgress(progress, forJobID: jobID, taskBridge: taskBridge)
+                self?.handleProgress(progress, forJobID: jobID)
             }
             try Task.checkCancellation()
 
-            await finalizeSuccessfulDownload(forJobID: jobID, taskBridge: taskBridge)
+            await finalizeSuccessfulDownload(forJobID: jobID)
         } catch is CancellationError {
-            await cancelDownload(forJobID: jobID, taskBridge: taskBridge)
+            logWarning("MLX download cancelled via task cancellation jobID=\(jobID)")
+            await cancelDownload(forJobID: jobID)
         } catch {
-            await failDownload(
-                forJobID: jobID,
-                message: error.localizedDescription,
-                taskBridge: taskBridge
+            logError(
+                "MLX download run failed jobID=\(jobID) error=\(error.localizedDescription) assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: runningJob.modelID))}"
             )
+            await failDownload(forJobID: jobID, message: error.localizedDescription)
         }
     }
 
-    private func handleProgress(
-        _ progress: Progress,
-        forJobID jobID: String,
-        taskBridge: MLXDownloadTaskBridge?
-    ) {
+    private func handleProgress(_ progress: Progress, forJobID jobID: String) {
         guard let currentJob = currentJobForID(jobID) else { return }
 
         let totalUnitCount = max(progress.totalUnitCount, currentJob.totalUnitCount)
@@ -307,28 +184,20 @@ final class MLXDownloadCoordinator: ObservableObject {
             fractionCompleted: fractionCompleted,
             errorMessage: .some(nil)
         )
+        lastProgressEventAt = .now
+        lastObservedCompletedUnitCount = completedUnitCount
         publish(updatedJob, persist: true, throttleProgressPersistence: true)
-
-        taskBridge?.update(
-            title: "Downloading MLX Model",
-            subtitle: updatedJob.progressText,
-            totalUnitCount: totalUnitCount,
-            completedUnitCount: completedUnitCount
-        )
+        if fractionCompleted >= 1 ||
+            lastLoggedProgressFraction < 0 ||
+            fractionCompleted - lastLoggedProgressFraction >= 0.05
+        {
+            lastLoggedProgressFraction = fractionCompleted
+            logNotice("MLX download progress job={\(jobSummary(updatedJob))}")
+        }
     }
 
-    private func finalizeSuccessfulDownload(
-        forJobID jobID: String,
-        taskBridge: MLXDownloadTaskBridge?
-    ) async {
+    private func finalizeSuccessfulDownload(forJobID jobID: String) async {
         guard let currentJob = currentJobForID(jobID) else {
-            taskBridge?.complete(
-                success: false,
-                title: "MLX Download Failed",
-                subtitle: "Missing download state",
-                totalUnitCount: 1,
-                completedUnitCount: 0
-            )
             await clearActiveTask()
             return
         }
@@ -342,6 +211,9 @@ final class MLXDownloadCoordinator: ObservableObject {
             errorMessage: .some(nil)
         )
         publish(finishingJob, persist: true)
+        logNotice(
+            "MLX download entering finalize job={\(jobSummary(finishingJob))} assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: finishingJob.modelID))}"
+        )
 
         do {
             guard AnyLanguageModelClient.hasDownloadedLocalModelAssets(modelID: finishingJob.modelID) else {
@@ -367,42 +239,26 @@ final class MLXDownloadCoordinator: ObservableObject {
                 catalogModel: .some(model)
             )
             publish(completedJob, persist: true)
-            taskBridge?.complete(
-                success: true,
-                title: "Downloaded MLX Model",
-                subtitle: model.displayName,
-                totalUnitCount: finishedTotal,
-                completedUnitCount: finishedTotal
+            logNotice(
+                "MLX download completed job={\(jobSummary(completedJob))} selected=\(completedJob.autoSelectOnCompletion) assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: completedJob.modelID))}"
             )
             await clearActiveTask()
         } catch {
-            await failDownload(
-                forJobID: jobID,
-                message: error.localizedDescription,
-                taskBridge: taskBridge
-            )
+            await failDownload(forJobID: jobID, message: error.localizedDescription)
         }
     }
 
     private func resolveCatalogModel(for job: MLXDownloadJob) async throws -> MLXCatalogModel {
         if let catalogModel = job.catalogModel {
+            logNotice("Using persisted catalog metadata for \(job.modelID)")
             return catalogModel
         }
+        logNotice("Fetching catalog metadata for custom repo \(job.modelID)")
         return try await catalogService.fetchModel(repoID: job.modelID)
     }
 
-    private func cancelDownload(
-        forJobID jobID: String,
-        taskBridge: MLXDownloadTaskBridge?
-    ) async {
+    private func cancelDownload(forJobID jobID: String) async {
         guard let currentJob = currentJobForID(jobID) else {
-            taskBridge?.complete(
-                success: false,
-                title: "MLX Download Cancelled",
-                subtitle: "Missing download state",
-                totalUnitCount: 1,
-                completedUnitCount: 0
-            )
             await clearActiveTask()
             return
         }
@@ -413,29 +269,14 @@ final class MLXDownloadCoordinator: ObservableObject {
             errorMessage: .some(message)
         )
         publish(cancelledJob, persist: true)
-        taskBridge?.complete(
-            success: false,
-            title: "MLX Download Cancelled",
-            subtitle: currentJob.displayName,
-            totalUnitCount: max(max(currentJob.totalUnitCount, currentJob.completedUnitCount), 1),
-            completedUnitCount: currentJob.completedUnitCount
+        logWarning(
+            "MLX download cancelled job={\(jobSummary(cancelledJob))} assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: cancelledJob.modelID))}"
         )
         await clearActiveTask()
     }
 
-    private func failDownload(
-        forJobID jobID: String,
-        message: String,
-        taskBridge: MLXDownloadTaskBridge?
-    ) async {
+    private func failDownload(forJobID jobID: String, message: String) async {
         guard let currentJob = currentJobForID(jobID) else {
-            taskBridge?.complete(
-                success: false,
-                title: "MLX Download Failed",
-                subtitle: "Missing download state",
-                totalUnitCount: 1,
-                completedUnitCount: 0
-            )
             await clearActiveTask()
             return
         }
@@ -445,12 +286,8 @@ final class MLXDownloadCoordinator: ObservableObject {
             errorMessage: .some(message)
         )
         publish(failedJob, persist: true)
-        taskBridge?.complete(
-            success: false,
-            title: "MLX Download Failed",
-            subtitle: currentJob.displayName,
-            totalUnitCount: max(max(currentJob.totalUnitCount, currentJob.completedUnitCount), 1),
-            completedUnitCount: currentJob.completedUnitCount
+        logError(
+            "MLX download failed job={\(jobSummary(failedJob))} assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: failedJob.modelID))}"
         )
         await clearActiveTask()
     }
@@ -473,6 +310,10 @@ final class MLXDownloadCoordinator: ObservableObject {
     private func clearActiveTask() async {
         activeTask = nil
         pendingCancellationReason = nil
+        lastLoggedProgressFraction = -1.0
+        lastProgressEventAt = .distantPast
+        lastObservedCompletedUnitCount = 0
+        logNotice("Cleared active MLX download task state")
     }
 
     private func publish(
@@ -480,34 +321,101 @@ final class MLXDownloadCoordinator: ObservableObject {
         persist: Bool,
         throttleProgressPersistence: Bool = false
     ) {
-        let apply = {
-            self.currentJob = job
-
-            guard persist else { return }
-
-            do {
-                if let job {
-                    if throttleProgressPersistence,
-                       job.isActive,
-                       Date.now.timeIntervalSince(self.lastPersistedProgressAt) < 1
-                    {
-                        return
-                    }
-                    try self.jobStore.saveCurrentJob(job)
-                    self.lastPersistedProgressAt = .now
-                } else {
-                    try self.jobStore.clearCurrentJob()
-                    self.lastPersistedProgressAt = .distantPast
-                }
-            } catch {
-                self.logger.error("Failed to persist MLX download job: \(error.localizedDescription, privacy: .public)")
+        if Thread.isMainThread {
+            applyPublishedJob(job, persist: persist, throttleProgressPersistence: throttleProgressPersistence)
+        } else {
+            DispatchQueue.main.async {
+                self.applyPublishedJob(job, persist: persist, throttleProgressPersistence: throttleProgressPersistence)
             }
         }
+    }
 
-        if Thread.isMainThread {
-            apply()
-        } else {
-            DispatchQueue.main.async(execute: apply)
+    private func applyPublishedJob(
+        _ job: MLXDownloadJob?,
+        persist: Bool,
+        throttleProgressPersistence: Bool
+    ) {
+        let previousJob = self.currentJob
+        self.currentJob = job
+
+        guard persist else { return }
+
+        do {
+            if let job {
+                if throttleProgressPersistence,
+                   job.isActive,
+                   Date.now.timeIntervalSince(self.lastPersistedProgressAt) < 1
+                {
+                    return
+                }
+                try self.jobStore.saveCurrentJob(job)
+                self.lastPersistedProgressAt = .now
+            } else {
+                try self.jobStore.clearCurrentJob()
+                self.lastPersistedProgressAt = .distantPast
+            }
+        } catch {
+            self.logError("Failed to persist MLX download job: \(error.localizedDescription)")
         }
+
+        if previousJob != job {
+            self.logNotice(
+                "Persisted MLX download state change previous={\(self.jobSummary(previousJob))} current={\(self.jobSummary(job))}"
+            )
+        }
+    }
+
+    private func jobSummary(_ job: MLXDownloadJob?) -> String {
+        guard let job else { return "nil" }
+        let error = job.errorMessage?.replacingOccurrences(of: "\n", with: " ") ?? "nil"
+        return "id=\(job.jobID) task=\(job.taskIdentifier) model=\(job.modelID) state=\(job.state.rawValue) completed=\(job.completedUnitCount) total=\(job.totalUnitCount) fraction=\(String(format: "%.3f", job.fractionCompleted)) source=\(job.source.rawValue) autoSelect=\(job.autoSelectOnCompletion) error=\(error)"
+    }
+
+    private func makeStallMonitorTask(for job: MLXDownloadJob) -> Task<Void, Never> {
+        Task { [weak self] in
+            guard let self else { return }
+            self.logNotice("Started stall monitor for job={\(self.jobSummary(job))}")
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(15))
+                guard !Task.isCancelled else { break }
+                guard let currentJob = self.currentJobForID(job.jobID), currentJob.isActive else {
+                    self.logNotice("Stopping stall monitor because job is no longer active jobID=\(job.jobID)")
+                    break
+                }
+
+                let idleSeconds = Date.now.timeIntervalSince(self.lastProgressEventAt)
+                let assetState = AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: currentJob.modelID)
+                let hasObservedProgress = max(currentJob.completedUnitCount, self.lastObservedCompletedUnitCount) > 0
+                if idleSeconds < 20 {
+                    self.logNotice(
+                        "MLX download heartbeat job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                    )
+                } else if !hasObservedProgress {
+                    self.logNotice(
+                        "MLX download waiting for first progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                    )
+                } else if idleSeconds >= 60 {
+                    self.logWarning(
+                        "MLX download idle after progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                    )
+                } else {
+                    self.logNotice(
+                        "MLX download idle after progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                    )
+                }
+            }
+        }
+    }
+
+    private func logNotice(_ message: String) {
+        logger.xcodeNotice(message)
+    }
+
+    private func logWarning(_ message: String) {
+        logger.xcodeWarning(message)
+    }
+
+    private func logError(_ message: String) {
+        logger.xcodeError(message)
     }
 }

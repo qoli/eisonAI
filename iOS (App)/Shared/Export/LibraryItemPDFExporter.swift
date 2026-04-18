@@ -404,8 +404,7 @@ enum LibraryItemPDFExporter {
     }
 
     private static func log(_ message: String) {
-        logger.debug("\(message, privacy: .public)")
-        print("[PDFExport] \(message)")
+        logger.xcodeDebug(message)
     }
 }
 

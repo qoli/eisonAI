@@ -1,7 +1,9 @@
 import Foundation
+import OSLog
 import SwiftUI
 
 struct AIModelsSettingsView: View {
+    private static let logger = Logger(subsystem: "com.qoli.eisonAI", category: "AIModelsSettingsView")
     private let appBackendStore = GenerationBackendSettingsStore()
     private let extensionBackendStore = ExtensionGenerationBackendSettingsStore()
     private let byokStore = BYOKSettingsStore()
@@ -11,6 +13,8 @@ struct AIModelsSettingsView: View {
     private let modelStore = MLXModelStore()
     private let client = AnyLanguageModelClient()
     @ObservedObject private var downloadCoordinator = MLXDownloadCoordinator.shared
+    private let debugAutomationRequest: MLXDebugAutomationRequest?
+    private let startInMLXManagement: Bool
     private let longDocumentChunkSizeOptions: [Int] = LongDocumentDefaults.allowedChunkSizes
     private let longDocumentMaxChunkOptions: [Int] = LongDocumentDefaults.allowedMaxChunkCounts
     private static let modelPickerPlaceholderTag = "__byok_model_placeholder__"
@@ -42,6 +46,7 @@ struct AIModelsSettingsView: View {
     @State private var modelOperationIsError = false
     @State private var activeModelOperationIDs = Set<String>()
     @State private var customRepoDraft = ""
+    @State private var didRunDebugAutomation = false
 
     @State private var byokProvider: BYOKProvider = .openAIChat
     @State private var byokProviderOptionID = ""
@@ -65,6 +70,15 @@ struct AIModelsSettingsView: View {
     @State private var byokPingResponse = ""
     @State private var byokPingError = ""
     @State private var byokPingTask: Task<Void, Never>?
+
+    init(
+        debugAutomationRequest: MLXDebugAutomationRequest? = nil,
+        startInMLXManagement: Bool = false
+    ) {
+        self.debugAutomationRequest = debugAutomationRequest
+        self.startInMLXManagement = startInMLXManagement
+        self._downloadCoordinator = ObservedObject(wrappedValue: MLXDownloadCoordinator.shared)
+    }
 
     private var aiStatus: AppleIntelligenceAvailability.Status {
         AppleIntelligenceAvailability.currentStatus()
@@ -123,6 +137,123 @@ struct AIModelsSettingsView: View {
     }
 
     var body: some View {
+        displayedPage
+            .navigationTitle("AI Models")
+            .alert("Replace API URL?", isPresented: $showOverwriteAPIAlert) {
+            Button("Replace", role: .destructive) {
+                guard let option = pendingProviderOption else { return }
+                applyProviderOption(option)
+                pendingProviderOptionID = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingProviderOptionID = nil
+            }
+        } message: {
+            if let presetURL = pendingProviderOption?.preset?.apiURL {
+                Text("This will replace the current API URL with:\n\(presetURL)")
+            } else {
+                Text("This will replace the current API URL.")
+            }
+        }
+        .alert("Enter Model ID", isPresented: $showCustomModelPrompt) {
+            TextField("Model ID", text: $customModelDraft)
+            Button("Save") {
+                let trimmed = customModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    byokModel = trimmed
+                }
+                customModelDraft = ""
+            }
+            Button("Cancel", role: .cancel) {
+                customModelDraft = ""
+            }
+        } message: {
+            Text("Use a custom model ID that isn't in the list.")
+        }
+        .task {
+            loadStateIfNeeded()
+        }
+        .onChange(of: appBackend) { _, newValue in
+            guard didLoad else { return }
+            appBackendStore.saveSelectedBackend(newValue)
+            scheduleByokConnectionTest()
+        }
+        .onChange(of: extensionBackend) { _, newValue in
+            guard didLoad else { return }
+            extensionBackendStore.saveSelectedBackend(newValue)
+        }
+        .onChange(of: autoLocalPreference) { _, newValue in
+            guard didLoad else { return }
+            autoStrategyStore.setLocalModelPreference(newValue)
+        }
+        .onChange(of: longDocumentChunkTokenSize) { _, newValue in
+            guard didLoad else { return }
+            longDocumentSettingsStore.setChunkTokenSize(newValue)
+        }
+        .onChange(of: longDocumentMaxChunkCount) { _, newValue in
+            guard didLoad else { return }
+            longDocumentSettingsStore.setMaxChunkCount(newValue)
+        }
+        .onChange(of: byokProviderOptionID) { _, newValue in
+            guard didLoad else { return }
+            guard !suppressProviderOptionChange else { return }
+            guard newValue != lastConfirmedProviderOptionID else { return }
+            guard let option = BYOKProvider.httpOptions.first(where: { $0.id == newValue }) else {
+                return
+            }
+            let trimmedURL = byokApiURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let presetURL = option.preset?.apiURL,
+               !trimmedURL.isEmpty,
+               trimmedURL != presetURL {
+                pendingProviderOptionID = newValue
+                showOverwriteAPIAlert = true
+                suppressProviderOptionChange = true
+                byokProviderOptionID = lastConfirmedProviderOptionID
+                suppressProviderOptionChange = false
+                return
+            }
+            applyProviderOption(option)
+        }
+        .onChange(of: byokProvider) { _, _ in
+            if didLoad {
+                validateBYOK()
+                resetByokPing()
+                scheduleByokConnectionTest()
+            }
+        }
+        .onChange(of: byokApiURL) { _, _ in
+            if didLoad {
+                validateBYOK()
+                resetByokPing()
+                scheduleByokConnectionTest()
+            }
+        }
+        .onChange(of: byokApiKey) { _, _ in
+            if didLoad {
+                validateBYOK()
+                resetByokPing()
+                scheduleByokConnectionTest()
+            }
+        }
+        .onChange(of: byokModel) { _, _ in
+            if didLoad {
+                validateBYOK()
+                resetByokPing()
+                scheduleByokConnectionTest()
+            }
+            }
+    }
+
+    @ViewBuilder
+    private var displayedPage: some View {
+        if startInMLXManagement {
+            mlxManagementPage
+        } else {
+            settingsForm
+        }
+    }
+
+    private var settingsForm: some View {
         Form {
             Section {
                 Picker("App Backend", selection: $appBackend) {
@@ -301,110 +432,6 @@ struct AIModelsSettingsView: View {
                 }
             }
         }
-        .navigationTitle("AI Models")
-        .alert("Replace API URL?", isPresented: $showOverwriteAPIAlert) {
-            Button("Replace", role: .destructive) {
-                guard let option = pendingProviderOption else { return }
-                applyProviderOption(option)
-                pendingProviderOptionID = nil
-            }
-            Button("Cancel", role: .cancel) {
-                pendingProviderOptionID = nil
-            }
-        } message: {
-            if let presetURL = pendingProviderOption?.preset?.apiURL {
-                Text("This will replace the current API URL with:\n\(presetURL)")
-            } else {
-                Text("This will replace the current API URL.")
-            }
-        }
-        .alert("Enter Model ID", isPresented: $showCustomModelPrompt) {
-            TextField("Model ID", text: $customModelDraft)
-            Button("Save") {
-                let trimmed = customModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    byokModel = trimmed
-                }
-                customModelDraft = ""
-            }
-            Button("Cancel", role: .cancel) {
-                customModelDraft = ""
-            }
-        } message: {
-            Text("Use a custom model ID that isn't in the list.")
-        }
-        .task {
-            loadStateIfNeeded()
-        }
-        .onChange(of: appBackend) { _, newValue in
-            guard didLoad else { return }
-            appBackendStore.saveSelectedBackend(newValue)
-            scheduleByokConnectionTest()
-        }
-        .onChange(of: extensionBackend) { _, newValue in
-            guard didLoad else { return }
-            extensionBackendStore.saveSelectedBackend(newValue)
-        }
-        .onChange(of: autoLocalPreference) { _, newValue in
-            guard didLoad else { return }
-            autoStrategyStore.setLocalModelPreference(newValue)
-        }
-        .onChange(of: longDocumentChunkTokenSize) { _, newValue in
-            guard didLoad else { return }
-            longDocumentSettingsStore.setChunkTokenSize(newValue)
-        }
-        .onChange(of: longDocumentMaxChunkCount) { _, newValue in
-            guard didLoad else { return }
-            longDocumentSettingsStore.setMaxChunkCount(newValue)
-        }
-        .onChange(of: byokProviderOptionID) { _, newValue in
-            guard didLoad else { return }
-            guard !suppressProviderOptionChange else { return }
-            guard newValue != lastConfirmedProviderOptionID else { return }
-            guard let option = BYOKProvider.httpOptions.first(where: { $0.id == newValue }) else {
-                return
-            }
-            let trimmedURL = byokApiURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let presetURL = option.preset?.apiURL,
-               !trimmedURL.isEmpty,
-               trimmedURL != presetURL {
-                pendingProviderOptionID = newValue
-                showOverwriteAPIAlert = true
-                suppressProviderOptionChange = true
-                byokProviderOptionID = lastConfirmedProviderOptionID
-                suppressProviderOptionChange = false
-                return
-            }
-            applyProviderOption(option)
-        }
-        .onChange(of: byokProvider) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
-            }
-        }
-        .onChange(of: byokApiURL) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
-            }
-        }
-        .onChange(of: byokApiKey) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
-            }
-        }
-        .onChange(of: byokModel) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
-            }
-        }
     }
 
     private var backendFooterText: String {
@@ -526,8 +553,31 @@ struct AIModelsSettingsView: View {
                 if let activeDownloadJob,
                    activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                 {
-                    Text("Another MLX download is in progress: \(activeDownloadJob.displayName)")
-                        .foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("Another MLX download is in progress: \(activeDownloadJob.displayName)")
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Button("Cancel", role: .destructive) {
+                            cancelCurrentDownloadJob()
+                        }
+                        .font(.footnote)
+                    }
+                } else if let blockingTerminalJob = currentDownloadJob,
+                          !blockingTerminalJob.isActive
+                {
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
+                            .foregroundStyle(.secondary)
+
+                        Spacer()
+
+                        Button("Dismiss") {
+                            dismissCurrentDownloadJob()
+                        }
+                        .font(.footnote)
+                    }
                 }
 
                 if !modelOperationMessage.isEmpty {
@@ -588,10 +638,16 @@ struct AIModelsSettingsView: View {
             if catalogModels.isEmpty {
                 refreshCatalog()
             }
+            logMLXUIState("mlxManagementPage.task")
+            await runDebugAutomationIfNeeded()
         }
         .onReceive(downloadCoordinator.$currentJob) { job in
             installedModels = modelStore.loadInstalledModels()
             selectedMLXModelID = modelStore.loadSelectedModelID()
+            logMLXUIState(
+                "downloadCoordinator.currentJob=\(job?.state.rawValue ?? "nil")",
+                observedJob: job
+            )
 
             guard let job else { return }
             guard !job.isActive else { return }
@@ -636,13 +692,22 @@ struct AIModelsSettingsView: View {
                 if activeModelOperationIDs.contains(model.id) {
                     ProgressView()
                 } else {
-                    Button("Remove", role: .destructive) {
-                        removeInstalledModel(id: model.id)
+                    Button("Delete", role: .destructive) {
+                        deleteInstalledModel(id: model.id)
                     }
                 }
             }
         }
         .padding(.vertical, 4)
+        .onAppear {
+            logInstalledRowState(model, context: "appear")
+        }
+        .onChange(of: activeModelOperationIDs) { _, _ in
+            logInstalledRowState(model, context: "activeModelOperationIDs changed")
+        }
+        .onChange(of: selectedMLXModelID) { _, _ in
+            logInstalledRowState(model, context: "selectedMLXModelID changed")
+        }
     }
 
     @ViewBuilder
@@ -662,9 +727,15 @@ struct AIModelsSettingsView: View {
                 Spacer()
 
                 if let job = downloadJob(for: model.id) {
-                    Text(job.progressText)
-                        .font(.footnote)
-                        .foregroundStyle(job.state == .failed || job.state == .cancelled ? .red : .secondary)
+                    if job.isActive {
+                        Text(job.progressText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(job.progressText)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 } else if installedModels.contains(where: { $0.id == model.id }) {
                     Button(selectedMLXModelID == model.id ? "Selected" : "Select") {
                         selectInstalledModel(id: model.id)
@@ -764,6 +835,7 @@ struct AIModelsSettingsView: View {
 
         validateBYOK()
         scheduleByokConnectionTest()
+        logMLXUIState("loadStateIfNeeded")
     }
 
     private func refreshCatalog() {
@@ -808,6 +880,79 @@ struct AIModelsSettingsView: View {
         }
     }
 
+    @MainActor
+    private func runDebugAutomationIfNeeded() async {
+        guard let request = debugAutomationRequest else { return }
+        guard !didRunDebugAutomation else { return }
+        didRunDebugAutomation = true
+
+        Self.logger.xcodeNotice(
+            "mlxUI automation start repo=\(request.repoID) source=\(request.source.rawValue) autoSelect=\(request.autoSelect) purgeExisting=\(request.purgeExisting)"
+        )
+
+        showAllCatalogModels = true
+        if request.source == .custom {
+            showCustomRepoSection = true
+            customRepoDraft = request.repoID
+        }
+
+        if request.purgeExisting {
+            await purgeDebugAutomationArtifacts(for: request.repoID)
+        }
+
+        do {
+            let model = try await catalogService.fetchModel(repoID: request.repoID)
+            if !catalogModels.contains(where: { $0.id == model.id }) {
+                catalogModels.insert(model, at: 0)
+            }
+
+            switch request.source {
+            case .catalog:
+                installCatalogModel(model)
+            case .custom:
+                customRepoDraft = model.id
+                installCustomRepo()
+            }
+        } catch {
+            modelOperationMessage = "Automation failed for \(request.repoID): \(error.localizedDescription)"
+            modelOperationIsError = true
+            Self.logger.xcodeError(
+                "mlxUI automation failed repo=\(request.repoID) error=\(error.localizedDescription)"
+            )
+        }
+    }
+
+    @MainActor
+    private func purgeDebugAutomationArtifacts(for repoID: String) async {
+        if let currentJob = currentDownloadJob, currentJob.modelID == repoID {
+            if currentJob.isActive {
+                await downloadCoordinator.cancelCurrentJob()
+            }
+            if let refreshedJob = downloadCoordinator.currentJob,
+               refreshedJob.modelID == repoID,
+               !refreshedJob.isActive
+            {
+                downloadCoordinator.dismissCurrentJob()
+            }
+        }
+
+        do {
+            try await client.deleteLocalModel(modelID: repoID)
+        } catch {
+            Self.logger.xcodeWarning(
+                "mlxUI automation purge deleteLocalModel warning repo=\(repoID) error=\(error.localizedDescription)"
+            )
+        }
+
+        modelStore.removeInstalledModel(id: repoID)
+        installedModels = modelStore.loadInstalledModels()
+        selectedMLXModelID = modelStore.loadSelectedModelID()
+        downloadCoordinator.refreshState()
+        Self.logger.xcodeNotice(
+            "mlxUI automation purge completed repo=\(repoID) installedNow=\(installedModels.map { $0.id }.sorted()) selectedNow=\(selectedMLXModelID ?? "nil")"
+        )
+    }
+
     private func installCustomRepo() {
         let repoID = customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !repoID.isEmpty else { return }
@@ -839,29 +984,71 @@ struct AIModelsSettingsView: View {
         selectedMLXModelID = id
         modelOperationMessage = "Selected \(id)."
         modelOperationIsError = false
+        logMLXUIState("selectInstalledModel id=\(id)")
     }
 
-    private func removeInstalledModel(id: String) {
+    private func deleteInstalledModel(id: String) {
+        Self.logger.xcodeNotice(
+            "deleteInstalledModel requested id=\(id) activeBefore=\(activeModelOperationIDs.sorted()) installed=\(installedModels.map { $0.id }.sorted()) selected=\(selectedMLXModelID ?? "nil")"
+        )
         startModelOperation(for: id)
         Task {
-            await client.unloadLocalModel(modelID: id)
-            await MainActor.run {
-                modelStore.removeInstalledModel(id: id)
-                installedModels = modelStore.loadInstalledModels()
-                selectedMLXModelID = modelStore.loadSelectedModelID()
-                modelOperationMessage = "Removed \(id)."
-                modelOperationIsError = false
-                finishModelOperation(for: id)
+            do {
+                try await client.deleteLocalModel(modelID: id)
+                await MainActor.run {
+                    modelStore.removeInstalledModel(id: id)
+                    installedModels = modelStore.loadInstalledModels()
+                    selectedMLXModelID = modelStore.loadSelectedModelID()
+                    modelOperationMessage = "Deleted \(id)."
+                    modelOperationIsError = false
+                    Self.logger.xcodeNotice(
+                        "deleteInstalledModel succeeded id=\(id) installedNow=\(installedModels.map { $0.id }.sorted()) selectedNow=\(selectedMLXModelID ?? "nil")"
+                    )
+                    finishModelOperation(for: id)
+                }
+            } catch {
+                await MainActor.run {
+                    modelOperationMessage = "Failed to delete \(id): \(error.localizedDescription)"
+                    modelOperationIsError = true
+                    Self.logger.xcodeError(
+                        "deleteInstalledModel failed id=\(id) error=\(error.localizedDescription) activeNow=\(activeModelOperationIDs.sorted())"
+                    )
+                    finishModelOperation(for: id)
+                }
             }
         }
     }
 
     private func startModelOperation(for id: String) {
         activeModelOperationIDs.insert(id)
+        Self.logger.xcodeNotice(
+            "startModelOperation id=\(id) activeModelOperationIDs=\(activeModelOperationIDs.sorted())"
+        )
     }
 
     private func finishModelOperation(for id: String) {
         activeModelOperationIDs.remove(id)
+        Self.logger.xcodeNotice(
+            "finishModelOperation id=\(id) activeModelOperationIDs=\(activeModelOperationIDs.sorted())"
+        )
+    }
+
+    private func cancelCurrentDownloadJob() {
+        Self.logger.xcodeNotice("cancelCurrentDownloadJob tapped currentJob=\(downloadCoordinator.currentJobLogSummary)")
+        Task {
+            await downloadCoordinator.cancelCurrentJob()
+            await MainActor.run {
+                modelOperationMessage = "Cancelling MLX download…"
+                modelOperationIsError = false
+            }
+        }
+    }
+
+    private func dismissCurrentDownloadJob() {
+        Self.logger.xcodeNotice("dismissCurrentDownloadJob tapped currentJob=\(downloadCoordinator.currentJobLogSummary)")
+        downloadCoordinator.dismissCurrentJob()
+        modelOperationMessage = ""
+        modelOperationIsError = false
     }
 
     private func downloadJob(for modelID: String) -> MLXDownloadJob? {
@@ -879,6 +1066,24 @@ struct AIModelsSettingsView: View {
         return currentDownloadJob
     }
 
+    private func logInstalledRowState(_ model: InstalledMLXModel, context: String) {
+        let isSelected = selectedMLXModelID == model.id
+        let isActive = activeModelOperationIDs.contains(model.id)
+        let visibleTrailingControl = isActive ? "progress" : "delete"
+        Self.logger.xcodeNotice(
+            "installedRow context=\(context) id=\(model.id) selected=\(isSelected) active=\(isActive) visibleTrailingControl=\(visibleTrailingControl) activeModelOperationIDs=\(activeModelOperationIDs.sorted())"
+        )
+    }
+
+    private func logMLXUIState(_ context: String, observedJob: MLXDownloadJob? = nil) {
+        let jobSummary = observedJob.map { job in
+            "id=\(job.jobID) task=\(job.taskIdentifier) model=\(job.modelID) state=\(job.state.rawValue) completed=\(job.completedUnitCount) total=\(job.totalUnitCount) fraction=\(String(format: "%.3f", job.fractionCompleted)) source=\(job.source.rawValue) autoSelect=\(job.autoSelectOnCompletion) error=\(job.errorMessage ?? "nil")"
+        } ?? downloadCoordinator.currentJobLogSummary
+        Self.logger.xcodeNotice(
+            "mlxUI context=\(context) installed=\(installedModels.map { $0.id }.sorted()) selected=\(selectedMLXModelID ?? "nil") activeModelOperationIDs=\(activeModelOperationIDs.sorted()) currentDownloadJob=\(jobSummary)"
+        )
+    }
+
     @ViewBuilder
     private func downloadJobStatusView(_ job: MLXDownloadJob) -> some View {
         let isError = job.state == .failed || job.state == .cancelled
@@ -894,6 +1099,18 @@ struct AIModelsSettingsView: View {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
+            }
+
+            if job.isActive {
+                Button("Cancel Download", role: .destructive) {
+                    cancelCurrentDownloadJob()
+                }
+                .font(.footnote)
+            } else if isError {
+                Button("Dismiss") {
+                    dismissCurrentDownloadJob()
+                }
+                .font(.footnote)
             }
         }
     }

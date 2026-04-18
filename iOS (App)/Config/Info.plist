@@ -33,10 +33,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.qoli.eisonAI.mlx-download.*</string>
-	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>$(INFOPLIST_KEY_LSApplicationCategoryType)</string>
 	<key>LSRequiresIPhoneOS</key>
