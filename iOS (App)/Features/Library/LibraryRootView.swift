@@ -1,5 +1,4 @@
 import Foundation
-import MarkdownUI
 import SwiftUI
 
 struct LibraryRootView: View {
@@ -11,7 +10,7 @@ struct LibraryRootView: View {
     @State private var selection: Int = LibraryMode.all.rawValue
     @State private var selectedTag: String?
     @FocusState private var isSearchFocused: Bool
-    @State private var deepLinkEntry: RawHistoryEntry?
+    @State private var navigationPath: [RawHistoryEntry] = []
 
     @State private var segmentedTransitionEdge: Edge = .trailing
     @State private var activeKeyPointInput: KeyPointInput?
@@ -79,7 +78,7 @@ struct LibraryRootView: View {
     }
 
     var body: some View {
-        let content = NavigationStack {
+        let content = NavigationStack(path: $navigationPath) {
             libraryContent
         }
         #if canImport(Translation)
@@ -139,7 +138,7 @@ struct LibraryRootView: View {
             .onChange(of: syncCoordinator.lastCompletedAt) { _, _ in
                 viewModel.reload()
             }
-            .navigationDestination(item: $deepLinkEntry) { entry in
+            .navigationDestination(for: RawHistoryEntry.self) { entry in
                 LibraryItemDetailView(
                     viewModel: viewModel,
                     entry: entry
@@ -399,12 +398,7 @@ struct LibraryRootView: View {
             }
         } else {
             List(visibleEntries) { entry in
-                NavigationLink {
-                    LibraryItemDetailView(
-                        viewModel: viewModel,
-                        entry: entry
-                    )
-                } label: {
+                NavigationLink(value: entry) {
                     LibraryItemRow(
                         entry: entry,
                         isFavorite: viewModel.isFavorited(entry),
@@ -528,8 +522,7 @@ struct LibraryRootView: View {
             searchText = ""
             viewModel.reload()
             if let match = viewModel.entries.first(where: { $0.metadata.id == id }) {
-                deepLinkEntry = nil
-                deepLinkEntry = match
+                navigationPath = [match]
             }
         }
     }

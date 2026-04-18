@@ -1,6 +1,5 @@
 import Drops
 import Foundation
-import MarkdownUI
 import SwiftUI
 #if canImport(UIKit)
     import UIKit
@@ -16,9 +15,12 @@ struct LibraryItemDetailView: View {
 
     @State private var item: RawHistoryItem?
     @State private var isGeneratingTitle: Bool = false
+    @State private var isPreparingPDFExport: Bool = false
     @State private var isTagEditorPresented: Bool = false
     @State private var recentTagEntries: [RawLibraryTagCacheEntry] = []
     @State private var regenerateRequest: RegenerateRequest?
+    @State private var exportedPDFURL: URL?
+    @State private var pdfExportTask: Task<Void, Never>?
 
     private let rawLibraryStore = RawLibraryStore()
 
@@ -67,6 +69,25 @@ struct LibraryItemDetailView: View {
         return summaryText
     }
 
+    private var pdfExportFileName: String {
+        let trimmedTitle = displayTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeTitle = trimmedTitle.isEmpty ? "eisonai-note" : trimmedTitle
+        return "\(safeTitle)-\(entry.metadata.id.prefix(8))"
+    }
+
+    private var pdfExportContent: LibraryItemPDFExportContent {
+        let sourceURLText = entry.metadata.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .init(
+            title: displayTitle,
+            createdAtText: Self.dateFormatter.string(from: entry.metadata.createdAt),
+            sourceURLText: sourceURLText.isEmpty ? nil : sourceURLText,
+            tags: item?.tags ?? entry.metadata.tags,
+            summaryText: (item?.summaryText ?? entry.metadata.summaryText)
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            articleText: item?.articleText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -84,16 +105,6 @@ struct LibraryItemDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if isGeneratingTitle {
-                    ProgressView()
-                }
-            }
-
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            }
-
-            ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     viewModel.toggleFavorite(entry)
                 } label: {
@@ -102,51 +113,23 @@ struct LibraryItemDetailView: View {
                 .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
             }
 
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            }
-
-            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                ToolbarItem(placement: .topBarTrailing) {
-                    ShareLink(
-                        item: url,
-                        subject: Text(displayTitle)
-                    ) {
-                        Label("Share website", systemImage: "square.and.arrow.up")
-                    }
-                }
-            }
-
-            if #available(iOS 26.0, *) {
-                ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            }
-
             // Detail-Menu
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        copyNoteLink()
+                    Menu {
+                        Button(role: .destructive) {
+                            viewModel.delete(entry)
+                            dismiss()
+                        } label: {
+                            Label("Confirm Delete", systemImage: "trash")
+                        }
+
+                        Button(role: .cancel) {} label: {
+                            Label("Cancel", systemImage: "xmark")
+                        }
                     } label: {
-                        Label("Copy Note Link", systemImage: "doc.on.doc")
+                        Label("Delete Record", systemImage: "trash")
                     }
-
-                    Divider()
-
-                    Button {
-                        requestGenerateTitle(force: true)
-                    } label: {
-                        Label("Regenerate Title", systemImage: "arrow.clockwise")
-                    }
-
-                    Divider()
-
-                    Button {
-                        guard let request = makeRegenerateRequest() else { return }
-                        regenerateRequest = request
-                    } label: {
-                        Label("Regenerate Summary", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                    .disabled(!canRegenerateSummary)
 
                     Divider()
 
@@ -188,19 +171,28 @@ struct LibraryItemDetailView: View {
 
                     Divider()
 
-                    Menu {
-                        Button(role: .destructive) {
-                            viewModel.delete(entry)
-                            dismiss()
-                        } label: {
-                            Label("Confirm Delete", systemImage: "trash")
-                        }
-
-                        Button(role: .cancel) {} label: {
-                            Label("Cancel", systemImage: "xmark")
-                        }
+                    Button {
+                        guard let request = makeRegenerateRequest() else { return }
+                        regenerateRequest = request
                     } label: {
-                        Label("Delete Record", systemImage: "trash")
+                        Label("Regenerate Summary", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(!canRegenerateSummary)
+
+                    Divider()
+
+                    Button {
+                        requestGenerateTitle(force: true)
+                    } label: {
+                        Label("Regenerate Title", systemImage: "arrow.clockwise")
+                    }
+
+                    Divider()
+
+                    Button {
+                        copyNoteLink()
+                    } label: {
+                        Label("Copy Note Link", systemImage: "doc.on.doc")
                     }
                 } label: {
                     Label("More", systemImage: "ellipsis")
@@ -213,32 +205,57 @@ struct LibraryItemDetailView: View {
                 Spacer()
             }
 
-            if let summaryText = copyableSummaryText {
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
+            ToolbarItem(placement: .bottomBar) {
+                Menu {
+                    if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                        ShareLink(
+                            item: url,
+                            subject: Text(displayTitle)
+                        ) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
 
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        copyToPasteboard(summaryText)
-                    } label: {
-                        Label("Copy Full Text", systemImage: "document.on.document")
+                        Divider()
                     }
-                    .accessibilityLabel("Copy Full Text")
-                }
-            }
 
-            if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                if #available(iOS 26.0, *) {
-                    ToolbarSpacer(.fixed, placement: .bottomBar)
-                }
+                    if let exportedPDFURL {
+                        Button {
+                            copyPDFToPasteboard(exportedPDFURL)
+                        } label: {
+                            Label("Copy PDF", systemImage: "doc.on.doc")
+                        }
 
-                ToolbarItem(placement: .bottomBar) {
-                    Link(destination: url) {
-                        Label("Open Link", systemImage: "link")
+                        ShareLink(
+                            item: exportedPDFURL,
+                            preview: SharePreview(pdfExportFileName)
+                        ) {
+                            Label("Export PDF", systemImage: "doc.richtext")
+                        }
+                    } else {
+                        Button {
+                            preparePDFExport()
+                        } label: {
+                            Label(
+                                isPreparingPDFExport ? "Preparing PDF…" : "Export PDF",
+                                systemImage: "doc.richtext"
+                            )
+                        }
+                        .disabled(isPreparingPDFExport)
                     }
-                    .accessibilityLabel("Open Page URL")
+
+                    if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
+                        Divider()
+
+                        Link(destination: url) {
+                            Label("Open Link", systemImage: "link")
+                        }
+                        .accessibilityLabel("Open Page URL")
+                    }
+                } label: {
+                    Label("Actions", systemImage: "square.and.arrow.up")
                 }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel("Content Actions")
             }
         }
         .sheet(isPresented: $isTagEditorPresented, onDismiss: {
@@ -246,6 +263,7 @@ struct LibraryItemDetailView: View {
             item = viewModel.loadDetail(for: entry)
             log("tag editor reload done item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
+            preparePDFExport()
         }) {
             TagEditorView(fileURL: entry.fileURL, title: "Tags")
         }
@@ -254,6 +272,7 @@ struct LibraryItemDetailView: View {
             item = viewModel.loadDetail(for: entry)
             log("regenerate summary reload done item=\(item != nil ? "ok" : "nil")")
             viewModel.reload()
+            preparePDFExport()
         }) { request in
             ClipboardKeyPointSheet(
                 input: request.input,
@@ -268,20 +287,10 @@ struct LibraryItemDetailView: View {
             log("detail load result item=\(item != nil ? "ok" : "nil")")
             loadRecentTags()
             requestGenerateTitle(force: false)
+            preparePDFExport()
         }
-    }
-
-    var copyableSummaryText: String? {
-        if let summaryText = item?.summaryText {
-            var copyText = summaryText
-
-            if let url = URL(string: entry.metadata.url) {
-                copyText.append("\n\n\(url.absoluteString)")
-            }
-
-            return copyText
-        } else {
-            return nil
+        .onDisappear {
+            pdfExportTask?.cancel()
         }
     }
 
@@ -334,6 +343,7 @@ struct LibraryItemDetailView: View {
             let result = try rawLibraryStore.updateTags(fileURL: entry.fileURL, tags: updatedTags)
             item = result.item
             recentTagEntries = result.cache
+            preparePDFExport()
         } catch {
             log("apply recent tag failed: \(error.localizedDescription)")
         }
@@ -486,6 +496,59 @@ struct LibraryItemDetailView: View {
             await MainActor.run {
                 self.item = updated
                 viewModel.reload()
+                preparePDFExport()
+            }
+        }
+    }
+
+    private func preparePDFExport() {
+        let content = pdfExportContent
+        guard !content.summaryText.isEmpty || !content.articleText.isEmpty else {
+            log("pdf export skipped empty-content")
+            exportedPDFURL = nil
+            isPreparingPDFExport = false
+            return
+        }
+
+        pdfExportTask?.cancel()
+        isPreparingPDFExport = true
+
+        let fileName = pdfExportFileName
+        log(
+            """
+            pdf export prepare file=\(fileName).pdf \
+            titleCount=\(content.title.count) \
+            summaryCount=\(content.summaryText.count) \
+            articleCount=\(content.articleText.count)
+            """
+        )
+        pdfExportTask = Task {
+            do {
+                let url = try await LibraryItemPDFExporter.export(
+                    content: content,
+                    preferredFileName: fileName
+                )
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    exportedPDFURL = url
+                    isPreparingPDFExport = false
+                    log("pdf export ready path=\(url.path)")
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    isPreparingPDFExport = false
+                    log("pdf export canceled")
+                }
+            } catch {
+                await MainActor.run {
+                    exportedPDFURL = nil
+                    isPreparingPDFExport = false
+                    log("pdf export failed error=\(error.localizedDescription)")
+                    showDrop(
+                        title: "PDF Export Failed",
+                        subtitle: error.localizedDescription
+                    )
+                }
             }
         }
     }
@@ -535,13 +598,15 @@ private struct MarkdownSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Markdown(noThinkText)
-                .markdownTheme(.librarySummary)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .ifMacCatalyst { view in
-                    view.padding(.horizontal)
-                }
+            AppStructuredMarkdownView(
+                markdown: noThinkText,
+                allowsSelection: true
+            )
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .ifMacCatalyst { view in
+                view.padding(.horizontal)
+            }
         }
     }
 }
@@ -562,10 +627,10 @@ private struct LibraryTextDetailView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Markdown(text)
-                        .markdownTheme(.librarySummary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    AppStructuredMarkdownView(
+                        markdown: text,
+                        allowsSelection: true
+                    )
                 }
             }
             .padding(.horizontal)
@@ -603,9 +668,39 @@ private func copyToPasteboard(_ value: String) {
         .components(separatedBy: .newlines)
         .joined()
 
-    let drop = Drop(
+    showDrop(
         title: "Copy To Pasteboard",
-        subtitle: "\(String(oneLine.prefix(18)))...",
+        subtitle: "\(String(oneLine.prefix(18)))..."
+    )
+}
+
+private func copyPDFToPasteboard(_ fileURL: URL) {
+    do {
+        let data = try Data(contentsOf: fileURL)
+
+        #if canImport(UIKit)
+            UIPasteboard.general.setData(data, forPasteboardType: "com.adobe.pdf")
+        #elseif canImport(AppKit)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setData(data, forType: .pdf)
+        #endif
+
+        showDrop(
+            title: "PDF Copied",
+            subtitle: fileURL.lastPathComponent
+        )
+    } catch {
+        showDrop(
+            title: "Copy PDF Failed",
+            subtitle: error.localizedDescription
+        )
+    }
+}
+
+private func showDrop(title: String, subtitle: String? = nil) {
+    let drop = Drop(
+        title: title,
+        subtitle: subtitle ?? ""
     )
     Drops.show(drop)
 }
