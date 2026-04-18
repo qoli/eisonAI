@@ -116,29 +116,20 @@ struct LibraryItemDetailView: View {
             // Detail-Menu
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button {
-                        copyNoteLink()
+                    Menu {
+                        Button(role: .destructive) {
+                            viewModel.delete(entry)
+                            dismiss()
+                        } label: {
+                            Label("Confirm Delete", systemImage: "trash")
+                        }
+
+                        Button(role: .cancel) {} label: {
+                            Label("Cancel", systemImage: "xmark")
+                        }
                     } label: {
-                        Label("Copy Note Link", systemImage: "doc.on.doc")
+                        Label("Delete Record", systemImage: "trash")
                     }
-
-                    Divider()
-
-                    Button {
-                        requestGenerateTitle(force: true)
-                    } label: {
-                        Label("Regenerate Title", systemImage: "arrow.clockwise")
-                    }
-
-                    Divider()
-
-                    Button {
-                        guard let request = makeRegenerateRequest() else { return }
-                        regenerateRequest = request
-                    } label: {
-                        Label("Regenerate Summary", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                    .disabled(!canRegenerateSummary)
 
                     Divider()
 
@@ -180,19 +171,28 @@ struct LibraryItemDetailView: View {
 
                     Divider()
 
-                    Menu {
-                        Button(role: .destructive) {
-                            viewModel.delete(entry)
-                            dismiss()
-                        } label: {
-                            Label("Confirm Delete", systemImage: "trash")
-                        }
-
-                        Button(role: .cancel) {} label: {
-                            Label("Cancel", systemImage: "xmark")
-                        }
+                    Button {
+                        guard let request = makeRegenerateRequest() else { return }
+                        regenerateRequest = request
                     } label: {
-                        Label("Delete Record", systemImage: "trash")
+                        Label("Regenerate Summary", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(!canRegenerateSummary)
+
+                    Divider()
+
+                    Button {
+                        requestGenerateTitle(force: true)
+                    } label: {
+                        Label("Regenerate Title", systemImage: "arrow.clockwise")
+                    }
+
+                    Divider()
+
+                    Button {
+                        copyNoteLink()
+                    } label: {
+                        Label("Copy Note Link", systemImage: "doc.on.doc")
                     }
                 } label: {
                     Label("More", systemImage: "ellipsis")
@@ -208,15 +208,23 @@ struct LibraryItemDetailView: View {
             ToolbarItem(placement: .bottomBar) {
                 Menu {
                     if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
-                        Link(destination: url) {
-                            Label("Open Link", systemImage: "link")
+                        ShareLink(
+                            item: url,
+                            subject: Text(displayTitle)
+                        ) {
+                            Label("Share", systemImage: "square.and.arrow.up")
                         }
-                        .accessibilityLabel("Open Page URL")
 
                         Divider()
                     }
 
                     if let exportedPDFURL {
+                        Button {
+                            copyPDFToPasteboard(exportedPDFURL)
+                        } label: {
+                            Label("Copy PDF", systemImage: "doc.on.doc")
+                        }
+
                         ShareLink(
                             item: exportedPDFURL,
                             preview: SharePreview(pdfExportFileName)
@@ -238,12 +246,10 @@ struct LibraryItemDetailView: View {
                     if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
                         Divider()
 
-                        ShareLink(
-                            item: url,
-                            subject: Text(displayTitle)
-                        ) {
-                            Label("Share", systemImage: "square.and.arrow.up")
+                        Link(destination: url) {
+                            Label("Open Link", systemImage: "link")
                         }
+                        .accessibilityLabel("Open Page URL")
                     }
                 } label: {
                     Label("Actions", systemImage: "square.and.arrow.up")
@@ -596,11 +602,11 @@ private struct MarkdownSection: View {
                 markdown: noThinkText,
                 allowsSelection: true
             )
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .ifMacCatalyst { view in
-                    view.padding(.horizontal)
-                }
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .ifMacCatalyst { view in
+                view.padding(.horizontal)
+            }
         }
     }
 }
@@ -666,6 +672,29 @@ private func copyToPasteboard(_ value: String) {
         title: "Copy To Pasteboard",
         subtitle: "\(String(oneLine.prefix(18)))..."
     )
+}
+
+private func copyPDFToPasteboard(_ fileURL: URL) {
+    do {
+        let data = try Data(contentsOf: fileURL)
+
+        #if canImport(UIKit)
+            UIPasteboard.general.setData(data, forPasteboardType: "com.adobe.pdf")
+        #elseif canImport(AppKit)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setData(data, forType: .pdf)
+        #endif
+
+        showDrop(
+            title: "PDF Copied",
+            subtitle: fileURL.lastPathComponent
+        )
+    } catch {
+        showDrop(
+            title: "Copy PDF Failed",
+            subtitle: error.localizedDescription
+        )
+    }
 }
 
 private func showDrop(title: String, subtitle: String? = nil) {
