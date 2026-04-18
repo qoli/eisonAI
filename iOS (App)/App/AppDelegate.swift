@@ -5,6 +5,7 @@
 //  Created by 黃佁媛 on 2024/4/10.
 //
 
+@preconcurrency import BackgroundTasks
 import UIKit
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
@@ -21,6 +22,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        MLXDownloadCoordinator.shared.registerPersistedBackgroundTaskHandlerIfNeeded()
         #if !targetEnvironment(macCatalyst)
             if ProcessInfo.processInfo.isiOSAppOnMac {
                 DispatchQueue.main.async { [weak self] in

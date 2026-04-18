@@ -19,7 +19,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>62</string>
+	<string>65</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -32,6 +32,10 @@
 				<string>eisonai</string>
 			</array>
 		</dict>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.qoli.eisonAI.mlx-download.*</string>
 	</array>
 	<key>LSApplicationCategoryType</key>
 	<string>$(INFOPLIST_KEY_LSApplicationCategoryType)</string>

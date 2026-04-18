@@ -117,6 +117,11 @@ private struct MLXSimulatorDownloadState: Equatable {
 
 @MainActor
 final class AnyLanguageModelClient {
+    struct DownloadedLocalModelAssets: Sendable {
+        let modelDirectory: URL
+        let tokenizerDirectory: URL
+    }
+
     nonisolated private static let logger = Logger(
         subsystem: "com.qoli.eisonAI",
         category: "AnyLanguageModelClient"
@@ -174,11 +179,7 @@ final class AnyLanguageModelClient {
     func prepareLocalModel(modelID: String) async throws {
         #if canImport(EisonAIModelKit)
             #if targetEnvironment(simulator)
-                #if canImport(MLXLMCommon) && canImport(Hub)
-                    try await prepareLocalModelAssetsForSimulator(modelID: modelID)
-                #else
-                    throw ClientError.invalidConfiguration("MLX download support is unavailable in this simulator target.")
-                #endif
+                _ = try await downloadLocalModelAssets(modelID: modelID)
             #else
             let model = MLXLanguageModel(modelId: modelID)
             let session = LanguageModelSession(model: model, instructions: "Reply with OK.")
@@ -193,6 +194,54 @@ final class AnyLanguageModelClient {
             #endif
         #else
             throw ClientError.invalidConfiguration("MLX support is unavailable in this target.")
+        #endif
+    }
+
+    func downloadLocalModelAssets(
+        modelID: String,
+        progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
+    ) async throws -> DownloadedLocalModelAssets {
+        try await Self.downloadLocalModelAssets(
+            modelID: modelID,
+            progressHandler: progressHandler
+        )
+    }
+
+    func hasDownloadedLocalModelAssets(modelID: String) -> Bool {
+        Self.hasDownloadedLocalModelAssets(modelID: modelID)
+    }
+
+    nonisolated static func downloadLocalModelAssets(
+        modelID: String,
+        progressHandler: @Sendable @escaping (Progress) -> Void = { _ in }
+    ) async throws -> DownloadedLocalModelAssets {
+        #if canImport(EisonAIModelKit) && canImport(MLXLMCommon) && canImport(Hub)
+            return try await resolveLocalModelAssets(
+                modelID: modelID,
+                progressHandler: progressHandler
+            )
+        #else
+            throw ClientError.invalidConfiguration("MLX download support is unavailable in this target.")
+        #endif
+    }
+
+    nonisolated static func hasDownloadedLocalModelAssets(modelID: String) -> Bool {
+        #if canImport(Hub)
+            let repoURL = HubApi().localRepoLocation(Hub.Repo(id: modelID))
+            guard let repoFiles = try? FileManager.default.contentsOfDirectory(
+                at: repoURL,
+                includingPropertiesForKeys: nil
+            ).map(\.lastPathComponent)
+            else {
+                return false
+            }
+
+            let hasWeightFile = repoFiles.contains(where: { $0.hasSuffix(".safetensors") })
+            let hasConfigFile = repoFiles.contains("config.json")
+            let hasTokenizer = repoFiles.contains("tokenizer.json")
+            return hasWeightFile && hasConfigFile && hasTokenizer
+        #else
+            return false
         #endif
     }
 
@@ -382,17 +431,21 @@ final class AnyLanguageModelClient {
         }
 
         #if canImport(EisonAIModelKit) && canImport(MLXLMCommon) && canImport(Hub)
-            private func prepareLocalModelAssetsForSimulator(modelID: String) async throws {
-                MLXSimulatorDiagnostics.notice(
-                    "begin resolve model=\(modelID) logFile=\(MLXSimulatorDiagnostics.logFileURL.path)"
-                )
-
+            nonisolated private static func resolveLocalModelAssets(
+                modelID: String,
+                progressHandler: @Sendable @escaping (Progress) -> Void
+            ) async throws -> DownloadedLocalModelAssets {
                 let configuration = ModelConfiguration(id: modelID)
                 let downloader = MLXHubDownloaderBridge(upstream: HubApi())
+                #if targetEnvironment(simulator)
+                    MLXSimulatorDiagnostics.notice(
+                        "begin resolve model=\(modelID) logFile=\(MLXSimulatorDiagnostics.logFileURL.path)"
+                    )
                 let monitorTask = Task {
                     await monitorSimulatorModelDownload(modelID: modelID)
                 }
                 defer { monitorTask.cancel() }
+                #endif
 
                 do {
                     let resolved = try await resolve(
@@ -400,14 +453,18 @@ final class AnyLanguageModelClient {
                         from: downloader,
                         useLatest: false
                     ) { progress in
+                        progressHandler(progress)
+                        #if targetEnvironment(simulator)
                         let fraction = progress.totalUnitCount > 0
                             ? Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
                             : 0
                         MLXSimulatorDiagnostics.notice(
                             "progress model=\(modelID) completed=\(progress.completedUnitCount) total=\(progress.totalUnitCount) fraction=\(String(format: "%.3f", fraction))"
                         )
+                        #endif
                     }
 
+                    #if targetEnvironment(simulator)
                     let modelFileCount = try FileManager.default.contentsOfDirectory(
                         at: resolved.modelDirectory,
                         includingPropertiesForKeys: nil
@@ -428,16 +485,23 @@ final class AnyLanguageModelClient {
                         state={\(finalState.summary)}
                         """
                     )
+                    #endif
+                    return DownloadedLocalModelAssets(
+                        modelDirectory: resolved.modelDirectory,
+                        tokenizerDirectory: resolved.tokenizerDirectory
+                    )
                 } catch {
+                    #if targetEnvironment(simulator)
                     let state = collectSimulatorDownloadState(modelID: modelID)
                     MLXSimulatorDiagnostics.error(
                         "resolve failed model=\(modelID) error=\(error.localizedDescription) state={\(state.summary)}"
                     )
+                    #endif
                     throw error
                 }
             }
 
-            private func monitorSimulatorModelDownload(modelID: String) async {
+            nonisolated private static func monitorSimulatorModelDownload(modelID: String) async {
                 var lastState: MLXSimulatorDownloadState?
                 var lastStallSignature: String?
                 var unchangedTempSamples = 0
@@ -475,7 +539,7 @@ final class AnyLanguageModelClient {
                 }
             }
 
-            private func collectSimulatorDownloadState(modelID: String) -> MLXSimulatorDownloadState {
+            nonisolated private static func collectSimulatorDownloadState(modelID: String) -> MLXSimulatorDownloadState {
                 let hub = HubApi()
                 let repoURL = hub.localRepoLocation(Hub.Repo(id: modelID))
                 let containerURL = FileManager.default

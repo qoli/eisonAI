@@ -27,6 +27,10 @@ enum AppConfig {
     static let autoLocalModelPreferenceKey = "eison.generation.auto.localModelPreference"
     static let mlxSelectedModelIDKey = "eison.mlx.selectedModelID"
     static let mlxInstalledModelsKey = "eison.mlx.installedModels"
+    static let mlxDownloadTaskIdentifierPrefix = "com.qoli.eisonAI.mlx-download"
+    static let mlxDownloadPermittedIdentifierPattern = "\(mlxDownloadTaskIdentifierPrefix).*"
+    static let mlxDownloadPathComponents = ["Application Support", "MLXDownloads"]
+    static let mlxDownloadCurrentJobFilename = "current-job.json"
     static let sharePollingEnabledKey = "eison.share.polling.enabled.v2"
     static let shareOpenAppAfterShareKey = "eison.share.openAppAfterShare"
     static let tokenEstimatorEncodingKey = "eison.tokenEstimator.encoding"

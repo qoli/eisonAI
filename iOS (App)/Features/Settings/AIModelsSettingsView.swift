@@ -10,6 +10,7 @@ struct AIModelsSettingsView: View {
     private let catalogService = MLXModelCatalogService()
     private let modelStore = MLXModelStore()
     private let client = AnyLanguageModelClient()
+    @ObservedObject private var downloadCoordinator = MLXDownloadCoordinator.shared
     private let longDocumentChunkSizeOptions: [Int] = LongDocumentDefaults.allowedChunkSizes
     private let longDocumentMaxChunkOptions: [Int] = LongDocumentDefaults.allowedMaxChunkCounts
     private static let modelPickerPlaceholderTag = "__byok_model_placeholder__"
@@ -455,6 +456,15 @@ struct AIModelsSettingsView: View {
         max(catalogModels.count - filteredCatalogModels.count, 0)
     }
 
+    private var currentDownloadJob: MLXDownloadJob? {
+        downloadCoordinator.currentJob
+    }
+
+    private var activeDownloadJob: MLXDownloadJob? {
+        guard let currentDownloadJob, currentDownloadJob.isActive else { return nil }
+        return currentDownloadJob
+    }
+
     private var mlxCommunityFooterText: String {
         var parts: [String] = [
             "Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`."
@@ -483,7 +493,16 @@ struct AIModelsSettingsView: View {
                         Button("Install") {
                             installCustomRepo()
                         }
-                        .disabled(customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(
+                            customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                activeDownloadJob != nil
+                        )
+                    }
+
+                    if let customDownloadJob,
+                       customDownloadJob.source == .custom
+                    {
+                        downloadJobStatusView(customDownloadJob)
                     }
                 } header: {
                     Text("Custom MLX Repo")
@@ -504,6 +523,13 @@ struct AIModelsSettingsView: View {
             }
 
             Section {
+                if let activeDownloadJob,
+                   activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                {
+                    Text("Another MLX download is in progress: \(activeDownloadJob.displayName)")
+                        .foregroundStyle(.secondary)
+                }
+
                 if !modelOperationMessage.isEmpty {
                     Text(modelOperationMessage)
                         .foregroundStyle(modelOperationIsError ? .red : .secondary)
@@ -558,8 +584,27 @@ struct AIModelsSettingsView: View {
             }
         }
         .task {
+            downloadCoordinator.refreshState()
             if catalogModels.isEmpty {
                 refreshCatalog()
+            }
+        }
+        .onReceive(downloadCoordinator.$currentJob) { job in
+            installedModels = modelStore.loadInstalledModels()
+            selectedMLXModelID = modelStore.loadSelectedModelID()
+
+            guard let job else { return }
+            guard !job.isActive else { return }
+
+            switch job.state {
+            case .completed:
+                modelOperationMessage = "Installed \(job.modelID)."
+                modelOperationIsError = false
+            case .failed, .cancelled:
+                modelOperationMessage = job.errorMessage ?? "\(job.displayName) download failed."
+                modelOperationIsError = true
+            case .queued, .running, .finishing:
+                break
             }
         }
     }
@@ -616,8 +661,10 @@ struct AIModelsSettingsView: View {
 
                 Spacer()
 
-                if activeModelOperationIDs.contains(model.id) {
-                    ProgressView()
+                if let job = downloadJob(for: model.id) {
+                    Text(job.progressText)
+                        .font(.footnote)
+                        .foregroundStyle(job.state == .failed || job.state == .cancelled ? .red : .secondary)
                 } else if installedModels.contains(where: { $0.id == model.id }) {
                     Button(selectedMLXModelID == model.id ? "Selected" : "Select") {
                         selectInstalledModel(id: model.id)
@@ -627,7 +674,12 @@ struct AIModelsSettingsView: View {
                     Button("Install") {
                         installCatalogModel(model)
                     }
+                    .disabled(activeDownloadJob != nil)
                 }
+            }
+
+            if let job = downloadJob(for: model.id) {
+                downloadJobStatusView(job)
             }
         }
         .padding(.vertical, 4)
@@ -696,6 +748,7 @@ struct AIModelsSettingsView: View {
         longDocumentMaxChunkCount = longDocumentSettingsStore.maxChunkCount()
         installedModels = modelStore.loadInstalledModels()
         selectedMLXModelID = modelStore.loadSelectedModelID()
+        downloadCoordinator.refreshState()
 
         let byokSettings = byokStore.loadSettings()
         byokProvider = byokSettings.provider
@@ -735,24 +788,21 @@ struct AIModelsSettingsView: View {
     }
 
     private func installCatalogModel(_ model: MLXCatalogModel) {
-        startModelOperation(for: model.id)
         Task {
             do {
-                try await client.prepareLocalModel(modelID: model.id)
+                try await downloadCoordinator.startInstall(
+                    model: model,
+                    source: .catalog,
+                    autoSelect: true
+                )
                 await MainActor.run {
-                    modelStore.upsertInstalledModel(model)
-                    modelStore.saveSelectedModelID(model.id)
-                    installedModels = modelStore.loadInstalledModels()
-                    selectedMLXModelID = model.id
-                    modelOperationMessage = "Installed \(model.id)."
+                    modelOperationMessage = "Downloading \(model.id)…"
                     modelOperationIsError = false
-                    finishModelOperation(for: model.id)
                 }
             } catch {
                 await MainActor.run {
                     modelOperationMessage = error.localizedDescription
                     modelOperationIsError = true
-                    finishModelOperation(for: model.id)
                 }
             }
         }
@@ -761,27 +811,24 @@ struct AIModelsSettingsView: View {
     private func installCustomRepo() {
         let repoID = customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !repoID.isEmpty else { return }
-        startModelOperation(for: repoID)
 
         Task {
             do {
                 let model = try await catalogService.fetchModel(repoID: repoID)
-                try await client.prepareLocalModel(modelID: model.id)
+                try await downloadCoordinator.startInstall(
+                    model: model,
+                    source: .custom,
+                    autoSelect: true
+                )
                 await MainActor.run {
-                    modelStore.upsertInstalledModel(model)
-                    modelStore.saveSelectedModelID(model.id)
-                    installedModels = modelStore.loadInstalledModels()
-                    selectedMLXModelID = model.id
                     customRepoDraft = ""
-                    modelOperationMessage = "Installed \(model.id)."
+                    modelOperationMessage = "Downloading \(model.id)…"
                     modelOperationIsError = false
-                    finishModelOperation(for: repoID)
                 }
             } catch {
                 await MainActor.run {
                     modelOperationMessage = error.localizedDescription
                     modelOperationIsError = true
-                    finishModelOperation(for: repoID)
                 }
             }
         }
@@ -815,6 +862,40 @@ struct AIModelsSettingsView: View {
 
     private func finishModelOperation(for id: String) {
         activeModelOperationIDs.remove(id)
+    }
+
+    private func downloadJob(for modelID: String) -> MLXDownloadJob? {
+        guard let currentDownloadJob else { return nil }
+        guard currentDownloadJob.modelID == modelID else { return nil }
+        guard currentDownloadJob.isActive || currentDownloadJob.state == .failed || currentDownloadJob.state == .cancelled else { return nil }
+        return currentDownloadJob
+    }
+
+    private var customDownloadJob: MLXDownloadJob? {
+        guard let currentDownloadJob else { return nil }
+        guard currentDownloadJob.source == .custom else { return nil }
+        guard currentDownloadJob.isActive || currentDownloadJob.state == .failed || currentDownloadJob.state == .cancelled else { return nil }
+        guard !installedModels.contains(where: { $0.id == currentDownloadJob.modelID }) else { return nil }
+        return currentDownloadJob
+    }
+
+    @ViewBuilder
+    private func downloadJobStatusView(_ job: MLXDownloadJob) -> some View {
+        let isError = job.state == .failed || job.state == .cancelled
+        VStack(alignment: .leading, spacing: 4) {
+            Text(job.progressText)
+                .font(.footnote)
+                .foregroundStyle(isError ? .red : .secondary)
+
+            if let errorMessage = job.errorMessage,
+               !errorMessage.isEmpty,
+               isError
+            {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
     }
 
     private func validateBYOK() {
