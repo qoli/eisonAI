@@ -8,17 +8,8 @@ struct AppStructuredMarkdownView: View {
     @ViewBuilder
     var body: some View {
         let content = StructuredText(markdown: markdown)
-            .textual.structuredTextStyle(.default)
-            .textual.inlineStyle(.librarySummary)
-            .textual.headingStyle(AppMarkdownHeadingStyle())
-            .textual.paragraphStyle(AppMarkdownParagraphStyle())
-            .textual.blockQuoteStyle(AppMarkdownBlockQuoteStyle())
-            .textual.codeBlockStyle(AppMarkdownCodeBlockStyle())
-            .textual.listItemStyle(.default(markerSpacing: .fontScaled(0.45)))
-            .textual.listItemSpacing(.fontScaled(top: 0.2))
-            .textual.orderedListMarker(.decimal)
-            .textual.thematicBreakStyle(AppMarkdownThematicBreakStyle())
-            .textual.unorderedListMarker(.hierarchical(.disc, .circle, .square))
+            .font(.system(size: 14))
+            .textual.structuredTextStyle(AppMarkdownStyle())
             .frame(maxWidth: .infinity, alignment: .leading)
 
         if allowsSelection {
@@ -43,18 +34,50 @@ private extension InlineStyle {
         )
 }
 
+private struct AppMarkdownStyle: StructuredText.Style {
+    typealias HeadingStyle = AppMarkdownHeadingStyle
+    typealias ParagraphStyle = AppMarkdownParagraphStyle
+    typealias BlockQuoteStyle = AppMarkdownBlockQuoteStyle
+    typealias CodeBlockStyle = AppMarkdownCodeBlockStyle
+    typealias ListItemStyle = StructuredText.DefaultListItemStyle
+    typealias UnorderedListMarker = StructuredText.HierarchicalSymbolListMarker
+    typealias OrderedListMarker = StructuredText.DecimalListMarker
+    typealias TableStyle = StructuredText.DefaultTableStyle
+    typealias TableCellStyle = StructuredText.DefaultTableCellStyle
+    typealias ThematicBreakStyle = AppMarkdownThematicBreakStyle
+
+    var inlineStyle: InlineStyle { .librarySummary }
+    var headingStyle: AppMarkdownHeadingStyle { .init() }
+    var paragraphStyle: AppMarkdownParagraphStyle { .init() }
+    var blockQuoteStyle: AppMarkdownBlockQuoteStyle { .init() }
+    var codeBlockStyle: AppMarkdownCodeBlockStyle { .init() }
+    var listItemStyle: StructuredText.DefaultListItemStyle {
+        .default(markerSpacing: .fontScaled(0.45))
+    }
+    var unorderedListMarker: StructuredText.HierarchicalSymbolListMarker {
+        .hierarchical(.disc, .circle, .square)
+    }
+    var orderedListMarker: StructuredText.DecimalListMarker { .decimal }
+    var tableStyle: StructuredText.DefaultTableStyle { .default }
+    var tableCellStyle: StructuredText.DefaultTableCellStyle { .default }
+    var thematicBreakStyle: AppMarkdownThematicBreakStyle { .init() }
+}
+
 private struct AppMarkdownHeadingStyle: StructuredText.HeadingStyle {
+    private static let fontScales: [CGFloat] = [1.14, 0.93, 0.86, 0.86, 0.78, 0.67]
     private static let topSpacing: [CGFloat] = [0.9, 0.8, 0.7, 0.7, 0.7, 0.7]
     private static let bottomSpacing: [CGFloat] = [0.45, 0.35, 0.3, 0.3, 0.3, 0.3]
     private static let fontWeights: [Font.Weight] = [.black, .black, .black, .semibold, .semibold, .semibold]
-    private static let fontSizes: [CGFloat] = [22.95, 20.4, 17.85, 17, 14.11, 11.39]
+    private static let baseFontSize: CGFloat = 14
 
     func makeBody(configuration: Configuration) -> some View {
         let headingLevel = min(configuration.headingLevel, 6)
         let index = headingLevel - 1
 
         return configuration.label
-            .font(.system(size: Self.fontSizes[index], weight: Self.fontWeights[index]))
+            .font(.system(size: Self.baseFontSize))
+            .textual.fontScale(Self.fontScales[index])
+            .fontWeight(Self.fontWeights[index])
             .textual.lineSpacing(.fontScaled(0.15))
             .textual.blockSpacing(
                 .fontScaled(top: Self.topSpacing[index], bottom: Self.bottomSpacing[index])
