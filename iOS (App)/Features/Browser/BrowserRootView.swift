@@ -2,8 +2,17 @@ import SwiftUI
 import WebKit
 
 struct BrowserRootView: View {
-    @StateObject private var session = BrowserAgentSession()
+    @StateObject private var session: BrowserAgentSession
+    private let launchConfiguration: BrowserAutomationLaunchConfiguration?
+    @State private var hasAppliedLaunchConfiguration = false
     @State private var isStepLogVisible = false
+
+    init(launchConfiguration: BrowserAutomationLaunchConfiguration? = nil) {
+        self.launchConfiguration = launchConfiguration
+        _session = StateObject(
+            wrappedValue: BrowserAgentSession(initialURL: launchConfiguration?.initialURL)
+        )
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,10 +20,22 @@ struct BrowserRootView: View {
             Divider()
             browserViewport
         }
+        .accessibilityIdentifier("browser.root")
         .navigationTitle("Browser")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
             composer
+        }
+        .task {
+            guard !hasAppliedLaunchConfiguration else { return }
+            hasAppliedLaunchConfiguration = true
+
+            if let launchConfiguration {
+                session.applyAutomationConfiguration(launchConfiguration)
+                if launchConfiguration.autoRun {
+                    isStepLogVisible = true
+                }
+            }
         }
     }
 
@@ -37,6 +58,8 @@ struct BrowserRootView: View {
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("browser.logToggle")
+                .accessibilityValue(String(session.logEntries.count))
             }
             .padding(16)
         }
@@ -64,6 +87,7 @@ struct BrowserRootView: View {
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
                     .textFieldStyle(.roundedBorder)
+                    .accessibilityIdentifier("browser.addressField")
                     .onSubmit {
                         session.submitAddress()
                     }
@@ -72,6 +96,7 @@ struct BrowserRootView: View {
                     session.submitAddress()
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("browser.goButton")
 
                 Button {
                     session.reload()
@@ -84,6 +109,7 @@ struct BrowserRootView: View {
                 Label(session.runState.title, systemImage: session.runState.isRunning ? "bolt.circle.fill" : "circle")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(session.runState.isRunning ? Color.accentColor : Color.primary)
+                    .accessibilityIdentifier("browser.runStatusLabel")
 
                 if !session.currentURLString.isEmpty {
                     Text(session.currentURLString)
@@ -114,6 +140,7 @@ struct BrowserRootView: View {
                 Text(lastError)
                     .font(.footnote)
                     .foregroundStyle(.red)
+                    .accessibilityIdentifier("browser.lastError")
             }
         }
         .padding()
@@ -125,12 +152,14 @@ struct BrowserRootView: View {
             TextField("Ask the browser agent", text: $session.agentPrompt, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(2...5)
+                .accessibilityIdentifier("browser.promptField")
 
             HStack {
                 Text(session.runState.detail)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    .accessibilityIdentifier("browser.runStateDetail")
 
                 Spacer()
 
@@ -142,6 +171,7 @@ struct BrowserRootView: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("browser.runButton")
             }
         }
         .padding()
@@ -162,6 +192,7 @@ struct BrowserRootView: View {
         }
         .frame(maxWidth: 360, maxHeight: 320)
         .background(.ultraThinMaterial)
+        .accessibilityIdentifier("browser.runLog")
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(alignment: .topLeading) {
             Text("Run Log")
@@ -303,6 +334,7 @@ private struct BrowserTaskStateCard: View {
         }
         .padding(12)
         .background(.background)
+        .accessibilityIdentifier("browser.taskState")
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 

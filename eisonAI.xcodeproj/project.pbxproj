@@ -11,14 +11,17 @@
 		0CF6E99791912B97F1975260 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
 		2BDA4184F6F345EA88F54044 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		3217618FF4110B1C4BD86D3E /* LongDocumentFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04FE8C648BD191A244BDF99A /* LongDocumentFallbackTests.swift */; };
+		451557BCEC5BC04B71EB11FF /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D3110499DD03E86D955EEA0 /* XCTest.framework */; };
 		46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = EA8B1B262EF55A2500D8845B /* MarkdownUI */; };
 		7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		7FD1EA87400136DB1B190D3E /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		9F3C30D0F51B3881139A7055 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D3110499DD03E86D955EEA0 /* XCTest.framework */; };
 		A1F642F126514D8F91A90311 /* EisonAIModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1F642F426514D8F91A90311 /* EisonAIModelKit */; };
 		A1F642F226514D8F91A90311 /* EisonAIModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = A1F642F426514D8F91A90311 /* EisonAIModelKit */; };
+		A5335884E39D39D47D6EC83B /* BrowserAgentAutomationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF6FF8A032524F139308237 /* BrowserAgentAutomationUITests.swift */; };
 		A992C7988F21F97D541F39A4 /* LongDocumentSettingsStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02C58F38B79BFBAADD38B0A5 /* LongDocumentSettingsStoreTests.swift */; };
 		AFB91E0F7EEFCA42D6DD6FFA /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
+		B1361FA4FD215FCBF0AB51AC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C948A3C374140744767ABD99 /* Foundation.framework */; };
 		B58D37997912BCFE0369DDE7 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
 		B7A96ECC5457200A45D8F26B /* GPTTokenEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A02892B81249D6EA6AE7F8B /* GPTTokenEstimatorTests.swift */; };
 		CC018CBB110C4F9FA96B8A02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA7726232BC5B6B3005A194D /* Assets.xcassets */; };
@@ -41,6 +44,13 @@
 
 /* Begin PBXContainerItemProxy section */
 		0A6440AA9E54F28B23181D9C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EA7726172BC5B6B2005A194D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4598EF046A554ADA827D159C;
+			remoteInfo = "eisonAI (Sim)";
+		};
+		81631B4165523C3569638054 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = EA7726172BC5B6B2005A194D /* Project object */;
 			proxyType = 1;
@@ -92,6 +102,9 @@
 		74B02F09B47C4524B75D5AFD /* eisonAI Sim.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "eisonAI Sim.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		7AE13379920032420A406FFF /* eisonAITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eisonAITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		88601B87D1F7463D84F29ED9 /* libtvm_ffi_static.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtvm_ffi_static.xcframework; sourceTree = "<group>"; };
+		C89E9025C0D721D2B9AE3164 /* eisonAIUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eisonAIUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C948A3C374140744767ABD99 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		DCF6FF8A032524F139308237 /* BrowserAgentAutomationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BrowserAgentAutomationUITests.swift; sourceTree = "<group>"; };
 		E163CC02CEA447148E85410D /* libsentencepiece.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libsentencepiece.xcframework; sourceTree = "<group>"; };
 		EA4D8BAD2EED04CA001630A4 /* iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = iOS.entitlements; sourceTree = "<group>"; };
 		EA4D8BAE2EED04E2001630A4 /* eisonAI Extension (iOS).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "eisonAI Extension (iOS).entitlements"; sourceTree = "<group>"; };
@@ -109,28 +122,28 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		9DDBBB27833B4BD296E4C98C /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		9DDBBB27833B4BD296E4C98C /* Exceptions for "Config" folder in "eisonAI (Sim)" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = 4598EF046A554ADA827D159C /* eisonAI (Sim) */;
 		};
-		EA886F422EF7D254003B59A9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		EA886F422EF7D254003B59A9 /* Exceptions for "shareExtension" folder in "shareExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = EA886F332EF7D254003B59A9 /* shareExtension */;
 		};
-		EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		EAF757292EF3D24F00CA34C3 /* Exceptions for "Resources" folder in "iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				contentReadability.js,
 			);
 			target = EA7726322BC5B6B3005A194D /* iOS */;
 		};
-		EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		EAF7572D2EF3D29200CA34C3 /* Exceptions for "Shared" folder in "eisonAI Extension (iOS)" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Config/AppConfig.swift,
@@ -144,7 +157,7 @@
 			);
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;
 		};
-		EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		EAF7574B2EF3DD3100CA34C3 /* Exceptions for "Config" folder in "iOS" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -154,14 +167,102 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		EA6F9B5C2EFC0742008DD834 /* SwiftikToken */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = SwiftikToken; sourceTree = "<group>"; };
-		EA886F352EF7D254003B59A9 /* shareExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EA886F422EF7D254003B59A9 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = shareExtension; sourceTree = "<group>"; };
-		EAF756ED2EF3D23700CA34C3 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = App; sourceTree = "<group>"; };
-		EAF756F02EF3D23700CA34C3 /* Base.lproj */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Base.lproj; sourceTree = "<group>"; };
-		EAF756F32EF3D23700CA34C3 /* Config */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7574B2EF3DD3100CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 9DDBBB27833B4BD296E4C98C /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Config; sourceTree = "<group>"; };
-		EAF756FE2EF3D23700CA34C3 /* Features */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Features; sourceTree = "<group>"; };
-		EAF757042EF3D23700CA34C3 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF7572D2EF3D29200CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Shared; sourceTree = "<group>"; };
-		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EAF757292EF3D24F00CA34C3 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (_locales, images, webllm, ); path = Resources; sourceTree = "<group>"; };
+		EA6F9B5C2EFC0742008DD834 /* SwiftikToken */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = SwiftikToken;
+			sourceTree = "<group>";
+		};
+		EA886F352EF7D254003B59A9 /* shareExtension */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EA886F422EF7D254003B59A9 /* Exceptions for "shareExtension" folder in "shareExtension" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = shareExtension;
+			sourceTree = "<group>";
+		};
+		EAF756ED2EF3D23700CA34C3 /* App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		EAF756F02EF3D23700CA34C3 /* Base.lproj */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Base.lproj;
+			sourceTree = "<group>";
+		};
+		EAF756F32EF3D23700CA34C3 /* Config */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EAF7574B2EF3DD3100CA34C3 /* Exceptions for "Config" folder in "iOS" target */,
+				9DDBBB27833B4BD296E4C98C /* Exceptions for "Config" folder in "eisonAI (Sim)" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		EAF756FE2EF3D23700CA34C3 /* Features */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		EAF757042EF3D23700CA34C3 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EAF7572D2EF3D29200CA34C3 /* Exceptions for "Shared" folder in "eisonAI Extension (iOS)" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		EAF7571C2EF3D24F00CA34C3 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				EAF757292EF3D24F00CA34C3 /* Exceptions for "Resources" folder in "iOS" target */,
+			);
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+				_locales,
+				images,
+				webllm,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -174,6 +275,15 @@
 				B58D37997912BCFE0369DDE7 /* OrderedCollections in Frameworks */,
 				F859CD0359BA4345930FE1C0 /* Drops in Frameworks */,
 				46FA5B3C24CA4FC4BA9F1333 /* MarkdownUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		39682418EEEC3C90F411C014 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B1361FA4FD215FCBF0AB51AC /* Foundation.framework in Frameworks */,
+				451557BCEC5BC04B71EB11FF /* XCTest.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -218,6 +328,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		543E24A32A95E0478EB2161C /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				C948A3C374140744767ABD99 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		6DDC7535FE19A591BF78DDD3 /* eisonAIUITests */ = {
+			isa = PBXGroup;
+			children = (
+				DCF6FF8A032524F139308237 /* BrowserAgentAutomationUITests.swift */,
+			);
+			name = eisonAIUITests;
+			path = eisonAIUITests;
+			sourceTree = "<group>";
+		};
 		8BEA43B289D93D6615F0EF54 /* eisonAITests */ = {
 			isa = PBXGroup;
 			children = (
@@ -262,6 +389,7 @@
 				EA77261B2BC5B6B2005A194D /* Shared (App) */,
 				EA7726242BC5B6B3005A194D /* Shared (Extension) */,
 				EA886FBD2EF7D4D8003B59A9 /* Frameworks */,
+				6DDC7535FE19A591BF78DDD3 /* eisonAIUITests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -290,6 +418,7 @@
 				EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */,
 				EA886F342EF7D254003B59A9 /* shareExtension.appex */,
 				7AE13379920032420A406FFF /* eisonAITests.xctest */,
+				C89E9025C0D721D2B9AE3164 /* eisonAIUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -320,6 +449,7 @@
 			isa = PBXGroup;
 			children = (
 				4D3110499DD03E86D955EEA0 /* XCTest.framework */,
+				543E24A32A95E0478EB2161C /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -453,11 +583,27 @@
 				EA886F352EF7D254003B59A9 /* shareExtension */,
 			);
 			name = shareExtension;
-			packageProductDependencies = (
-			);
 			productName = shareExtension;
 			productReference = EA886F342EF7D254003B59A9 /* shareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		FB76366A5FBD9F8AC6F230DE /* eisonAIUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3734F78F3998F13D75F3CF5F /* Build configuration list for PBXNativeTarget "eisonAIUITests" */;
+			buildPhases = (
+				8D902ED4B1DAC740AA3D5B9E /* Sources */,
+				39682418EEEC3C90F411C014 /* Frameworks */,
+				53AE4715DF1A8075E2125D97 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				096EEF099414ED273C1839D3 /* PBXTargetDependency */,
+			);
+			name = eisonAIUITests;
+			productName = eisonAIUITests;
+			productReference = C89E9025C0D721D2B9AE3164 /* eisonAIUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
 
@@ -481,6 +627,9 @@
 					EA886F332EF7D254003B59A9 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					FB76366A5FBD9F8AC6F230DE = {
+						CreatedOnToolsVersion = 26.2;
+					};
 				};
 			};
 			buildConfigurationList = EA77261A2BC5B6B2005A194D /* Build configuration list for PBXProject "eisonAI" */;
@@ -493,8 +642,8 @@
 			);
 			mainGroup = EA7726162BC5B6B2005A194D;
 			packageReferences = (
-				19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */,
-				A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */,
+				19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "AnyLanguageModel" */,
+				A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "EisonAIModelKit" */,
 				EA8B1B252EF55A2500D8845B /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
 				EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */,
 				EA9655212F18CBE700936E0D /* XCRemoteSwiftPackageReference "swift-collections" */,
@@ -508,12 +657,20 @@
 				EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */,
 				EA886F332EF7D254003B59A9 /* shareExtension */,
 				3CE7EFF6A98D9FC782E7D763 /* eisonAITests */,
+				FB76366A5FBD9F8AC6F230DE /* eisonAIUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		0A777E195856386648B97CA4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		53AE4715DF1A8075E2125D97 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -577,6 +734,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8D902ED4B1DAC740AA3D5B9E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A5335884E39D39D47D6EC83B /* BrowserAgentAutomationUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EA77262F2BC5B6B3005A194D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -602,6 +767,12 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		096EEF099414ED273C1839D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = "eisonAI (Sim)";
+			target = 4598EF046A554ADA827D159C /* eisonAI (Sim) */;
+			targetProxy = 81631B4165523C3569638054 /* PBXContainerItemProxy */;
+		};
 		EA7726542BC5B6B3005A194D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EA7726502BC5B6B3005A194D /* eisonAI Extension (iOS) */;
@@ -632,6 +803,26 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		1581063825427393110C82F6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = eisonAIUITests;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI.uitests;
+				PRODUCT_NAME = eisonAIUITests;
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "eisonAI (Sim)";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		310AC949D9F04861BE8C0F46 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -749,6 +940,27 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		75DFAC00817288A5B96F44D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = eisonAIUITests;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.qoli.eisonAI.uitests;
+				PRODUCT_NAME = eisonAIUITests;
+				SDKROOT = iphonesimulator;
+				SUPPORTED_PLATFORMS = iphonesimulator;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "eisonAI (Sim)";
 			};
 			name = Debug;
 		};
@@ -1220,6 +1432,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3734F78F3998F13D75F3CF5F /* Build configuration list for PBXNativeTarget "eisonAIUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1581063825427393110C82F6 /* Release */,
+				75DFAC00817288A5B96F44D8 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		482A279FE3BB435898B59B4B /* Build configuration list for PBXNativeTarget "eisonAI (Sim)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1277,11 +1498,11 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */ = {
+		19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "AnyLanguageModel" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../AnyLanguageModel;
 		};
-		A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */ = {
+		A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "EisonAIModelKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/EisonAIModelKit;
 		};
@@ -1317,12 +1538,12 @@
 /* Begin XCSwiftPackageProductDependency section */
 		371150D3FE8FFDA40696F57E /* AnyLanguageModel */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */;
+			package = 19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "AnyLanguageModel" */;
 			productName = AnyLanguageModel;
 		};
 		A1F642F426514D8F91A90311 /* EisonAIModelKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */;
+			package = A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "EisonAIModelKit" */;
 			productName = EisonAIModelKit;
 		};
 		E1B8F3DD4832B58FA919FD61 /* OrderedCollections */ = {

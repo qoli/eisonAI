@@ -21,6 +21,7 @@ struct EisonAIApp: App {
 }
 
 private struct RootGateView: View {
+    private let launchConfiguration = AppAutomationLaunchConfiguration.current()
     @AppStorage(
         AppConfig.onboardingCompletedKey,
         store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
@@ -30,7 +31,9 @@ private struct RootGateView: View {
 
     var body: some View {
         Group {
-            if onboardingCompleted {
+            if let browserAutomation = launchConfiguration.browserAutomation {
+                BrowserRootView(launchConfiguration: browserAutomation)
+            } else if onboardingCompleted || launchConfiguration.skipOnboarding {
                 appHome
             } else if !hasCheckedEntitlements {
                 ProgressView()

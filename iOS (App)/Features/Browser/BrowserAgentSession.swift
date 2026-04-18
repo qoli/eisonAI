@@ -32,12 +32,15 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     private var runTask: Task<Void, Never>?
     private var rollingHistorySummary = ""
     private var summarizedLogEntryCount = 0
+    private var pendingAutomationRun: BrowserAutomationLaunchConfiguration?
+    private var automationRunConfiguration: BrowserAutomationLaunchConfiguration?
+    private var automationStopTask: Task<Void, Never>?
     private let maxSteps = 90
     private let recentLogWindowSize = 6
     private let rollingSummaryCharacterLimit = 1_600
     private let browserResponseRetryLimit = 2
 
-    override init() {
+    init(initialURL: URL? = nil) {
         let contentController = WKUserContentController()
         let bridge = BrowserPageBridge()
         bridge.configure(userContentController: contentController)
@@ -54,14 +57,16 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         self.webView = webView
         super.init()
 
+        let launchURL = initialURL ?? Self.defaultHomeURL
         self.webView.navigationDelegate = self
-        addressText = Self.defaultHomeURL.absoluteString
-        load(url: Self.defaultHomeURL)
+        addressText = launchURL.absoluteString
+        load(url: launchURL)
         ConsoleErrorReporter.logInfo(
             "Initialized browser session.",
             context: "BrowserAgentSession.init",
             metadata: [
                 "defaultHomeURL": Self.defaultHomeURL.absoluteString,
+                "launchURL": launchURL.absoluteString,
                 "defaultPageZoom": String(format: "%.2f", Self.defaultPageZoom),
             ]
         )
@@ -70,11 +75,25 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
 
     deinit {
         runTask?.cancel()
+        automationStopTask?.cancel()
     }
 
     var canGoBack: Bool { webView.canGoBack }
     var canGoForward: Bool { webView.canGoForward }
     var canStartPictureInPicture: Bool { pipController.isSupported }
+
+    func applyAutomationConfiguration(_ configuration: BrowserAutomationLaunchConfiguration) {
+        agentPrompt = configuration.prompt
+
+        if let initialURL = configuration.initialURL,
+           !urlsMatchLoosely(currentURLString, initialURL.absoluteString) {
+            load(url: initialURL)
+        }
+
+        pendingAutomationRun = configuration.autoRun ? configuration : nil
+        automationRunConfiguration = configuration
+        tryStartAutomationRunIfPossible()
+    }
 
     func submitAddress() {
         guard let url = normalizedURL(from: addressText) else {
@@ -181,6 +200,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         guard !runState.isRunning else { return }
 
         lastError = nil
+        automationStopTask?.cancel()
         runState = .running(step: 1)
         logEntries = []
         rollingHistorySummary = ""
@@ -201,6 +221,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             ]
         )
         syncPiPState()
+        scheduleAutomationStopIfNeeded()
 
         runTask = Task { [weak self] in
             guard let self else { return }
@@ -211,6 +232,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
     func stopAgent() {
         runTask?.cancel()
         runTask = nil
+        automationStopTask?.cancel()
+        automationStopTask = nil
         if runState.isRunning {
             runState = .cancelled
             taskState.status = .cancelled
@@ -271,6 +294,7 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         Task {
             await refreshSnapshot()
             syncPiPState()
+            tryStartAutomationRunIfPossible()
         }
     }
 
@@ -380,6 +404,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                         ]
                     )
                     syncPiPState()
+                    automationStopTask?.cancel()
+                    automationStopTask = nil
                     return
                 case .failed:
                     let summary = response.summary?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "The browser agent could not complete the task."
@@ -399,6 +425,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                         ]
                     )
                     syncPiPState()
+                    automationStopTask?.cancel()
+                    automationStopTask = nil
                     return
                 case .continue:
                     guard let action = response.action else {
@@ -475,6 +503,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
                     ]
                 )
                 syncPiPState()
+                automationStopTask?.cancel()
+                automationStopTask = nil
                 return
             }
         }
@@ -487,6 +517,8 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
         taskState.recordRuntimeIssue(summary)
         appendLog(step: maxSteps, title: "Stopped", detail: summary, kind: .error)
         syncPiPState()
+        automationStopTask?.cancel()
+        automationStopTask = nil
     }
 
     private func requestNextStep(goal: String, observation: BrowserPageObservation, step: Int) async throws -> BrowserAgentResponse {
@@ -964,6 +996,61 @@ final class BrowserAgentSession: NSObject, ObservableObject, WKNavigationDelegat
             addressText = currentURLString
         }
         taskState.updateLocation(url: currentURLString, title: pageTitle)
+    }
+
+    private func tryStartAutomationRunIfPossible() {
+        guard let configuration = pendingAutomationRun else { return }
+        guard !runState.isRunning, !isLoading else { return }
+        guard !configuration.prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            pendingAutomationRun = nil
+            return
+        }
+        guard !currentURLString.isEmpty else { return }
+
+        if let initialURL = configuration.initialURL,
+           !urlsMatchLoosely(currentURLString, initialURL.absoluteString) {
+            return
+        }
+
+        pendingAutomationRun = nil
+        runAgent()
+    }
+
+    private func scheduleAutomationStopIfNeeded() {
+        automationStopTask?.cancel()
+        automationStopTask = nil
+
+        guard let maxRuntimeSeconds = automationRunConfiguration?.maxRuntimeSeconds,
+              maxRuntimeSeconds > 0 else {
+            return
+        }
+
+        automationStopTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await Task.sleep(nanoseconds: UInt64(maxRuntimeSeconds * 1_000_000_000))
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled, self.runState.isRunning else { return }
+            self.appendLog(
+                step: self.taskState.currentStep,
+                title: "Automation Timeout",
+                detail: "Stopped the browser-agent run after \(Int(maxRuntimeSeconds)) seconds for UI test stability.",
+                kind: .result
+            )
+            self.stopAgent()
+        }
+    }
+
+    private func urlsMatchLoosely(_ lhs: String, _ rhs: String) -> Bool {
+        func normalized(_ value: String) -> String {
+            value.trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }
+
+        return normalized(lhs) == normalized(rhs)
     }
 
     private func syncPiPState() {
