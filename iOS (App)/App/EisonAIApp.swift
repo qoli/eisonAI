@@ -44,6 +44,7 @@ private struct RootGateView: View {
         }
         .task {
             await refreshLifetimeAccessIfNeeded()
+            MLXDownloadDropNotifier.shared.startIfNeeded()
         }
         .onOpenURL { url in
             _ = MLXDownloadDeepLinkHandler.shared.handle(url, origin: "rootOnOpenURL")

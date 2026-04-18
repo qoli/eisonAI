@@ -554,8 +554,12 @@ struct AIModelsSettingsView: View {
                    activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                 {
                     HStack(alignment: .top, spacing: 12) {
-                        Text("Another MLX download is in progress: \(activeDownloadJob.displayName)")
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Another MLX download is in progress: \(activeDownloadJob.displayName)")
+                                .foregroundStyle(.secondary)
+
+                            activeDownloadProgressView(activeDownloadJob)
+                        }
 
                         Spacer()
 
@@ -728,9 +732,13 @@ struct AIModelsSettingsView: View {
 
                 if let job = downloadJob(for: model.id) {
                     if job.isActive {
-                        Text(job.progressText)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .trailing, spacing: 4) {
+                            Text(job.progressText)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+
+                            activeDownloadProgressView(job, compact: true)
+                        }
                     } else {
                         Text(job.progressText)
                             .font(.footnote)
@@ -1092,6 +1100,10 @@ struct AIModelsSettingsView: View {
                 .font(.footnote)
                 .foregroundStyle(isError ? .red : .secondary)
 
+            if job.isActive {
+                activeDownloadProgressView(job)
+            }
+
             if let errorMessage = job.errorMessage,
                !errorMessage.isEmpty,
                isError
@@ -1113,6 +1125,25 @@ struct AIModelsSettingsView: View {
                 .font(.footnote)
             }
         }
+    }
+
+    @ViewBuilder
+    private func activeDownloadProgressView(_ job: MLXDownloadJob, compact: Bool = false) -> some View {
+        if let progressValue = normalizedProgress(for: job) {
+            ProgressView(value: progressValue)
+                .frame(width: compact ? 88 : nil)
+        } else {
+            ProgressView()
+                .controlSize(compact ? .mini : .small)
+        }
+    }
+
+    private func normalizedProgress(for job: MLXDownloadJob) -> Double? {
+        if job.totalUnitCount > 0 {
+            return min(1, max(0, Double(job.completedUnitCount) / Double(max(job.totalUnitCount, 1))))
+        }
+        guard job.fractionCompleted > 0 else { return nil }
+        return min(1, max(0, job.fractionCompleted))
     }
 
     private func validateBYOK() {

@@ -29,6 +29,8 @@ final class MLXDownloadCoordinator: ObservableObject {
     private var lastLoggedProgressFraction = -1.0
     private var lastProgressEventAt: Date = .distantPast
     private var lastObservedCompletedUnitCount: Int64 = 0
+    private var lastObservedDownloadedBytes: Int64 = 0
+    private var observedDownloadBaselineBytes: Int64 = 0
 
     init(
         jobStore: MLXDownloadJobStore = MLXDownloadJobStore(),
@@ -141,8 +143,12 @@ final class MLXDownloadCoordinator: ObservableObject {
         publish(runningJob, persist: true)
         lastProgressEventAt = .now
         lastObservedCompletedUnitCount = runningJob.completedUnitCount
+        observedDownloadBaselineBytes = observedAssetProgress(for: runningJob).observedDownloadedBytes
+        lastObservedDownloadedBytes = 0
         let stallMonitorTask = makeStallMonitorTask(for: runningJob)
+        let assetProgressTask = makeObservedProgressMonitorTask(for: runningJob)
         defer { stallMonitorTask.cancel() }
+        defer { assetProgressTask.cancel() }
         logNotice(
             "MLX download run begin job={\(jobSummary(runningJob))} assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: runningJob.modelID))}"
         )
@@ -167,33 +173,7 @@ final class MLXDownloadCoordinator: ObservableObject {
 
     private func handleProgress(_ progress: Progress, forJobID jobID: String) {
         guard let currentJob = currentJobForID(jobID) else { return }
-
-        let totalUnitCount = max(progress.totalUnitCount, currentJob.totalUnitCount)
-        let completedUnitCount = max(progress.completedUnitCount, currentJob.completedUnitCount)
-        let fractionCompleted: Double
-        if totalUnitCount > 0 {
-            fractionCompleted = min(1, Double(completedUnitCount) / Double(totalUnitCount))
-        } else {
-            fractionCompleted = max(currentJob.fractionCompleted, progress.fractionCompleted)
-        }
-
-        let updatedJob = currentJob.updating(
-            state: .running,
-            completedUnitCount: completedUnitCount,
-            totalUnitCount: totalUnitCount,
-            fractionCompleted: fractionCompleted,
-            errorMessage: .some(nil)
-        )
-        lastProgressEventAt = .now
-        lastObservedCompletedUnitCount = completedUnitCount
-        publish(updatedJob, persist: true, throttleProgressPersistence: true)
-        if fractionCompleted >= 1 ||
-            lastLoggedProgressFraction < 0 ||
-            fractionCompleted - lastLoggedProgressFraction >= 0.05
-        {
-            lastLoggedProgressFraction = fractionCompleted
-            logNotice("MLX download progress job={\(jobSummary(updatedJob))}")
-        }
+        refreshObservedProgress(for: currentJob, fallbackProgress: progress)
     }
 
     private func finalizeSuccessfulDownload(forJobID jobID: String) async {
@@ -313,6 +293,8 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastLoggedProgressFraction = -1.0
         lastProgressEventAt = .distantPast
         lastObservedCompletedUnitCount = 0
+        lastObservedDownloadedBytes = 0
+        observedDownloadBaselineBytes = 0
         logNotice("Cleared active MLX download task state")
     }
 
@@ -385,26 +367,137 @@ final class MLXDownloadCoordinator: ObservableObject {
 
                 let idleSeconds = Date.now.timeIntervalSince(self.lastProgressEventAt)
                 let assetState = AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: currentJob.modelID)
-                let hasObservedProgress = max(currentJob.completedUnitCount, self.lastObservedCompletedUnitCount) > 0
+                let hasObservedProgress = max(currentJob.completedUnitCount, self.lastObservedCompletedUnitCount) > 0 ||
+                    self.lastObservedDownloadedBytes > 0
                 if idleSeconds < 20 {
                     self.logNotice(
-                        "MLX download heartbeat job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                        "MLX download heartbeat job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) lastObservedBytes=\(self.lastObservedDownloadedBytes) assetState={\(assetState)}"
                     )
                 } else if !hasObservedProgress {
                     self.logNotice(
-                        "MLX download waiting for first progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                        "MLX download waiting for first progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) lastObservedBytes=\(self.lastObservedDownloadedBytes) assetState={\(assetState)}"
                     )
                 } else if idleSeconds >= 60 {
                     self.logWarning(
-                        "MLX download idle after progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                        "MLX download idle after progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) lastObservedBytes=\(self.lastObservedDownloadedBytes) assetState={\(assetState)}"
                     )
                 } else {
                     self.logNotice(
-                        "MLX download idle after progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) assetState={\(assetState)}"
+                        "MLX download idle after progress job={\(self.jobSummary(currentJob))} idleSeconds=\(String(format: "%.1f", idleSeconds)) lastCompleted=\(self.lastObservedCompletedUnitCount) lastObservedBytes=\(self.lastObservedDownloadedBytes) assetState={\(assetState)}"
                     )
                 }
             }
         }
+    }
+
+    private func makeObservedProgressMonitorTask(for job: MLXDownloadJob) -> Task<Void, Never> {
+        Task { [weak self] in
+            guard let self else { return }
+            self.logNotice("Started asset progress monitor for job={\(self.jobSummary(job))}")
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { break }
+                guard let currentJob = self.currentJobForID(job.jobID), currentJob.isActive else {
+                    break
+                }
+                self.refreshObservedProgress(for: currentJob)
+            }
+        }
+    }
+
+    private func refreshObservedProgress(
+        for currentJob: MLXDownloadJob,
+        fallbackProgress: Progress? = nil
+    ) {
+        let assetProgress = observedAssetProgress(for: currentJob)
+        let effectiveObservedDownloadedBytes = max(
+            0,
+            assetProgress.observedDownloadedBytes - observedDownloadBaselineBytes
+        )
+
+        let previousCompleted = currentJob.completedUnitCount
+        let previousTotal = currentJob.totalUnitCount
+        let previousFraction = currentJob.fractionCompleted
+
+        var totalUnitCount: Int64 = 0
+        var completedUnitCount: Int64 = 0
+        var fractionCompleted: Double = 0
+
+        if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
+            totalUnitCount = expectedBytes
+            completedUnitCount = max(
+                currentJob.totalUnitCount == expectedBytes ? currentJob.completedUnitCount : 0,
+                min(effectiveObservedDownloadedBytes, expectedBytes)
+            )
+            let observedFraction = min(1, Double(effectiveObservedDownloadedBytes) / Double(expectedBytes))
+            if observedFraction.isFinite {
+                fractionCompleted = max(
+                    currentJob.totalUnitCount == expectedBytes ? currentJob.fractionCompleted : 0,
+                    observedFraction
+                )
+            }
+        } else if let fallbackProgress {
+            totalUnitCount = 0
+            completedUnitCount = 0
+            fractionCompleted = 0
+            if fallbackProgress.totalUnitCount > 0 || fallbackProgress.completedUnitCount > 0 || fallbackProgress.fractionCompleted > 0 {
+                logNotice(
+                    "MLX download callback progress without expected bytes job={\(jobSummary(currentJob))} callbackCompleted=\(fallbackProgress.completedUnitCount) callbackTotal=\(fallbackProgress.totalUnitCount) callbackFraction=\(String(format: "%.3f", fallbackProgress.fractionCompleted))"
+                )
+            }
+        }
+
+        if effectiveObservedDownloadedBytes > lastObservedDownloadedBytes ||
+            completedUnitCount > lastObservedCompletedUnitCount
+        {
+            lastProgressEventAt = .now
+        }
+
+        lastObservedDownloadedBytes = max(lastObservedDownloadedBytes, effectiveObservedDownloadedBytes)
+        lastObservedCompletedUnitCount = max(lastObservedCompletedUnitCount, completedUnitCount)
+
+        let updatedJob = currentJob.updating(
+            state: .running,
+            completedUnitCount: completedUnitCount,
+            totalUnitCount: totalUnitCount,
+            fractionCompleted: fractionCompleted,
+            errorMessage: .some(nil)
+        )
+
+        if updatedJob.completedUnitCount != previousCompleted ||
+            updatedJob.totalUnitCount != previousTotal ||
+            abs(updatedJob.fractionCompleted - previousFraction) >= 0.001
+        {
+            publish(updatedJob, persist: true, throttleProgressPersistence: true)
+        }
+
+        if fractionCompleted >= 1 ||
+            lastLoggedProgressFraction < 0 ||
+            fractionCompleted - lastLoggedProgressFraction >= 0.05
+        {
+            lastLoggedProgressFraction = fractionCompleted
+            logNotice(
+                "MLX download progress job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} effectiveObservedBytes=\(effectiveObservedDownloadedBytes) baselineBytes=\(observedDownloadBaselineBytes)"
+            )
+        }
+    }
+
+    private func observedAssetProgress(for job: MLXDownloadJob) -> AnyLanguageModelClient.LocalModelAssetProgress {
+        let expectedBytes = expectedDownloadBytes(for: job)
+        return AnyLanguageModelClient.localModelAssetProgress(
+            modelID: job.modelID,
+            expectedBytes: expectedBytes
+        )
+    }
+
+    private func expectedDownloadBytes(for job: MLXDownloadJob) -> Int64? {
+        if let rawSafeTensorTotal = job.catalogModel?.rawSafeTensorTotal, rawSafeTensorTotal > 0 {
+            return rawSafeTensorTotal
+        }
+        if let inferred = AnyLanguageModelClient.inferredExpectedLocalModelBytes(modelID: job.modelID), inferred > 0 {
+            return inferred
+        }
+        return nil
     }
 
     private func logNotice(_ message: String) {

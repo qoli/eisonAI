@@ -201,6 +201,25 @@ final class AnyLanguageModelClient {
         let tokenizerDirectory: URL
     }
 
+    struct LocalModelAssetProgress: Sendable {
+        let repoBytes: Int64
+        let hubCacheBytes: Int64
+        let largestTempFileBytes: Int64
+        let observedDownloadedBytes: Int64
+        let expectedBytes: Int64?
+
+        var fractionCompleted: Double? {
+            guard let expectedBytes, expectedBytes > 0 else { return nil }
+            return min(1, max(0, Double(observedDownloadedBytes) / Double(expectedBytes)))
+        }
+
+        var summary: String {
+            let expected = expectedBytes.map(String.init) ?? "nil"
+            return
+                "repoBytes=\(repoBytes) hubCacheBytes=\(hubCacheBytes) tempBytes=\(largestTempFileBytes) observedBytes=\(observedDownloadedBytes) expectedBytes=\(expected)"
+        }
+    }
+
     nonisolated private static let logger = Logger(
         subsystem: "com.qoli.eisonAI",
         category: "AnyLanguageModelClient"
@@ -338,10 +357,96 @@ final class AnyLanguageModelClient {
             let hasWeightFile = repoFiles.contains(where: { $0.hasSuffix(".safetensors") })
             let hasConfigFile = repoFiles.contains("config.json")
             let hasTokenizer = repoFiles.contains("tokenizer.json")
+            let byteProgress = localModelAssetProgress(modelID: modelID)
 
-            return "repo=\(repoURL.path) fileCount=\(repoFiles.count) hasWeight=\(hasWeightFile) hasConfig=\(hasConfigFile) hasTokenizer=\(hasTokenizer) files=[\(repoFiles.joined(separator: ","))]"
+            return "repo=\(repoURL.path) fileCount=\(repoFiles.count) hasWeight=\(hasWeightFile) hasConfig=\(hasConfigFile) hasTokenizer=\(hasTokenizer) bytes={\(byteProgress.summary)} files=[\(repoFiles.joined(separator: ","))]"
         #else
             return "hub-unavailable"
+        #endif
+    }
+
+    nonisolated static func localModelAssetProgress(
+        modelID: String,
+        expectedBytes: Int64? = nil
+    ) -> LocalModelAssetProgress {
+        #if canImport(Hub)
+            let fileManager = FileManager.default
+            let hub = HubApi()
+            let repoURL = hub.localRepoLocation(Hub.Repo(id: modelID))
+            let repoCacheName = "models--\(modelID.replacingOccurrences(of: "/", with: "--"))"
+            let containerURL = fileManager
+                .urls(for: .documentDirectory, in: .userDomainMask)
+                .first?
+                .deletingLastPathComponent()
+
+            let repoBytes = directorySize(at: repoURL)
+            let hubCacheBytes: Int64
+            let largestTempFileBytes: Int64
+
+            if let containerURL {
+                let hubCacheRoot = containerURL
+                    .appending(path: "Library/Caches/huggingface/hub", directoryHint: .isDirectory)
+                let cachedRepoURL = hubCacheRoot.appending(path: repoCacheName, directoryHint: .isDirectory)
+                hubCacheBytes = directorySize(at: cachedRepoURL)
+
+                let tempDirectory = containerURL.appending(path: "tmp", directoryHint: .isDirectory)
+                let tempFiles =
+                    (try? fileManager.contentsOfDirectory(
+                        at: tempDirectory,
+                        includingPropertiesForKeys: [.fileSizeKey]
+                    ).filter { $0.lastPathComponent.hasPrefix("CFNetworkDownload_") }) ?? []
+                largestTempFileBytes = tempFiles.compactMap { url in
+                    (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap(Int64.init)
+                }.max() ?? 0
+            } else {
+                hubCacheBytes = 0
+                largestTempFileBytes = 0
+            }
+
+            let observedDownloadedBytes = max(
+                repoBytes,
+                hubCacheBytes,
+                repoBytes + largestTempFileBytes
+            )
+
+            return LocalModelAssetProgress(
+                repoBytes: repoBytes,
+                hubCacheBytes: hubCacheBytes,
+                largestTempFileBytes: largestTempFileBytes,
+                observedDownloadedBytes: observedDownloadedBytes,
+                expectedBytes: expectedBytes
+            )
+        #else
+            return LocalModelAssetProgress(
+                repoBytes: 0,
+                hubCacheBytes: 0,
+                largestTempFileBytes: 0,
+                observedDownloadedBytes: 0,
+                expectedBytes: expectedBytes
+            )
+        #endif
+    }
+
+    nonisolated static func inferredExpectedLocalModelBytes(modelID: String) -> Int64? {
+        #if canImport(Hub)
+            let repoURL = HubApi().localRepoLocation(Hub.Repo(id: modelID))
+            let indexURL = repoURL.appendingPathComponent("model.safetensors.index.json", isDirectory: false)
+            guard let data = try? Data(contentsOf: indexURL),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let metadata = json["metadata"] as? [String: Any]
+            else {
+                return nil
+            }
+
+            if let totalSize = metadata["total_size"] as? NSNumber {
+                return totalSize.int64Value
+            }
+            if let totalSize = metadata["totalSize"] as? NSNumber {
+                return totalSize.int64Value
+            }
+            return nil
+        #else
+            return nil
         #endif
     }
 
@@ -748,6 +853,38 @@ final class AnyLanguageModelClient {
                     largestTempFileSize: largestTempValues?.fileSize.flatMap(Int64.init),
                     largestTempFileModificationTime: largestTempValues?.contentModificationDate?.timeIntervalSince1970
                 )
+            }
+
+            nonisolated private static func directorySize(at url: URL) -> Int64 {
+                let fileManager = FileManager.default
+                var isDirectory: ObjCBool = false
+                guard fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+                    return 0
+                }
+
+                if !isDirectory.boolValue {
+                    return (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap(Int64.init) ?? 0
+                }
+
+                guard let enumerator = fileManager.enumerator(
+                    at: url,
+                    includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+                    options: [.skipsHiddenFiles]
+                ) else {
+                    return 0
+                }
+
+                var total: Int64 = 0
+                for case let fileURL as URL in enumerator {
+                    guard let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                          values.isRegularFile == true,
+                          let fileSize = values.fileSize
+                    else {
+                        continue
+                    }
+                    total += Int64(fileSize)
+                }
+                return total
             }
         #endif
 
