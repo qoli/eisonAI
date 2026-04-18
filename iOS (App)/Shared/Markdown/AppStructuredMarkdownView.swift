@@ -44,21 +44,21 @@ private extension InlineStyle {
 }
 
 private struct AppMarkdownHeadingStyle: StructuredText.HeadingStyle {
-    private static let fontScales: [CGFloat] = [1.35, 1.2, 1.05, 1, 1, 1]
     private static let topSpacing: [CGFloat] = [0.9, 0.8, 0.7, 0.7, 0.7, 0.7]
     private static let bottomSpacing: [CGFloat] = [0.45, 0.35, 0.3, 0.3, 0.3, 0.3]
+    private static let fontWeights: [Font.Weight] = [.black, .black, .black, .semibold, .semibold, .semibold]
+    private static let fontSizes: [CGFloat] = [22.95, 20.4, 17.85, 17, 14.11, 11.39]
 
     func makeBody(configuration: Configuration) -> some View {
         let headingLevel = min(configuration.headingLevel, 6)
         let index = headingLevel - 1
 
         return configuration.label
-            .textual.fontScale(Self.fontScales[index])
+            .font(.system(size: Self.fontSizes[index], weight: Self.fontWeights[index]))
             .textual.lineSpacing(.fontScaled(0.15))
             .textual.blockSpacing(
                 .fontScaled(top: Self.topSpacing[index], bottom: Self.bottomSpacing[index])
             )
-            .fontWeight(.black)
             .foregroundStyle(.primary)
     }
 }
