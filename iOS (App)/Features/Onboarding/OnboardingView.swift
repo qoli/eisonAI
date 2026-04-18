@@ -8,7 +8,6 @@
 import Combine
 import Drops
 import Foundation
-import MarkdownUI
 import StoreKit
 import SwiftUI
 import UIKit
@@ -577,25 +576,26 @@ struct OnboardingView: View {
 
             ScrollView {
                 VStack {
-                    Markdown("""
-                    # Reading challenge: Structure, not content
+                    AppStructuredMarkdownView(
+                        markdown: """
+                        # Reading challenge: Structure, not content
 
-                    ### Problem:
+                        ### Problem:
 
-                    *   **Unhelpful order**: The writing order isn't the comprehension order.
-                    *   **Missing structure**: Key assumptions hide in plain sight; background arrives too late.
-                    *   **Abrupt transitions**: You keep adjusting instead of thinking.
+                        *   **Unhelpful order**: The writing order isn't the comprehension order.
+                        *   **Missing structure**: Key assumptions hide in plain sight; background arrives too late.
+                        *   **Abrupt transitions**: You keep adjusting instead of thinking.
 
-                    ### Result:
+                        ### Result:
 
-                    *   **Recall without clarity**: You can summarize, but can't locate where meaning formed.
-                    *   **Cognitive load**: Tracking position replaces judgment.
+                        *   **Recall without clarity**: You can summarize, but can't locate where meaning formed.
+                        *   **Cognitive load**: Tracking position replaces judgment.
 
-                    ### Conclusion:
+                        ### Conclusion:
 
-                    *   The problem isn't the content — it's the structure.
-                    """)
-                    .markdownTheme(.librarySummary)
+                        *   The problem isn't the content — it's the structure.
+                        """
+                    )
                 }
                 .padding(.vertical, -32)
                 .padding(.horizontal, -46)

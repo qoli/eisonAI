@@ -1,5 +1,4 @@
 import Foundation
-import MarkdownUI
 import SwiftUI
 
 struct LibraryRootView: View {

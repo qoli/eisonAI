@@ -1,6 +1,5 @@
 import Drops
 import Foundation
-import MarkdownUI
 import SwiftUI
 #if canImport(UIKit)
     import UIKit
@@ -535,8 +534,10 @@ private struct MarkdownSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Markdown(noThinkText)
-                .markdownTheme(.librarySummary)
+            AppStructuredMarkdownView(
+                markdown: noThinkText,
+                allowsSelection: true
+            )
                 .padding(.vertical, 12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .ifMacCatalyst { view in
@@ -562,10 +563,10 @@ private struct LibraryTextDetailView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Markdown(text)
-                        .markdownTheme(.librarySummary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    AppStructuredMarkdownView(
+                        markdown: text,
+                        allowsSelection: true
+                    )
                 }
             }
             .padding(.horizontal)

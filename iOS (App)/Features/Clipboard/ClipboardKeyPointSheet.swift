@@ -1,4 +1,3 @@
-import MarkdownUI
 import SwiftUI
 
 struct ClipboardKeyPointSheet: View {
@@ -19,8 +18,10 @@ struct ClipboardKeyPointSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Markdown(model.output.isEmpty ? "_" : model.output.thinkTagstoMarkdonw())
-                    .markdownTheme(.librarySummary)
+                AppStructuredMarkdownView(
+                    markdown: model.output.isEmpty ? "_" : model.output.thinkTagstoMarkdonw(),
+                    allowsSelection: true
+                )
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
             }
