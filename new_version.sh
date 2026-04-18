@@ -50,6 +50,12 @@ validate_changelog_outputs() {
         return 1
     fi
 
+    if grep -q '[[:alpha:]]*[一-龥ぁ-んァ-ヶ가-힣]' "$english_changelog"; then
+        validation_error="fastlane/changelog.txt 仍然殘留非英文東亞文字。"
+        echo "$validation_error" >&2
+        return 1
+    fi
+
     if ! grep -Eq '^## [0-9]+(\.[0-9]+)*$' "$english_changelog"; then
         validation_error="fastlane/changelog.txt 缺少版本 heading。"
         echo "$validation_error" >&2
@@ -236,18 +242,50 @@ if ! command -v tmux >/dev/null 2>&1; then
 fi
 
 copilot_prompt=$(cat <<EOF
-1. 先檢查當前可用工具中是否存在 notion MCP / notion 相關工具；如果不存在，只能報錯一次並停止，不要重複道歉或重複輸出相同內容。
-2. 如果 notion 工具存在，必須使用該 notion MCP 工具讀取 page 2e2c1b36c40180849002d41f8892a5c7，不要使用 web fetch、瀏覽器抓取、或 HTML 解析。
-3. 只從主頁正文中尋找版本 heading，版本 heading 的格式是 ## x.y。不要把頁首子頁、頁面說明文字、封面摘要、或其他非 ## x.y heading 內容當成版本內容。
-4. 抽取所有 ## x.y 版本 heading，按版本號大小比較，選出數值最大的版本。只提取該版本區塊直到下一個版本 heading 之前的內容，不要附帶其他版本。
-5. 如果你最終抽取到的區塊混入了更舊版本內容，直接報錯並停止，不要寫出錯誤文件。
-6. 必須真的寫入兩個文件，而不是只在終端回覆。
-7. 英文 changelog 也必須明確保留你選中的最新版本號，不能只輸出條列內容。請用 plain-text 形式寫入 $project_path/fastlane/changelog.txt。
-8. 把最新版本內容翻譯成自然英語，移除所有 HTML 標籤、HTML 實體、以及多餘的 Notion 標記，寫入 $project_path/fastlane/changelog.txt。
-9. 把最新版本內容保留版本號，整理成適合 Telegram 的 markdown，寫入 $project_path/telegram/changelog.md。
-10. fastlane/changelog.txt 與 telegram/changelog.md 都必須至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。不要使用 ## 未發佈 - 日期 或其他非純版本號 heading。
-11. 如果任一輸出缺少你選中的最新版本號，直接視為失敗。
-12. 完成後，最後只回報這兩個文件是否成功寫入，以及你提取到的版本號。
+你必須遵守以下強制工作流，不能跳步，也不能在未驗證前宣告完成。
+
+Phase 1: Tool check
+1. 先檢查當前可用工具中是否存在 notion MCP / notion 相關工具。
+2. 如果 notion 工具不存在，只能報錯一次並停止。不要重複道歉、不要重複輸出相同內容、不要寫任何輸出文件。
+
+Phase 2: Source extraction
+3. 如果 notion 工具存在，必須只使用該 notion MCP 工具讀取 page 2e2c1b36c40180849002d41f8892a5c7。
+4. 不要使用 web fetch、瀏覽器抓取、HTML 解析、或任何 notion 以外的替代讀取方式。
+5. 只從主頁正文中尋找版本 heading。合法版本 heading 的格式只能是 ## x.y。
+6. 不要把頁首子頁、頁面說明文字、封面摘要、或其他非 ## x.y heading 內容當成版本內容。
+7. 抽取所有 ## x.y 版本 heading，按版本號大小比較，選出數值最大的版本。
+8. 只提取該版本區塊直到下一個版本 heading 之前的內容，不要附帶其他版本。
+9. 如果你最終抽取到的區塊混入更舊版本內容，直接報錯並停止，不要寫出錯誤文件。
+
+Phase 3: Write outputs
+10. 必須真的覆寫兩個文件，而不是只在終端回覆：
+    - $project_path/fastlane/changelog.txt
+    - $project_path/telegram/changelog.md
+11. 英文 changelog 必須明確保留你選中的最新版本號，不能只輸出條列內容。請用 plain-text 形式寫入 $project_path/fastlane/changelog.txt。
+12. 把最新版本內容翻譯成自然英語，移除所有 HTML 標籤、HTML 實體、以及多餘的 Notion 標記，寫入 $project_path/fastlane/changelog.txt。
+13. 把最新版本內容保留版本號，整理成適合 Telegram 的 markdown，寫入 $project_path/telegram/changelog.md。
+14. fastlane/changelog.txt 與 telegram/changelog.md 都必須至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。不要使用 ## 未發佈 - 日期 或其他非純版本號 heading。
+15. 如果任一輸出缺少你選中的最新版本號，直接視為失敗。
+
+Phase 4: Mandatory validation and repair
+16. 在你認為完成之前，必須重新讀取這兩個文件，並使用 translation-validator agent 驗證它們。translation-validator 只能用來驗證，不可用來寫檔。
+17. 你必須讓 translation-validator agent 檢查以下條件：
+    - 兩個文件都非空
+    - 兩個文件都包含至少一行完全符合 ## x.y 的版本 heading
+    - 兩個文件中的版本號都等於你提取到的最新版本號
+    - fastlane/changelog.txt 不包含任何 HTML tag
+    - fastlane/changelog.txt 不殘留中文或其他未翻譯的東亞文字
+    - 兩個文件都沒有混入更舊版本內容
+18. 如果 validator 判定任一條件失敗，你必須直接覆寫修正文件，然後重新執行 validator。
+19. 不要在 validator 失敗時宣告完成。
+20. 只有當 validator 明確確認所有條件都通過時，才允許 task_complete。
+
+Final response rules
+21. 完成後，最後只回報以下三件事：
+    - SUCCESS 或 FAIL
+    - 你提取到的版本號
+    - 這兩個文件是否已成功寫入並通過驗證
+22. 除此之外不要輸出其他內容。
 EOF
 )
 
