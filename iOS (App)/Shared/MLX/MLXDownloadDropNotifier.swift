@@ -7,12 +7,17 @@ import UIKit
 final class MLXDownloadDropNotifier {
     static let shared = MLXDownloadDropNotifier()
 
+    private enum ProgressSnapshot: Equatable {
+        case indeterminate
+        case percent(Int)
+    }
+
     private let coordinator: MLXDownloadCoordinator
     private let drops: Drops
     private var cancellable: AnyCancellable?
     private var hasStarted = false
     private var lastStateByJobID: [String: MLXDownloadJob.State] = [:]
-    private var lastProgressBucketByJobID: [String: Int] = [:]
+    private var lastProgressSnapshotByJobID: [String: ProgressSnapshot] = [:]
 
     init(
         coordinator: MLXDownloadCoordinator = .shared,
@@ -38,7 +43,7 @@ final class MLXDownloadDropNotifier {
         guard let job else { return }
 
         let previousState = lastStateByJobID[job.jobID]
-        let previousBucket = lastProgressBucketByJobID[job.jobID] ?? -1
+        let previousProgressSnapshot = lastProgressSnapshotByJobID[job.jobID]
 
         switch job.state {
         case .queued:
@@ -51,32 +56,35 @@ final class MLXDownloadDropNotifier {
             )
 
         case .running:
-            let progressBucket = progressBucket(for: job)
             if previousState != .running {
-                show(
-                    title: "Starting MLX Download",
+                showProgress(
+                    title: "Downloading MLX Model",
                     subtitle: progressSubtitle(for: job, fallback: job.displayName),
                     iconName: "arrow.down.circle",
-                    duration: 1.6
+                    progress: progress(for: job),
+                    id: progressDropID(for: job)
                 )
-            } else if let progressBucket, progressBucket > previousBucket {
-                show(
+            } else {
+                let progressSnapshot = progressSnapshot(for: job)
+                guard progressSnapshot != previousProgressSnapshot else { break }
+                showProgress(
                     title: "Downloading MLX Model",
-                    subtitle: "\(job.displayName) · \(progressBucket)%",
+                    subtitle: progressSubtitle(for: job, fallback: job.displayName),
                     iconName: "arrow.down.circle",
-                    duration: 1.4
+                    progress: progress(for: job),
+                    id: progressDropID(for: job)
                 )
             }
-            lastProgressBucketByJobID[job.jobID] = progressBucket ?? previousBucket
+            lastProgressSnapshotByJobID[job.jobID] = progressSnapshot(for: job)
 
         case .finishing:
             guard previousState != .finishing else { break }
-            show(
+            showProgress(
                 title: "Finalizing MLX Model",
                 subtitle: job.displayName,
                 iconName: "hourglass",
-                duration: 1.6,
-                replacingCurrent: true
+                progress: .indeterminate,
+                id: progressDropID(for: job)
             )
 
         case .completed:
@@ -112,27 +120,63 @@ final class MLXDownloadDropNotifier {
 
         lastStateByJobID[job.jobID] = job.state
         if !job.isActive {
-            lastProgressBucketByJobID[job.jobID] = progressBucket(for: job) ?? previousBucket
+            lastProgressSnapshotByJobID.removeValue(forKey: job.jobID)
+            lastStateByJobID.removeValue(forKey: job.jobID)
         }
     }
 
-    private func progressBucket(for job: MLXDownloadJob) -> Int? {
-        let fraction = normalizedProgress(for: job)
-        guard fraction > 0 else { return nil }
-        let percent = min(100, Int((fraction * 100).rounded(.down)))
-        return min(100, (percent / 25) * 25)
+    private func progressPercent(for job: MLXDownloadJob) -> Int? {
+        guard let fraction = normalizedProgress(for: job), fraction > 0 else { return nil }
+        return min(100, Int((fraction * 100).rounded(.down)))
     }
 
-    private func normalizedProgress(for job: MLXDownloadJob) -> Double {
+    private func normalizedProgress(for job: MLXDownloadJob) -> Double? {
         if job.totalUnitCount > 0 {
             return min(1, max(0, Double(job.completedUnitCount) / Double(max(job.totalUnitCount, 1))))
         }
+        guard job.fractionCompleted > 0 else { return nil }
         return min(1, max(0, job.fractionCompleted))
     }
 
     private func progressSubtitle(for job: MLXDownloadJob, fallback: String) -> String {
-        guard let progressBucket = progressBucket(for: job) else { return fallback }
-        return "\(job.displayName) · \(progressBucket)%"
+        guard let progressPercent = progressPercent(for: job) else { return fallback }
+        return "\(job.displayName) · \(progressPercent)%"
+    }
+
+    private func progress(for job: MLXDownloadJob) -> Drop.Progress {
+        if let normalizedProgress = normalizedProgress(for: job) {
+            return .determinate(normalizedProgress)
+        }
+        return .indeterminate
+    }
+
+    private func progressSnapshot(for job: MLXDownloadJob) -> ProgressSnapshot {
+        if let progressPercent = progressPercent(for: job) {
+            return .percent(progressPercent)
+        }
+        return .indeterminate
+    }
+
+    private func progressDropID(for job: MLXDownloadJob) -> String {
+        "mlx-download-\(job.jobID)"
+    }
+
+    private func showProgress(
+        title: String,
+        subtitle: String,
+        iconName: String,
+        progress: Drop.Progress,
+        id: String
+    ) {
+        let drop = Drop(
+            title: title,
+            subtitle: subtitle,
+            icon: UIImage(systemName: iconName),
+            duration: .untilHidden,
+            id: id,
+            progress: progress
+        )
+        drops.show(drop)
     }
 
     private func show(
