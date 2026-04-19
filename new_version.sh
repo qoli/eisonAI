@@ -68,6 +68,12 @@ validate_changelog_outputs() {
         return 1
     fi
 
+    if ! grep -q '[一-龥]' "$telegram_changelog"; then
+        validation_error="telegram/changelog.md 必須保留中文內容，不能是純英文翻譯版。"
+        echo "$validation_error" >&2
+        return 1
+    fi
+
     return 0
 }
 
@@ -209,6 +215,7 @@ $validation_error
 
 請直接覆寫 $project_path/fastlane/changelog.txt 與 $project_path/telegram/changelog.md。
 兩個檔案都必須包含且至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。
+telegram/changelog.md 必須保留中文，不可改寫成英文版。
 不要使用 ## 未發佈 - 日期、不要省略版本 heading、不要只輸出條列內容。
 EOF
 )
@@ -264,28 +271,30 @@ Phase 3: Write outputs
 11. 英文 changelog 必須明確保留你選中的最新版本號，不能只輸出條列內容。請用 plain-text 形式寫入 $project_path/fastlane/changelog.txt。
 12. 把最新版本內容翻譯成自然英語，移除所有 HTML 標籤、HTML 實體、以及多餘的 Notion 標記，寫入 $project_path/fastlane/changelog.txt。
 13. 把最新版本內容保留版本號，整理成適合 Telegram 的 markdown，寫入 $project_path/telegram/changelog.md。
-14. fastlane/changelog.txt 與 telegram/changelog.md 都必須至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。不要使用 ## 未發佈 - 日期 或其他非純版本號 heading。
-15. 如果任一輸出缺少你選中的最新版本號，直接視為失敗。
+14. $project_path/telegram/changelog.md 必須保留中文內容與中文表述，不可翻譯成英文，也不可直接複製 fastlane/changelog.txt 的英文內容。
+15. fastlane/changelog.txt 與 telegram/changelog.md 都必須至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。不要使用 ## 未發佈 - 日期 或其他非純版本號 heading。
+16. 如果任一輸出缺少你選中的最新版本號，直接視為失敗。
 
 Phase 4: Mandatory validation and repair
-16. 在你認為完成之前，必須重新讀取這兩個文件，並使用 translation-validator agent 驗證它們。translation-validator 只能用來驗證，不可用來寫檔。
-17. 你必須讓 translation-validator agent 檢查以下條件：
+17. 在你認為完成之前，必須重新讀取這兩個文件，並使用 translation-validator agent 驗證它們。translation-validator 只能用來驗證，不可用來寫檔。
+18. 你必須讓 translation-validator agent 檢查以下條件：
     - 兩個文件都非空
     - 兩個文件都包含至少一行完全符合 ## x.y 的版本 heading
     - 兩個文件中的版本號都等於你提取到的最新版本號
     - fastlane/changelog.txt 不包含任何 HTML tag
     - fastlane/changelog.txt 不殘留中文或其他未翻譯的東亞文字
+    - telegram/changelog.md 必須保留中文，不能是純英文內容
     - 兩個文件都沒有混入更舊版本內容
-18. 如果 validator 判定任一條件失敗，你必須直接覆寫修正文件，然後重新執行 validator。
-19. 不要在 validator 失敗時宣告完成。
-20. 只有當 validator 明確確認所有條件都通過時，才允許 task_complete。
+19. 如果 validator 判定任一條件失敗，你必須直接覆寫修正文件，然後重新執行 validator。
+20. 不要在 validator 失敗時宣告完成。
+21. 只有當 validator 明確確認所有條件都通過時，才允許 task_complete。
 
 Final response rules
-21. 完成後，最後只回報以下三件事：
+22. 完成後，最後只回報以下三件事：
     - SUCCESS 或 FAIL
     - 你提取到的版本號
     - 這兩個文件是否已成功寫入並通過驗證
-22. 除此之外不要輸出其他內容。
+23. 除此之外不要輸出其他內容。
 EOF
 )
 

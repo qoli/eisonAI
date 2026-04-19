@@ -1,6 +1,6 @@
 ---
 name: translation-validator
-description: Validates changelog outputs for version correctness, English-only output, and accidental leakage of older-version content. This agent is read-only and must never modify files.
+description: Validates changelog outputs for version correctness, English-only fastlane output, Chinese Telegram output, and accidental leakage of older-version content. This agent is read-only and must never modify files.
 tools: ["read", "search"]
 disable-model-invocation: false
 user-invocable: true
@@ -20,6 +20,7 @@ Validation rules:
 - The version heading in both files must match the extracted latest version provided by the caller.
 - The English changelog file must not contain HTML tags.
 - The English changelog file must not contain Chinese, Japanese, or Korean text.
+- The Telegram changelog file must preserve Chinese content and must not be rewritten into an English-only version.
 - Neither file may contain content from older version sections.
 
 Output format:

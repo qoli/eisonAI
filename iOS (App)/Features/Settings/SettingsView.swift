@@ -56,6 +56,10 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+        .onAppear() {
+            print("on setting views ...")
+        }
+
     }
 }
 

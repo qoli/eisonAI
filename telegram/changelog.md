@@ -1,7 +1,11 @@
 ## 2.7
 
-**Removal**
+### 🆕 新增
+- 現在可自定義下載本地模型
 
-- Remove the MLC‑LLM solution.
-- Remove the Qwen 3 0.6b model from the Safari Extension.
+### 🔧 修正
+- 改善詳細頁面的選中能力，現在能正常執行文本複製
 
+### 🗑️ 移除
+- 移除 MLC-LLM 方案
+- 移除 Safari Extension 的 Qwen 3 0.6b
