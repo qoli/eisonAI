@@ -14,6 +14,7 @@ final class MLXDownloadDropNotifier {
 
     private let coordinator: MLXDownloadCoordinator
     private let drops: Drops
+    private let downloadsPresentation: MLXDownloadsPresentationController
     private var cancellable: AnyCancellable?
     private var hasStarted = false
     private var lastStateByJobID: [String: MLXDownloadJob.State] = [:]
@@ -21,10 +22,12 @@ final class MLXDownloadDropNotifier {
 
     init(
         coordinator: MLXDownloadCoordinator = .shared,
-        drops: Drops = Drops(delayBetweenDrops: 0.1)
+        drops: Drops = Drops(delayBetweenDrops: 0.1),
+        downloadsPresentation: MLXDownloadsPresentationController = .shared
     ) {
         self.coordinator = coordinator
         self.drops = drops
+        self.downloadsPresentation = downloadsPresentation
     }
 
     func startIfNeeded() {
@@ -172,6 +175,9 @@ final class MLXDownloadDropNotifier {
             title: title,
             subtitle: subtitle,
             icon: UIImage(systemName: iconName),
+            action: .init { [weak downloadsPresentation] in
+                downloadsPresentation?.present()
+            },
             duration: .untilHidden,
             id: id,
             progress: progress
@@ -193,6 +199,9 @@ final class MLXDownloadDropNotifier {
             title: title,
             subtitle: subtitle,
             icon: UIImage(systemName: iconName),
+            action: .init { [weak downloadsPresentation] in
+                downloadsPresentation?.present()
+            },
             duration: .seconds(duration)
         )
         drops.show(drop)

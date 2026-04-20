@@ -27,6 +27,7 @@ private struct RootGateView: View {
     ) private var onboardingCompleted = false
     @State private var hasCheckedEntitlements = false
     @State private var hasLifetimeAccess = false
+    @StateObject private var downloadsPresentation = MLXDownloadsPresentationController.shared
 
     var body: some View {
         Group {
@@ -45,6 +46,10 @@ private struct RootGateView: View {
         .task {
             await refreshLifetimeAccessIfNeeded()
             MLXDownloadDropNotifier.shared.startIfNeeded()
+        }
+        .sheet(isPresented: $downloadsPresentation.isPresented) {
+            MLXDownloadsSheetView()
+                .presentationDetents([.medium, .large])
         }
         .onOpenURL { url in
             _ = MLXDownloadDeepLinkHandler.shared.handle(url, origin: "rootOnOpenURL")

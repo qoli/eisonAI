@@ -8,6 +8,7 @@ struct DropsDebugView: View {
 
     @State private var path: [Route] = [.detail]
     @State private var progress: Double = 0.18
+    @StateObject private var downloadsPresentation = MLXDownloadsPresentationController.shared
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -43,27 +44,33 @@ struct DropsDebugView: View {
 
             Section {
                 Button("Show Queued") {
+                    prepareDebugJob(state: .queued)
                     Drops.show(queuedDrop)
                 }
 
                 Button("Show Downloading") {
+                    prepareDebugJob(state: .running)
                     Drops.show(downloadingDrop(progress: progress))
                 }
 
                 Button("Advance Download") {
                     progress = min(progress + 0.22, 0.96)
+                    prepareDebugJob(state: .running)
                     Drops.show(downloadingDrop(progress: progress))
                 }
 
                 Button("Show Finalizing") {
+                    prepareDebugJob(state: .finishing)
                     Drops.show(finalizingDrop)
                 }
 
                 Button("Show Completed") {
+                    prepareDebugJob(state: .completed)
                     Drops.show(completedDrop)
                 }
 
                 Button("Show Failed") {
+                    prepareDebugJob(state: .failed)
                     Drops.show(failedDrop)
                 }
 
@@ -90,6 +97,9 @@ struct DropsDebugView: View {
             title: "Model queued",
             subtitle: "LFM 2.5 (1.2B Thinking) will start downloading shortly.",
             icon: UIImage(systemName: "clock.arrow.circlepath"),
+            action: .init {
+                downloadsPresentation.present(debugJob: makeDebugJob(state: .queued))
+            },
             position: .top,
             duration: 2.5,
             accentColor: .systemBlue
@@ -102,7 +112,7 @@ struct DropsDebugView: View {
             subtitle: "LFM 2.5 (1.2B Thinking) · \(Int(progress * 100))%",
             icon: UIImage(systemName: "arrow.down.circle"),
             action: .init {
-                Drops.hideCurrent()
+                downloadsPresentation.present(debugJob: makeDebugJob(state: .running, fractionCompleted: progress))
             },
             position: .top,
             duration: .untilHidden,
@@ -118,7 +128,14 @@ struct DropsDebugView: View {
             subtitle: "Preparing files before install completes.",
             icon: UIImage(systemName: "shippingbox"),
             action: .init {
-                Drops.hideCurrent()
+                downloadsPresentation.present(
+                    debugJob: makeDebugJob(
+                        state: .finishing,
+                        completedUnitCount: 1024,
+                        totalUnitCount: 1024,
+                        fractionCompleted: 1
+                    )
+                )
             },
             position: .top,
             duration: .untilHidden,
@@ -134,7 +151,14 @@ struct DropsDebugView: View {
             subtitle: "LFM 2.5 (1.2B Thinking) is installed.",
             icon: UIImage(systemName: "checkmark.circle.fill"),
             action: .init(icon: UIImage(systemName: "arrow.right")) {
-                Drops.hideCurrent()
+                downloadsPresentation.present(
+                    debugJob: makeDebugJob(
+                        state: .completed,
+                        completedUnitCount: 1024,
+                        totalUnitCount: 1024,
+                        fractionCompleted: 1
+                    )
+                )
             },
             position: .top,
             duration: 3.0,
@@ -148,11 +172,70 @@ struct DropsDebugView: View {
             subtitle: "The connection was interrupted. Try again.",
             icon: UIImage(systemName: "exclamationmark.triangle.fill"),
             action: .init(icon: UIImage(systemName: "arrow.clockwise")) {
-                Drops.hideCurrent()
+                downloadsPresentation.present(
+                    debugJob: makeDebugJob(
+                        state: .failed,
+                        errorMessage: "The connection was interrupted. Try again."
+                    )
+                )
             },
             position: .top,
             duration: .untilHidden,
             accentColor: .systemRed
+        )
+    }
+
+    private func prepareDebugJob(state: MLXDownloadJob.State) {
+        switch state {
+        case .queued:
+            downloadsPresentation.debugJob = makeDebugJob(state: .queued)
+        case .running:
+            downloadsPresentation.debugJob = makeDebugJob(state: .running, fractionCompleted: progress)
+        case .finishing:
+            downloadsPresentation.debugJob = makeDebugJob(
+                state: .finishing,
+                completedUnitCount: 1024,
+                totalUnitCount: 1024,
+                fractionCompleted: 1
+            )
+        case .completed:
+            downloadsPresentation.debugJob = makeDebugJob(
+                state: .completed,
+                completedUnitCount: 1024,
+                totalUnitCount: 1024,
+                fractionCompleted: 1
+            )
+        case .failed:
+            downloadsPresentation.debugJob = makeDebugJob(
+                state: .failed,
+                errorMessage: "The connection was interrupted. Try again."
+            )
+        case .cancelled:
+            downloadsPresentation.debugJob = makeDebugJob(
+                state: .cancelled,
+                errorMessage: "Cancelled by user."
+            )
+        }
+    }
+
+    private func makeDebugJob(
+        state: MLXDownloadJob.State,
+        completedUnitCount: Int64 = 182,
+        totalUnitCount: Int64 = 1024,
+        fractionCompleted: Double = 0.18,
+        errorMessage: String? = nil
+    ) -> MLXDownloadJob {
+        MLXDownloadJob(
+            taskIdentifier: "drops-debug-job",
+            modelID: "mlx-community/LFM2.5-1.2B-Thinking-4bit",
+            displayName: "LFM 2.5 (1.2B Thinking)",
+            source: .catalog,
+            state: state,
+            completedUnitCount: completedUnitCount,
+            totalUnitCount: totalUnitCount,
+            fractionCompleted: fractionCompleted,
+            errorMessage: errorMessage,
+            autoSelectOnCompletion: true
         )
     }
 }
