@@ -495,7 +495,7 @@
 			packageReferences = (
 				19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */,
 				A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */,
-				EABCD6802F00650B0013F6F9 /* XCLocalSwiftPackageReference "../Drops" */,
+				EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */,
 				EA9655212F18CBE700936E0D /* XCRemoteSwiftPackageReference "swift-collections" */,
 				A8E53E4312F8745B400FA777 /* XCRemoteSwiftPackageReference "textual" */,
 			);
@@ -1280,10 +1280,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/EisonAIModelKit;
 		};
-		EABCD6802F00650B0013F6F9 /* XCLocalSwiftPackageReference "../Drops" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Drops;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -1301,6 +1297,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.3.0;
+			};
+		};
+		EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/qoli/Drops.git";
+			requirement = {
+				branch = "codex/progress-ring-mlx";
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1333,7 +1337,7 @@
 		};
 		EABCD6812F00650B0013F6F9 /* Drops */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = EABCD6802F00650B0013F6F9 /* XCLocalSwiftPackageReference "../Drops" */;
+			package = EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */;
 			productName = Drops;
 		};
 /* End XCSwiftPackageProductDependency section */
