@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         emitStartupLogProbe()
+        emitAppDirectoryPaths()
         if MLXDebugAutomation.current.shouldDirectDownloadOnLaunch {
             MLXDownloadDeepLinkHandler.shared.handleDebugStartupTriggerIfPresent(origin: "debugStartup")
         }
@@ -84,6 +85,25 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         print("[print] \(message)")
         Self.startupLogger.xcodeNotice(message)
         Self.startupLogger.xcodeError("[StartupProbe] logger error probe process=\(process) timestamp=\(timestamp)")
+    }
+
+    private func emitAppDirectoryPaths() {
+        let fileManager = FileManager.default
+        let homeDirectory = NSHomeDirectory()
+        let bundlePath = Bundle.main.bundlePath
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? "unavailable"
+        let libraryPath = fileManager.urls(for: .libraryDirectory, in: .userDomainMask).first?.path ?? "unavailable"
+        let cachesPath = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? "unavailable"
+        let temporaryPath = fileManager.temporaryDirectory.path
+        let currentDirectory = fileManager.currentDirectoryPath
+
+        print("[AppStartup] sandbox home: \(homeDirectory)")
+        print("[AppStartup] documents: \(documentsPath)")
+        print("[AppStartup] library: \(libraryPath)")
+        print("[AppStartup] caches: \(cachesPath)")
+        print("[AppStartup] temporary: \(temporaryPath)")
+        print("[AppStartup] bundle: \(bundlePath)")
+        print("[AppStartup] current working directory: \(currentDirectory)")
     }
 
     private func handleIncomingURL(_ url: URL, origin: String) -> Bool {
