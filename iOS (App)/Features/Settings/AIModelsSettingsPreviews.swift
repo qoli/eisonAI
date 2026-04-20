@@ -1,3 +1,4 @@
+import Drops
 import SwiftUI
 
 #Preview("AI Models") {
@@ -20,6 +21,10 @@ import SwiftUI
     NavigationStack {
         MLXManageModelsDownloadingPreview()
     }
+}
+
+#Preview("Drops States") {
+    DropsDebugView()
 }
 
 #Preview("MLX Family Detail") {

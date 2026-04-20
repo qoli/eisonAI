@@ -9,7 +9,12 @@ struct DebugSettingsView: View {
                 NavigationLink("Clipboard 2000-Token Splitter") {
                     ClipboardTokenChunkingView()
                 }
+                NavigationLink("Drops Preview") {
+                    DropsDebugView()
+                }
                 Text("Paste from clipboard and split long text into 2000-token chunks (using the selected tokenizer).")
+                    .foregroundStyle(.secondary)
+                Text("Inspect drop states on a pushed screen in the simulator or on device.")
                     .foregroundStyle(.secondary)
             }
 
