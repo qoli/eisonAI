@@ -38,6 +38,7 @@ struct AIModelsSettingsView: View {
     @State private var installedModels: [InstalledMLXModel] = []
     @State private var selectedMLXModelID: String?
     @State private var catalogModels: [MLXCatalogModel] = []
+    @State private var curatedGroups: [MLXCuratedModelGroup] = MLXCuratedModelGroupsLoader.load()
     @State private var isRefreshingCatalog = false
     @State private var catalogError = ""
     @State private var showAllCatalogModels = false
@@ -169,6 +170,50 @@ struct AIModelsSettingsView: View {
             }
         } message: {
             Text("Use a custom model ID that isn't in the list.")
+        }
+        .sheet(isPresented: $showCustomRepoSection) {
+            NavigationStack {
+                Form {
+                    Section {
+                        HStack(spacing: 12) {
+                            TextField("mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+
+                            Button("Install") {
+                                installCustomRepo()
+                            }
+                            .disabled(
+                                customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                    activeDownloadJob != nil
+                            )
+                        }
+
+                        if let customDownloadJob,
+                           customDownloadJob.source == .custom
+                        {
+                            MLXDownloadJobStatusView(
+                                job: customDownloadJob,
+                                onCancel: cancelCurrentDownloadJob,
+                                onDismiss: dismissCurrentDownloadJob
+                            )
+                        }
+                    } header: {
+                        Text("Custom MLX Repo")
+                    } footer: {
+                        Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .navigationTitle("Custom Repo")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            showCustomRepoSection = false
+                        }
+                    }
+                }
+            }
         }
         .task {
             loadStateIfNeeded()
@@ -495,6 +540,10 @@ struct AIModelsSettingsView: View {
         return currentDownloadJob
     }
 
+    private var hasCuratedGroups: Bool {
+        !curatedGroups.isEmpty
+    }
+
     private var mlxCommunityFooterText: String {
         var parts: [String] = [
             "Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`."
@@ -511,158 +560,141 @@ struct AIModelsSettingsView: View {
         return parts.joined(separator: " ")
     }
 
+    private func curatedGroupInstalledCount(_ group: MLXCuratedModelGroup) -> Int {
+        group.models.reduce(into: 0) { count, model in
+            if installedModels.contains(where: { $0.id == model.repoID }) {
+                count += 1
+            }
+        }
+    }
+
+    private func catalogModel(for repoID: String) -> MLXCatalogModel? {
+        catalogModels.first(where: { $0.id == repoID })
+    }
+
     private var mlxManagementPage: some View {
-        Form {
-            if showCustomRepoSection {
-                Section {
-                    HStack {
-                        TextField("huggingface repo, e.g. mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                MLXLibraryHeroCard(
+                    installedCount: installedModels.count,
+                    selectedModelID: selectedMLXModelID,
+                    deviceRAMGiB: deviceRAMGiB
+                )
 
-                        Button("Install") {
-                            installCustomRepo()
-                        }
-                        .disabled(
-                            customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                activeDownloadJob != nil
-                        )
-                    }
-
-                    if let customDownloadJob,
-                       customDownloadJob.source == .custom
-                    {
-                        MLXDownloadJobStatusView(
-                            job: customDownloadJob,
-                            onCancel: cancelCurrentDownloadJob,
-                            onDismiss: dismissCurrentDownloadJob
-                        )
-                    }
-                } header: {
-                    Text("Custom MLX Repo")
-                } footer: {
-                    Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if !installedModels.isEmpty {
-                Section {
-                    ForEach(installedModels, id: \.id) { model in
-                        MLXInstalledModelRow(
-                            model: model,
-                            metadataLine: installedMetadataLine(model),
-                            isSelected: selectedMLXModelID == model.id,
-                            isBusy: activeModelOperationIDs.contains(model.id),
-                            onSelect: { selectInstalledModel(id: model.id) },
-                            onDelete: { deleteInstalledModel(id: model.id) }
-                        )
-                        .onAppear {
-                            logInstalledRowState(model, context: "appear")
-                        }
-                        .onChange(of: activeModelOperationIDs) { _, _ in
-                            logInstalledRowState(model, context: "activeModelOperationIDs changed")
-                        }
-                        .onChange(of: selectedMLXModelID) { _, _ in
-                            logInstalledRowState(model, context: "selectedMLXModelID changed")
-                        }
-                    }
-                } header: {
-                    Text("Installed")
-                }
-            }
-
-            Section {
                 if let activeDownloadJob,
                    activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                 {
-                    MLXActiveDownloadBanner(
-                        job: activeDownloadJob,
-                        onCancel: cancelCurrentDownloadJob
-                    )
+                    cardSurface {
+                        MLXActiveDownloadBanner(
+                            job: activeDownloadJob,
+                            onCancel: cancelCurrentDownloadJob
+                        )
+                    }
                 } else if let blockingTerminalJob = currentDownloadJob,
                           !blockingTerminalJob.isActive
                 {
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
-                            .foregroundStyle(.secondary)
+                    cardSurface {
+                        HStack(alignment: .top, spacing: 12) {
+                            Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
+                                .foregroundStyle(.secondary)
 
-                        Spacer()
+                            Spacer()
 
-                        Button("Dismiss") {
-                            dismissCurrentDownloadJob()
+                            Button("Dismiss") {
+                                dismissCurrentDownloadJob()
+                            }
+                            .font(.footnote)
                         }
-                        .font(.footnote)
                     }
                 }
 
                 if !modelOperationMessage.isEmpty {
-                    Text(modelOperationMessage)
-                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
+                    cardSurface {
+                        Text(modelOperationMessage)
+                            .font(.footnote)
+                            .foregroundStyle(modelOperationIsError ? .red : .secondary)
+                    }
                 }
 
                 if !catalogError.isEmpty {
-                    Text(catalogError)
-                        .foregroundStyle(.red)
+                    cardSurface {
+                        Text(catalogError)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
                 }
 
-                ForEach(filteredCatalogModels, id: \.id) { model in
-                    MLXCatalogModelRow(
-                        model: model,
-                        metadataLine: catalogMetadataLine(model),
-                        recommendation: model.recommendation(forRAMGiB: deviceRAMGiB),
-                        isInstalled: installedModels.contains(where: { $0.id == model.id }),
-                        isSelected: selectedMLXModelID == model.id,
-                        job: downloadJob(for: model.id),
-                        isInstallDisabled: activeDownloadJob != nil,
-                        onSelect: { selectInstalledModel(id: model.id) },
-                        onInstall: { installCatalogModel(model) },
-                        onCancelDownload: cancelCurrentDownloadJob,
-                        onDismissJob: dismissCurrentDownloadJob
-                    )
+                if hasCuratedGroups {
+                    VStack(alignment: .leading, spacing: 12) {
+                        MLXSectionTitle(
+                            title: "Models",
+                            subtitle: "Choose a model family first. The next page shows the actual models in that family."
+                        )
+
+                        ForEach(curatedGroups) { group in
+                            NavigationLink {
+                                MLXCuratedGroupDetailPage(
+                                    group: group,
+                                    selectedModelID: selectedMLXModelID,
+                                    rows: curatedRows(for: group)
+                                )
+                            } label: {
+                                MLXCuratedGroupCard(
+                                    group: group,
+                                    installedCount: curatedGroupInstalledCount(group),
+                                    selectedModelID: selectedMLXModelID
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
                 }
-            } header: {
-                Text("mlx-community")
-            } footer: {
-                Text(mlxCommunityFooterText)
-                    .foregroundStyle(.secondary)
+                else {
+                    cardSurface {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("No curated model families available.")
+                                .font(.headline)
+                            Text("The curated model index could not be loaded.")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
         }
+        .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("MLX Models")
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 if isRefreshingCatalog {
                     ProgressView()
                 }
 
+                Button {
+                    refreshCatalog()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .disabled(isRefreshingCatalog)
+
                 Menu {
                     Toggle(isOn: $showCustomRepoSection) {
-                        Label("Show Custom MLX Repo", systemImage: "text.cursor")
+                        Label("Custom Repo", systemImage: "text.cursor")
                     }
-
-                    Button {
-                        refreshCatalog()
-                    } label: {
-                        Label("Refresh Catalog", systemImage: "arrow.clockwise")
-                    }
-                    .disabled(isRefreshingCatalog)
-
-                    Button {
-                        showAllCatalogModels.toggle()
-                    } label: {
-                        Label(
-                            showAllCatalogModels ? "Hide Likely Too Large" : "Show All Models",
-                            systemImage: "line.3.horizontal.decrease.circle"
-                        )
-                    }
-                    .disabled(!showAllCatalogModels && hiddenCatalogModelCount == 0)
                 } label: {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
         .task {
             downloadCoordinator.refreshState()
+            if curatedGroups.isEmpty {
+                curatedGroups = MLXCuratedModelGroupsLoader.load()
+            }
             if catalogModels.isEmpty {
                 refreshCatalog()
             }
@@ -719,6 +751,40 @@ struct AIModelsSettingsView: View {
         return String(format: "~%.0fM", value / 1_000_000)
     }
 
+    @ViewBuilder
+    private func cardSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color(uiColor: .separator).opacity(0.12), lineWidth: 1)
+            )
+    }
+
+    private func curatedRows(for group: MLXCuratedModelGroup) -> [MLXCuratedModelRowContext] {
+        group.models.map { curated in
+            let liveModel = catalogModel(for: curated.repoID)
+            return MLXCuratedModelRowContext(
+                curatedModel: curated,
+                metadataLine: liveModel.map(catalogMetadataLine),
+                recommendation: liveModel?.recommendation(forRAMGiB: deviceRAMGiB),
+                isInstalled: installedModels.contains(where: { $0.id == curated.repoID }),
+                isSelected: selectedMLXModelID == curated.repoID,
+                job: downloadJob(for: curated.repoID),
+                isInstallDisabled: activeDownloadJob != nil,
+                onSelect: { selectInstalledModel(id: curated.repoID) },
+                onInstall: { installCuratedModel(repoID: curated.repoID) },
+                onCancelDownload: cancelCurrentDownloadJob,
+                onDismissJob: dismissCurrentDownloadJob
+            )
+        }
+    }
+
     private func loadStateIfNeeded() {
         guard !didLoad else { return }
         didLoad = true
@@ -773,6 +839,28 @@ struct AIModelsSettingsView: View {
     private func installCatalogModel(_ model: MLXCatalogModel) {
         Task {
             do {
+                try await downloadCoordinator.startInstall(
+                    model: model,
+                    source: .catalog,
+                    autoSelect: true
+                )
+                await MainActor.run {
+                    modelOperationMessage = "Downloading \(model.id)…"
+                    modelOperationIsError = false
+                }
+            } catch {
+                await MainActor.run {
+                    modelOperationMessage = error.localizedDescription
+                    modelOperationIsError = true
+                }
+            }
+        }
+    }
+
+    private func installCuratedModel(repoID: String) {
+        Task {
+            do {
+                let model = try await catalogService.fetchModel(repoID: repoID)
                 try await downloadCoordinator.startInstall(
                     model: model,
                     source: .catalog,
