@@ -471,11 +471,14 @@ struct AIModelsSettingsView: View {
         return parts.joined(separator: " · ")
     }
 
+    private var deviceRAMGiB: Double {
+        Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
+    }
+
     private var filteredCatalogModels: [MLXCatalogModel] {
         guard !showAllCatalogModels else { return catalogModels }
-        let ramGiB = Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
         return catalogModels.filter { model in
-            model.recommendation(forRAMGiB: ramGiB) != .likelyTooLarge
+            model.recommendation(forRAMGiB: deviceRAMGiB) != .likelyTooLarge
         }
     }
 
@@ -529,7 +532,11 @@ struct AIModelsSettingsView: View {
                     if let customDownloadJob,
                        customDownloadJob.source == .custom
                     {
-                        downloadJobStatusView(customDownloadJob)
+                        MLXDownloadJobStatusView(
+                            job: customDownloadJob,
+                            onCancel: cancelCurrentDownloadJob,
+                            onDismiss: dismissCurrentDownloadJob
+                        )
                     }
                 } header: {
                     Text("Custom MLX Repo")
@@ -542,7 +549,23 @@ struct AIModelsSettingsView: View {
             if !installedModels.isEmpty {
                 Section {
                     ForEach(installedModels, id: \.id) { model in
-                        installedModelRow(model)
+                        MLXInstalledModelRow(
+                            model: model,
+                            metadataLine: installedMetadataLine(model),
+                            isSelected: selectedMLXModelID == model.id,
+                            isBusy: activeModelOperationIDs.contains(model.id),
+                            onSelect: { selectInstalledModel(id: model.id) },
+                            onDelete: { deleteInstalledModel(id: model.id) }
+                        )
+                        .onAppear {
+                            logInstalledRowState(model, context: "appear")
+                        }
+                        .onChange(of: activeModelOperationIDs) { _, _ in
+                            logInstalledRowState(model, context: "activeModelOperationIDs changed")
+                        }
+                        .onChange(of: selectedMLXModelID) { _, _ in
+                            logInstalledRowState(model, context: "selectedMLXModelID changed")
+                        }
                     }
                 } header: {
                     Text("Installed")
@@ -553,21 +576,10 @@ struct AIModelsSettingsView: View {
                 if let activeDownloadJob,
                    activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
                 {
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Another MLX download is in progress: \(activeDownloadJob.displayName)")
-                                .foregroundStyle(.secondary)
-
-                            activeDownloadProgressView(activeDownloadJob)
-                        }
-
-                        Spacer()
-
-                        Button("Cancel", role: .destructive) {
-                            cancelCurrentDownloadJob()
-                        }
-                        .font(.footnote)
-                    }
+                    MLXActiveDownloadBanner(
+                        job: activeDownloadJob,
+                        onCancel: cancelCurrentDownloadJob
+                    )
                 } else if let blockingTerminalJob = currentDownloadJob,
                           !blockingTerminalJob.isActive
                 {
@@ -595,7 +607,19 @@ struct AIModelsSettingsView: View {
                 }
 
                 ForEach(filteredCatalogModels, id: \.id) { model in
-                    catalogRow(model)
+                    MLXCatalogModelRow(
+                        model: model,
+                        metadataLine: catalogMetadataLine(model),
+                        recommendation: model.recommendation(forRAMGiB: deviceRAMGiB),
+                        isInstalled: installedModels.contains(where: { $0.id == model.id }),
+                        isSelected: selectedMLXModelID == model.id,
+                        job: downloadJob(for: model.id),
+                        isInstallDisabled: activeDownloadJob != nil,
+                        onSelect: { selectInstalledModel(id: model.id) },
+                        onInstall: { installCatalogModel(model) },
+                        onCancelDownload: cancelCurrentDownloadJob,
+                        onDismissJob: dismissCurrentDownloadJob
+                    )
                 }
             } header: {
                 Text("mlx-community")
@@ -666,127 +690,6 @@ struct AIModelsSettingsView: View {
             case .queued, .running, .finishing:
                 break
             }
-        }
-    }
-
-    @ViewBuilder
-    private func installedModelRow(_ model: InstalledMLXModel) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(model.id)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-
-            Text(installedMetadataLine(model))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                if selectedMLXModelID == model.id {
-                    Label("Selected", systemImage: "checkmark.circle.fill")
-                        .font(.footnote)
-                        .foregroundStyle(.green)
-                } else {
-                    Button("Select") {
-                        selectInstalledModel(id: model.id)
-                    }
-                }
-
-                Spacer()
-
-                if activeModelOperationIDs.contains(model.id) {
-                    ProgressView()
-                } else {
-                    Button("Delete", role: .destructive) {
-                        deleteInstalledModel(id: model.id)
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .onAppear {
-            logInstalledRowState(model, context: "appear")
-        }
-        .onChange(of: activeModelOperationIDs) { _, _ in
-            logInstalledRowState(model, context: "activeModelOperationIDs changed")
-        }
-        .onChange(of: selectedMLXModelID) { _, _ in
-            logInstalledRowState(model, context: "selectedMLXModelID changed")
-        }
-    }
-
-    @ViewBuilder
-    private func catalogRow(_ model: MLXCatalogModel) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(model.displayName)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-
-            Text(catalogMetadataLine(model))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                recommendationBadge(for: model)
-
-                Spacer()
-
-                if let job = downloadJob(for: model.id) {
-                    if job.isActive {
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text(job.progressText)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-
-                            activeDownloadProgressView(job, compact: true)
-                        }
-                    } else {
-                        Text(job.progressText)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                } else if installedModels.contains(where: { $0.id == model.id }) {
-                    Button(selectedMLXModelID == model.id ? "Selected" : "Select") {
-                        selectInstalledModel(id: model.id)
-                    }
-                    .disabled(selectedMLXModelID == model.id)
-                } else {
-                    Button("Install") {
-                        installCatalogModel(model)
-                    }
-                    .disabled(activeDownloadJob != nil)
-                }
-            }
-
-            if let job = downloadJob(for: model.id) {
-                downloadJobStatusView(job)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    @ViewBuilder
-    private func recommendationBadge(for model: MLXCatalogModel) -> some View {
-        let ramGiB = Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
-        let recommendation = model.recommendation(forRAMGiB: ramGiB)
-        Text(recommendation.label)
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(recommendationColor(recommendation).opacity(0.12))
-            .foregroundStyle(recommendationColor(recommendation))
-            .clipShape(Capsule())
-    }
-
-    private func recommendationColor(_ recommendation: MLXCatalogModel.Recommendation) -> Color {
-        switch recommendation {
-        case .recommended:
-            return .green
-        case .caution:
-            return .orange
-        case .likelyTooLarge:
-            return .red
-        case .unknown:
-            return .secondary
         }
     }
 
@@ -1090,60 +993,6 @@ struct AIModelsSettingsView: View {
         Self.logger.xcodeNotice(
             "mlxUI context=\(context) installed=\(installedModels.map { $0.id }.sorted()) selected=\(selectedMLXModelID ?? "nil") activeModelOperationIDs=\(activeModelOperationIDs.sorted()) currentDownloadJob=\(jobSummary)"
         )
-    }
-
-    @ViewBuilder
-    private func downloadJobStatusView(_ job: MLXDownloadJob) -> some View {
-        let isError = job.state == .failed || job.state == .cancelled
-        VStack(alignment: .leading, spacing: 4) {
-            Text(job.progressText)
-                .font(.footnote)
-                .foregroundStyle(isError ? .red : .secondary)
-
-            if job.isActive {
-                activeDownloadProgressView(job)
-            }
-
-            if let errorMessage = job.errorMessage,
-               !errorMessage.isEmpty,
-               isError
-            {
-                Text(errorMessage)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
-
-            if job.isActive {
-                Button("Cancel Download", role: .destructive) {
-                    cancelCurrentDownloadJob()
-                }
-                .font(.footnote)
-            } else if isError {
-                Button("Dismiss") {
-                    dismissCurrentDownloadJob()
-                }
-                .font(.footnote)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func activeDownloadProgressView(_ job: MLXDownloadJob, compact: Bool = false) -> some View {
-        if let progressValue = normalizedProgress(for: job) {
-            ProgressView(value: progressValue)
-                .frame(width: compact ? 88 : nil)
-        } else {
-            ProgressView()
-                .controlSize(compact ? .mini : .small)
-        }
-    }
-
-    private func normalizedProgress(for job: MLXDownloadJob) -> Double? {
-        if job.totalUnitCount > 0 {
-            return min(1, max(0, Double(job.completedUnitCount) / Double(max(job.totalUnitCount, 1))))
-        }
-        guard job.fractionCompleted > 0 else { return nil }
-        return min(1, max(0, job.fractionCompleted))
     }
 
     private func validateBYOK() {
@@ -1478,11 +1327,5 @@ private enum BYOKPingStatus {
         case .success: return "Success"
         case .failed: return "Failed"
         }
-    }
-}
-
-#Preview {
-    NavigationStack {
-        AIModelsSettingsView()
     }
 }
