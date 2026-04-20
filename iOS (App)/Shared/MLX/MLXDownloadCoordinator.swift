@@ -30,7 +30,7 @@ final class MLXDownloadCoordinator: ObservableObject {
     private var lastProgressEventAt: Date = .distantPast
     private var lastObservedCompletedUnitCount: Int64 = 0
     private var lastObservedDownloadedBytes: Int64 = 0
-    private var observedDownloadBaselineBytes: Int64 = 0
+    private var observedTempBaselineBytes: Int64 = 0
 
     init(
         jobStore: MLXDownloadJobStore = MLXDownloadJobStore(),
@@ -143,7 +143,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         publish(runningJob, persist: true)
         lastProgressEventAt = .now
         lastObservedCompletedUnitCount = runningJob.completedUnitCount
-        observedDownloadBaselineBytes = observedAssetProgress(for: runningJob).observedDownloadedBytes
+        observedTempBaselineBytes = observedAssetProgress(for: runningJob).largestTempFileBytes
         lastObservedDownloadedBytes = 0
         let stallMonitorTask = makeStallMonitorTask(for: runningJob)
         let assetProgressTask = makeObservedProgressMonitorTask(for: runningJob)
@@ -294,7 +294,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastProgressEventAt = .distantPast
         lastObservedCompletedUnitCount = 0
         lastObservedDownloadedBytes = 0
-        observedDownloadBaselineBytes = 0
+        observedTempBaselineBytes = 0
         logNotice("Cleared active MLX download task state")
     }
 
@@ -410,9 +410,14 @@ final class MLXDownloadCoordinator: ObservableObject {
         fallbackProgress: Progress? = nil
     ) {
         let assetProgress = observedAssetProgress(for: currentJob)
-        let effectiveObservedDownloadedBytes = max(
+        let effectiveTempDownloadedBytes = max(
             0,
-            assetProgress.observedDownloadedBytes - observedDownloadBaselineBytes
+            assetProgress.largestTempFileBytes - observedTempBaselineBytes
+        )
+        let observedDownloadedBytesForProgress = max(
+            assetProgress.repoBytes,
+            assetProgress.hubCacheBytes,
+            assetProgress.repoBytes + effectiveTempDownloadedBytes
         )
 
         let previousCompleted = currentJob.completedUnitCount
@@ -427,9 +432,9 @@ final class MLXDownloadCoordinator: ObservableObject {
             totalUnitCount = expectedBytes
             completedUnitCount = max(
                 currentJob.totalUnitCount == expectedBytes ? currentJob.completedUnitCount : 0,
-                min(effectiveObservedDownloadedBytes, expectedBytes)
+                min(observedDownloadedBytesForProgress, expectedBytes)
             )
-            let observedFraction = min(1, Double(effectiveObservedDownloadedBytes) / Double(expectedBytes))
+            let observedFraction = min(1, Double(observedDownloadedBytesForProgress) / Double(expectedBytes))
             if observedFraction.isFinite {
                 fractionCompleted = max(
                     currentJob.totalUnitCount == expectedBytes ? currentJob.fractionCompleted : 0,
@@ -447,13 +452,13 @@ final class MLXDownloadCoordinator: ObservableObject {
             }
         }
 
-        if effectiveObservedDownloadedBytes > lastObservedDownloadedBytes ||
+        if observedDownloadedBytesForProgress > lastObservedDownloadedBytes ||
             completedUnitCount > lastObservedCompletedUnitCount
         {
             lastProgressEventAt = .now
         }
 
-        lastObservedDownloadedBytes = max(lastObservedDownloadedBytes, effectiveObservedDownloadedBytes)
+        lastObservedDownloadedBytes = max(lastObservedDownloadedBytes, observedDownloadedBytesForProgress)
         lastObservedCompletedUnitCount = max(lastObservedCompletedUnitCount, completedUnitCount)
 
         let updatedJob = currentJob.updating(
@@ -477,7 +482,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         {
             lastLoggedProgressFraction = fractionCompleted
             logNotice(
-                "MLX download progress job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} effectiveObservedBytes=\(effectiveObservedDownloadedBytes) baselineBytes=\(observedDownloadBaselineBytes)"
+                "MLX download progress job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} progressObservedBytes=\(observedDownloadedBytesForProgress) effectiveTempBytes=\(effectiveTempDownloadedBytes) tempBaselineBytes=\(observedTempBaselineBytes)"
             )
         }
     }
