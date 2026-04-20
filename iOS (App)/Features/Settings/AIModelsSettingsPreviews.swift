@@ -16,6 +16,12 @@ import SwiftUI
     }
 }
 
+#Preview("Manage Models Downloading") {
+    NavigationStack {
+        MLXManageModelsDownloadingPreview()
+    }
+}
+
 #Preview("MLX Family Detail") {
     NavigationStack {
         MLXCuratedFamilyDetailPreview()
@@ -344,5 +350,152 @@ private struct MLXCuratedFamilyDetailPreview: View {
                 )
             ]
         )
+    }
+}
+
+private struct MLXManageModelsDownloadingPreview: View {
+    private let installedCatalogModel = MLXCatalogModel(
+        id: "mlx-community/Qwen3-1.7B-4bit",
+        pipelineTag: "text-generation",
+        baseModel: "Qwen/Qwen3-1.7B",
+        lastModified: .now.addingTimeInterval(-172_800),
+        estimatedParameterCount: 1_700_000_000,
+        rawSafeTensorTotal: 1_050_000_000
+    )
+
+    private let downloadingCatalogModel = MLXCatalogModel(
+        id: "mlx-community/LFM2.5-1.2B-Thinking-4bit",
+        pipelineTag: "text-generation",
+        baseModel: "LiquidAI/LFM2.5-1.2B-Thinking",
+        lastModified: .now.addingTimeInterval(-86_400),
+        estimatedParameterCount: 1_200_000_000,
+        rawSafeTensorTotal: 659_000_000
+    )
+
+    private let activeJob: MLXDownloadJob
+    private let groups: [MLXCuratedModelGroup]
+    private let selectedModelID = "mlx-community/Qwen3-1.7B-4bit"
+
+    init() {
+        self.activeJob = MLXDownloadJob(
+            taskIdentifier: "preview-manage-models-download",
+            modelID: "mlx-community/LFM2.5-1.2B-Thinking-4bit",
+            displayName: "LFM2.5-1.2B-Thinking-4bit",
+            source: .catalog,
+            state: .running,
+            completedUnitCount: 182,
+            totalUnitCount: 1024,
+            fractionCompleted: 0.18,
+            autoSelectOnCompletion: true,
+            catalogModel: downloadingCatalogModel
+        )
+        self.groups = MLXCuratedModelGroupsLoader.load()
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink {
+                    Form {
+                        Section {
+                            MLXInstalledModelRow(
+                                model: InstalledMLXModel(model: installedCatalogModel),
+                                metadataLine: "text-generation · ~1.7B · 2d ago",
+                                isSelected: true,
+                                isBusy: false,
+                                onSelect: {},
+                                onDelete: {}
+                            )
+                        }
+                    }
+                    .navigationTitle("Installed Models")
+                    .navigationBarTitleDisplayMode(.inline)
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Installed Models List")
+                            .foregroundStyle(.primary)
+                        Text("1 installed · Selected")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Installed Models")
+            } footer: {
+                Text("Downloading \(activeJob.modelID)…")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                MLXActiveDownloadBanner(job: activeJob, onCancel: {})
+
+                ForEach(groups) { group in
+                    NavigationLink {
+                        MLXCuratedGroupDetailPage(
+                            group: group,
+                            selectedModelID: selectedModelID,
+                            rows: previewRows(for: group)
+                        )
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.title)
+                                .foregroundStyle(.primary)
+                            Text(groupSummary(group))
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text("Models")
+            } footer: {
+                Text("Choose a model family first. The next page shows the actual models in that family.")
+            }
+        }
+        .navigationTitle("Manage Models")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    private func groupSummary(_ group: MLXCuratedModelGroup) -> String {
+        var parts = [group.summary, "\(group.models.count) model" + (group.models.count == 1 ? "" : "s")]
+
+        if group.models.contains(where: { $0.repoID == selectedModelID }) {
+            parts.append("1 installed")
+            parts.append("Selected")
+        } else if group.models.contains(where: { $0.repoID == activeJob.modelID }) {
+            parts.append(activeJob.progressText)
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
+    private func previewRows(for group: MLXCuratedModelGroup) -> [MLXCuratedModelRowContext] {
+        group.models.map { model in
+            let isSelected = model.repoID == selectedModelID
+            let isDownloading = model.repoID == activeJob.modelID
+            let metadataLine: String
+
+            if isSelected {
+                metadataLine = "text-generation · 1.05 GB · ~1.7B · updated recently"
+            } else if isDownloading {
+                metadataLine = "text-generation · 659 MB · ~1.2B · updated recently"
+            } else {
+                metadataLine = "text-generation · 659 MB · ~1.2B · updated recently"
+            }
+
+            return MLXCuratedModelRowContext(
+                curatedModel: model,
+                metadataLine: metadataLine,
+                recommendation: isSelected || isDownloading ? .recommended : .caution,
+                isInstalled: isSelected,
+                isSelected: isSelected,
+                job: isDownloading ? activeJob : nil,
+                isInstallDisabled: isDownloading,
+                onSelect: {},
+                onInstall: {},
+                onCancelDownload: {},
+                onDismissJob: {}
+            )
+        }
     }
 }

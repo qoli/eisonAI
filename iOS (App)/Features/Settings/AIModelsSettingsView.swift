@@ -636,98 +636,92 @@ struct AIModelsSettingsView: View {
     }
 
     private var mlxManagementPage: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                MLXLibraryHeroCard(
-                    installedCount: installedModels.count,
-                    selectedModelID: selectedMLXModelID,
-                    deviceRAMGiB: deviceRAMGiB
-                )
+        Form {
+            Section {
+                NavigationLink {
+                    installedModelsPage
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Installed")
+                            .foregroundStyle(.primary)
 
-                if let activeDownloadJob,
-                   activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                {
-                    cardSurface {
-                        MLXActiveDownloadBanner(
-                            job: activeDownloadJob,
-                            onCancel: cancelCurrentDownloadJob
-                        )
+                        Text(installedModelsPageSummary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
+                }
+            } header: {
+                Text("Installed Models")
+            } footer: {
+                if !modelOperationMessage.isEmpty {
+                    Text(modelOperationMessage)
+                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
+                }
+            }
+
+            Section {
+                if let activeDownloadJob,
+                   activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines) {
+                    MLXActiveDownloadBanner(
+                        job: activeDownloadJob,
+                        onCancel: cancelCurrentDownloadJob
+                    )
                 } else if let blockingTerminalJob = currentDownloadJob,
                           !blockingTerminalJob.isActive {
-                    cardSurface {
-                        HStack(alignment: .top, spacing: 12) {
-                            Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
-                                .foregroundStyle(.secondary)
+                    HStack(alignment: .top, spacing: 12) {
+                        Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
+                            .foregroundStyle(.secondary)
 
-                            Spacer()
+                        Spacer()
 
-                            Button("Dismiss") {
-                                dismissCurrentDownloadJob()
-                            }
-                            .font(.footnote)
+                        Button("Dismiss") {
+                            dismissCurrentDownloadJob()
                         }
-                    }
-                }
-
-                if !modelOperationMessage.isEmpty {
-                    cardSurface {
-                        Text(modelOperationMessage)
-                            .font(.footnote)
-                            .foregroundStyle(modelOperationIsError ? .red : .secondary)
-                    }
-                }
-
-                if !catalogError.isEmpty {
-                    cardSurface {
-                        Text(catalogError)
-                            .font(.footnote)
-                            .foregroundStyle(.red)
+                        .font(.footnote)
                     }
                 }
 
                 if hasCuratedGroups {
-                    VStack(alignment: .leading, spacing: 12) {
-                        MLXSectionTitle(
-                            title: "Models",
-                            subtitle: "Choose a model family first. The next page shows the actual models in that family."
-                        )
+                    ForEach(curatedGroups) { group in
+                        NavigationLink {
+                            MLXCuratedGroupDetailPage(
+                                group: group,
+                                selectedModelID: selectedMLXModelID,
+                                rows: curatedRows(for: group)
+                            )
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(group.title)
+                                    .foregroundStyle(.primary)
 
-                        ForEach(curatedGroups) { group in
-                            NavigationLink {
-                                MLXCuratedGroupDetailPage(
-                                    group: group,
-                                    selectedModelID: selectedMLXModelID,
-                                    rows: curatedRows(for: group)
-                                )
-                            } label: {
-                                MLXCuratedGroupCard(
-                                    group: group,
-                                    installedCount: curatedGroupInstalledCount(group),
-                                    selectedModelID: selectedMLXModelID
-                                )
+                                Text(curatedGroupSummary(group))
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 } else {
-                    cardSurface {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("No curated model families available.")
-                                .font(.headline)
-                            Text("The curated model index could not be loaded.")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("No curated model families available.")
+                            .foregroundStyle(.primary)
+
+                        Text("The curated model index could not be loaded.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
                 }
-
+            } header: {
+                Text("Models")
+            } footer: {
+                if !catalogError.isEmpty {
+                    Text(catalogError)
+                        .foregroundStyle(.red)
+                } else {
+                    Text("Choose a model family first. The next page shows the actual models in that family.")
+                }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("MLX Models")
+        .navigationTitle("Manage Models")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -786,6 +780,61 @@ struct AIModelsSettingsView: View {
         }
     }
 
+    private var installedModelsPage: some View {
+        Form {
+            if installedModels.isEmpty {
+                Section {
+                    Text("No models installed yet.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Section {
+                    ForEach(installedModels) { model in
+                        MLXInstalledModelRow(
+                            model: model,
+                            metadataLine: installedMetadataLine(model),
+                            isSelected: selectedMLXModelID == model.id,
+                            isBusy: activeModelOperationIDs.contains(model.id),
+                            onSelect: { selectInstalledModel(id: model.id) },
+                            onDelete: { deleteInstalledModel(id: model.id) }
+                        )
+                    }
+                }
+            }
+        }
+        .navigationTitle("Installed Models")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var installedModelsPageSummary: String {
+        if installedModels.isEmpty {
+            return "No models installed"
+        }
+
+        if selectedMLXModelID == nil {
+            return "\(installedModels.count) installed"
+        }
+
+        return "\(installedModels.count) installed · Selected"
+    }
+
+    private func curatedGroupSummary(_ group: MLXCuratedModelGroup) -> String {
+        let modelCount = "\(group.models.count) model" + (group.models.count == 1 ? "" : "s")
+        let installedCount = curatedGroupInstalledCount(group)
+        var parts = [group.summary, modelCount]
+
+        if installedCount > 0 {
+            parts.append("\(installedCount) installed")
+        }
+
+        if let selectedMLXModelID,
+           group.models.contains(where: { $0.repoID == selectedMLXModelID }) {
+            parts.append("Selected")
+        }
+
+        return parts.joined(separator: " · ")
+    }
+
     private func installedMetadataLine(_ model: InstalledMLXModel) -> String {
         let params = model.estimatedParameterCount.map { parameterLabel($0) } ?? "Unknown size"
         let date = model.lastModified.map { Self.relativeDateFormatter.localizedString(for: $0, relativeTo: .now) } ?? "unknown date"
@@ -810,21 +859,6 @@ struct AIModelsSettingsView: View {
             return String(format: "~%.1fB", billion)
         }
         return String(format: "~%.0fM", value / 1_000_000)
-    }
-
-    @ViewBuilder
-    private func cardSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(18)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color(uiColor: .secondarySystemGroupedBackground))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color(uiColor: .separator).opacity(0.12), lineWidth: 1)
-            )
     }
 
     private func curatedRows(for group: MLXCuratedModelGroup) -> [MLXCuratedModelRowContext] {
@@ -1481,5 +1515,11 @@ private enum BYOKPingStatus {
 #Preview("Models") {
     NavigationStack {
         AIModelsSettingsView()
+    }
+}
+
+#Preview("Manage Models") {
+    NavigationStack {
+        AIModelsSettingsView(startInMLXManagement: true)
     }
 }
