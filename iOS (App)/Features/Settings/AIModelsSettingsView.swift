@@ -139,153 +139,152 @@ struct AIModelsSettingsView: View {
 
     var body: some View {
         displayedPage
-            .navigationTitle("AI Models")
+            .navigationTitle("Models")
             .alert("Replace API URL?", isPresented: $showOverwriteAPIAlert) {
-            Button("Replace", role: .destructive) {
-                guard let option = pendingProviderOption else { return }
-                applyProviderOption(option)
-                pendingProviderOptionID = nil
-            }
-            Button("Cancel", role: .cancel) {
-                pendingProviderOptionID = nil
-            }
-        } message: {
-            if let presetURL = pendingProviderOption?.preset?.apiURL {
-                Text("This will replace the current API URL with:\n\(presetURL)")
-            } else {
-                Text("This will replace the current API URL.")
-            }
-        }
-        .alert("Enter Model ID", isPresented: $showCustomModelPrompt) {
-            TextField("Model ID", text: $customModelDraft)
-            Button("Save") {
-                let trimmed = customModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !trimmed.isEmpty {
-                    byokModel = trimmed
+                Button("Replace", role: .destructive) {
+                    guard let option = pendingProviderOption else { return }
+                    applyProviderOption(option)
+                    pendingProviderOptionID = nil
                 }
-                customModelDraft = ""
+                Button("Cancel", role: .cancel) {
+                    pendingProviderOptionID = nil
+                }
+            } message: {
+                if let presetURL = pendingProviderOption?.preset?.apiURL {
+                    Text("This will replace the current API URL with:\n\(presetURL)")
+                } else {
+                    Text("This will replace the current API URL.")
+                }
             }
-            Button("Cancel", role: .cancel) {
-                customModelDraft = ""
+            .alert("Enter Model ID", isPresented: $showCustomModelPrompt) {
+                TextField("Model ID", text: $customModelDraft)
+                Button("Save") {
+                    let trimmed = customModelDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        byokModel = trimmed
+                    }
+                    customModelDraft = ""
+                }
+                Button("Cancel", role: .cancel) {
+                    customModelDraft = ""
+                }
+            } message: {
+                Text("Use a custom model ID that isn't in the list.")
             }
-        } message: {
-            Text("Use a custom model ID that isn't in the list.")
-        }
-        .sheet(isPresented: $showCustomRepoSection) {
-            NavigationStack {
-                Form {
-                    Section {
-                        HStack(spacing: 12) {
-                            TextField("mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
+            .sheet(isPresented: $showCustomRepoSection) {
+                NavigationStack {
+                    Form {
+                        Section {
+                            HStack(spacing: 12) {
+                                TextField("mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
 
-                            Button("Install") {
-                                installCustomRepo()
+                                Button("Install") {
+                                    installCustomRepo()
+                                }
+                                .disabled(
+                                    customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+                                        activeDownloadJob != nil
+                                )
                             }
-                            .disabled(
-                                customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                    activeDownloadJob != nil
-                            )
-                        }
 
-                        if let customDownloadJob,
-                           customDownloadJob.source == .custom
-                        {
-                            MLXDownloadJobStatusView(
-                                job: customDownloadJob,
-                                onCancel: cancelCurrentDownloadJob,
-                                onDismiss: dismissCurrentDownloadJob
-                            )
+                            if let customDownloadJob,
+                               customDownloadJob.source == .custom {
+                                MLXDownloadJobStatusView(
+                                    job: customDownloadJob,
+                                    onCancel: cancelCurrentDownloadJob,
+                                    onDismiss: dismissCurrentDownloadJob
+                                )
+                            }
+                        } header: {
+                            Text("Custom MLX Repo")
+                        } footer: {
+                            Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
+                                .foregroundStyle(.secondary)
                         }
-                    } header: {
-                        Text("Custom MLX Repo")
-                    } footer: {
-                        Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
-                            .foregroundStyle(.secondary)
                     }
-                }
-                .navigationTitle("Custom Repo")
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") {
-                            showCustomRepoSection = false
+                    .navigationTitle("Custom Repo")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") {
+                                showCustomRepoSection = false
+                            }
                         }
                     }
                 }
             }
-        }
         .task {
             loadStateIfNeeded()
         }
-        .onChange(of: appBackend) { _, newValue in
-            guard didLoad else { return }
-            appBackendStore.saveSelectedBackend(newValue)
-            scheduleByokConnectionTest()
-        }
-        .onChange(of: extensionBackend) { _, newValue in
-            guard didLoad else { return }
-            extensionBackendStore.saveSelectedBackend(newValue)
-        }
-        .onChange(of: autoLocalPreference) { _, newValue in
-            guard didLoad else { return }
-            autoStrategyStore.setLocalModelPreference(newValue)
-        }
-        .onChange(of: longDocumentChunkTokenSize) { _, newValue in
-            guard didLoad else { return }
-            longDocumentSettingsStore.setChunkTokenSize(newValue)
-        }
-        .onChange(of: longDocumentMaxChunkCount) { _, newValue in
-            guard didLoad else { return }
-            longDocumentSettingsStore.setMaxChunkCount(newValue)
-        }
-        .onChange(of: byokProviderOptionID) { _, newValue in
-            guard didLoad else { return }
-            guard !suppressProviderOptionChange else { return }
-            guard newValue != lastConfirmedProviderOptionID else { return }
-            guard let option = BYOKProvider.httpOptions.first(where: { $0.id == newValue }) else {
-                return
-            }
-            let trimmedURL = byokApiURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let presetURL = option.preset?.apiURL,
-               !trimmedURL.isEmpty,
-               trimmedURL != presetURL {
-                pendingProviderOptionID = newValue
-                showOverwriteAPIAlert = true
-                suppressProviderOptionChange = true
-                byokProviderOptionID = lastConfirmedProviderOptionID
-                suppressProviderOptionChange = false
-                return
-            }
-            applyProviderOption(option)
-        }
-        .onChange(of: byokProvider) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
+            .onChange(of: appBackend) { _, newValue in
+                guard didLoad else { return }
+                appBackendStore.saveSelectedBackend(newValue)
                 scheduleByokConnectionTest()
             }
-        }
-        .onChange(of: byokApiURL) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
+            .onChange(of: extensionBackend) { _, newValue in
+                guard didLoad else { return }
+                extensionBackendStore.saveSelectedBackend(newValue)
             }
-        }
-        .onChange(of: byokApiKey) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
+            .onChange(of: autoLocalPreference) { _, newValue in
+                guard didLoad else { return }
+                autoStrategyStore.setLocalModelPreference(newValue)
             }
-        }
-        .onChange(of: byokModel) { _, _ in
-            if didLoad {
-                validateBYOK()
-                resetByokPing()
-                scheduleByokConnectionTest()
+            .onChange(of: longDocumentChunkTokenSize) { _, newValue in
+                guard didLoad else { return }
+                longDocumentSettingsStore.setChunkTokenSize(newValue)
             }
+            .onChange(of: longDocumentMaxChunkCount) { _, newValue in
+                guard didLoad else { return }
+                longDocumentSettingsStore.setMaxChunkCount(newValue)
+            }
+            .onChange(of: byokProviderOptionID) { _, newValue in
+                guard didLoad else { return }
+                guard !suppressProviderOptionChange else { return }
+                guard newValue != lastConfirmedProviderOptionID else { return }
+                guard let option = BYOKProvider.httpOptions.first(where: { $0.id == newValue }) else {
+                    return
+                }
+                let trimmedURL = byokApiURL.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let presetURL = option.preset?.apiURL,
+                   !trimmedURL.isEmpty,
+                   trimmedURL != presetURL {
+                    pendingProviderOptionID = newValue
+                    showOverwriteAPIAlert = true
+                    suppressProviderOptionChange = true
+                    byokProviderOptionID = lastConfirmedProviderOptionID
+                    suppressProviderOptionChange = false
+                    return
+                }
+                applyProviderOption(option)
+            }
+            .onChange(of: byokProvider) { _, _ in
+                if didLoad {
+                    validateBYOK()
+                    resetByokPing()
+                    scheduleByokConnectionTest()
+                }
+            }
+            .onChange(of: byokApiURL) { _, _ in
+                if didLoad {
+                    validateBYOK()
+                    resetByokPing()
+                    scheduleByokConnectionTest()
+                }
+            }
+            .onChange(of: byokApiKey) { _, _ in
+                if didLoad {
+                    validateBYOK()
+                    resetByokPing()
+                    scheduleByokConnectionTest()
+                }
+            }
+            .onChange(of: byokModel) { _, _ in
+                if didLoad {
+                    validateBYOK()
+                    resetByokPing()
+                    scheduleByokConnectionTest()
+                }
             }
     }
 
@@ -301,59 +300,104 @@ struct AIModelsSettingsView: View {
     private var settingsForm: some View {
         Form {
             Section {
-                Picker("App Backend", selection: $appBackend) {
+                InstalledMemoryView()
+                    .listRowInsets(EdgeInsets())
+                    .padding(.vertical, 4)
+            } header: {
+                Text("Installed Memory")
+            } footer: {
+                Text("On-device model availability depends on usable memory and what you have already installed.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Picker("In-App Model", selection: $appBackend) {
                     ForEach(GenerationBackend.allCases, id: \.self) { backend in
                         Text(backend.displayName).tag(backend)
                     }
                 }
 
-                Picker("Extension Backend", selection: $extensionBackend) {
+                Picker("Safari Model", selection: $extensionBackend) {
                     ForEach(ExtensionGenerationBackendSelection.allCases, id: \.self) { backend in
                         Text(backend.displayName).tag(backend)
                     }
                 }
             } header: {
-                Text("Execution")
+                Text("Where Models Run")
             } footer: {
                 Text(backendFooterText)
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                InstalledMemoryView()
-                    .listRowInsets(EdgeInsets())
-                    .padding(.vertical, 4)
-
-                Picker("Preferred Local Model", selection: $autoLocalPreference) {
-                    ForEach(AutoStrategySettingsStore.LocalModelPreference.allCases, id: \.self) { option in
-                        Text(option.displayName).tag(option)
-                    }
+                Picker("Preferred", selection: $autoLocalPreference) {
+                    Text("Apple Intelligence").tag(AutoStrategySettingsStore.LocalModelPreference.appleIntelligence)
+                    Text("Local Models").tag(AutoStrategySettingsStore.LocalModelPreference.mlx)
                 }
-            } header: {
-                Text("Local Routing")
-            } footer: {
-                Text("The app can use Apple Intelligence or a selected MLX repo. Auto still switches to BYOK for long inputs.")
-                    .foregroundStyle(.secondary)
-            }
+                .pickerStyle(.menu)
 
-            Section {
                 NavigationLink {
                     mlxManagementPage
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("MLX Models")
+                        Text("Manage Models")
                         Text(mlxManagementSummary)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("Model Library")
+                Text("Local Routing")
             } footer: {
-                Text("Manage installed MLX repos, browse the `mlx-community` catalog, or install a custom Hugging Face MLX repo.")
+                Text("The app can use Apple Intelligence or your selected local MLX model. Auto still switches to BYOK for long inputs.")
                     .foregroundStyle(.secondary)
             }
 
+            Section {
+                NavigationLink {
+                    byokSettingsPage
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("BYOK Settings")
+                                .foregroundStyle(.primary)
+                            Text(byokSectionSummary)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+                    }
+                }
+            } header: {
+                Text("BYOK")
+            } footer: {
+                Text("Configure your provider, model, and verification flow in a separate page.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                NavigationLink {
+                    longDocumentSettingsPage
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Long Document")
+                        Text(longDocumentSummary)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Advanced")
+            } footer: {
+                Text("Advanced options for local routing, including chunking for long inputs.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var byokSettingsPage: some View {
+        Form {
             Section {
                 Picker("Provider", selection: $byokProviderOptionID) {
                     ForEach(BYOKProvider.httpOptions) { option in
@@ -395,7 +439,7 @@ struct AIModelsSettingsView: View {
                     }
                 }
             } header: {
-                Text("BYOK")
+                Text("Provider")
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     if let docsURL = selectedProviderDocsURL {
@@ -430,7 +474,7 @@ struct AIModelsSettingsView: View {
                 }
                 .disabled(byokPingStatus == .testing)
             } header: {
-                Text("BYOK Verification")
+                Text("Verification")
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Model list first; otherwise ping.")
@@ -455,65 +499,84 @@ struct AIModelsSettingsView: View {
                     }
                 }
             }
+        }
+        .navigationTitle("BYOK Settings")
+    }
 
-            if appBackend != .byok {
-                Section {
-                    Picker("Chunk Size", selection: $longDocumentChunkTokenSize) {
-                        ForEach(longDocumentChunkSizeOptions, id: \.self) { size in
-                            Text("\(size)").tag(size)
-                        }
+    private var longDocumentSettingsPage: some View {
+        Form {
+            Section {
+                Picker("Chunk Size", selection: $longDocumentChunkTokenSize) {
+                    ForEach(longDocumentChunkSizeOptions, id: \.self) { size in
+                        Text("\(size)").tag(size)
                     }
-
-                    Picker("Max Chunks", selection: $longDocumentMaxChunkCount) {
-                        ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
-                            Text("\(count)").tag(count)
-                        }
-                    }
-                } header: {
-                    Text("Long Document")
-                } footer: {
-                    Text("Chunking only runs on the app's local path. BYOK still handles overflow when routing decides to use the cloud.")
-                        .foregroundStyle(.secondary)
                 }
+
+                Picker("Max Chunks", selection: $longDocumentMaxChunkCount) {
+                    ForEach(longDocumentMaxChunkOptions, id: \.self) { count in
+                        Text("\(count)").tag(count)
+                    }
+                }
+            } footer: {
+                Text("These settings control how long inputs are split on the app's local path before routing falls back to BYOK when needed.")
+                    .foregroundStyle(.secondary)
             }
         }
+        .navigationTitle("Long Document")
     }
 
     private var backendFooterText: String {
         var lines: [String] = []
         switch aiStatus {
         case .available:
-            lines.append("Apple Intelligence: available.")
+            lines.append("Apple Intelligence is available on this device.")
         case .notSupported:
-            lines.append("Apple Intelligence: requires iOS 26+ and enabled.")
+            lines.append("Apple Intelligence requires iOS 26 or later and must be enabled.")
         case let .unavailable(reason):
-            lines.append("Apple Intelligence: \(reason)")
+            lines.append("Apple Intelligence is unavailable: \(reason)")
         }
 
         if let selectedMLXModelID {
-            lines.append("Selected MLX: \(selectedMLXModelID)")
+            lines.append("Local model: \(selectedMLXModelID)")
         } else {
-            lines.append("Selected MLX: none.")
+            lines.append("Local model: not selected.")
         }
 
-        lines.append("Extension local execution has been removed. Safari uses Apple Intelligence or BYOK.")
+        lines.append("Safari uses Apple Intelligence or BYOK. Local MLX models run only in the app.")
         return lines.joined(separator: "\n")
     }
 
     private var mlxManagementSummary: String {
+        selectedMLXModelID == nil ? "None selected" : "Selected"
+    }
+
+    private var byokSectionSummary: String {
         var parts: [String] = []
-        parts.append("\(installedModels.count) installed")
-        if let selectedMLXModelID {
-            parts.append("Selected: \(selectedMLXModelID)")
-        } else {
-            parts.append("No selected repo")
+        if let option = selectedProviderOption {
+            parts.append(option.displayName)
         }
-        if isRefreshingCatalog {
-            parts.append("Refreshing catalog")
-        } else if !catalogModels.isEmpty {
-            parts.append("\(catalogModels.count) catalog items cached")
+
+        let trimmedModel = byokModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedModel.isEmpty {
+            parts.append(trimmedModel)
         }
-        return parts.joined(separator: " · ")
+
+        switch byokPingStatus {
+        case .success:
+            parts.append("Verified")
+        case .failed:
+            parts.append("Verify Failed")
+        case .testing:
+            parts.append("Verifying")
+        case .idle:
+            break
+        }
+
+        return parts.isEmpty ? "Provider, model, and verification" : parts.joined(separator: " · ")
+    }
+
+    private var longDocumentSummary: String {
+        "Chunking and limits for local routing"
     }
 
     private var deviceRAMGiB: Double {
@@ -546,7 +609,7 @@ struct AIModelsSettingsView: View {
 
     private var mlxCommunityFooterText: String {
         var parts: [String] = [
-            "Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`."
+            "Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`.",
         ]
 
         if hiddenCatalogModelCount > 0 {
@@ -591,8 +654,7 @@ struct AIModelsSettingsView: View {
                         )
                     }
                 } else if let blockingTerminalJob = currentDownloadJob,
-                          !blockingTerminalJob.isActive
-                {
+                          !blockingTerminalJob.isActive {
                     cardSurface {
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
@@ -648,8 +710,7 @@ struct AIModelsSettingsView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                }
-                else {
+                } else {
                     cardSurface {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("No curated model families available.")
@@ -929,8 +990,7 @@ struct AIModelsSettingsView: View {
             }
             if let refreshedJob = downloadCoordinator.currentJob,
                refreshedJob.modelID == repoID,
-               !refreshedJob.isActive
-            {
+               !refreshedJob.isActive {
                 downloadCoordinator.dismissCurrentJob()
             }
         }
@@ -1415,5 +1475,11 @@ private enum BYOKPingStatus {
         case .success: return "Success"
         case .failed: return "Failed"
         }
+    }
+}
+
+#Preview("Models") {
+    NavigationStack {
+        AIModelsSettingsView()
     }
 }
