@@ -660,27 +660,6 @@ struct AIModelsSettingsView: View {
             }
 
             Section {
-                if let activeDownloadJob,
-                   activeDownloadJob.modelID != customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines) {
-                    MLXActiveDownloadBanner(
-                        job: activeDownloadJob,
-                        onCancel: cancelCurrentDownloadJob
-                    )
-                } else if let blockingTerminalJob = currentDownloadJob,
-                          !blockingTerminalJob.isActive {
-                    HStack(alignment: .top, spacing: 12) {
-                        Text("\(blockingTerminalJob.displayName) is \(blockingTerminalJob.state.displayLabel.lowercased()).")
-                            .foregroundStyle(.secondary)
-
-                        Spacer()
-
-                        Button("Dismiss") {
-                            dismissCurrentDownloadJob()
-                        }
-                        .font(.footnote)
-                    }
-                }
-
                 if hasCuratedGroups {
                     ForEach(curatedGroups) { group in
                         NavigationLink {
@@ -766,17 +745,6 @@ struct AIModelsSettingsView: View {
 
             guard let job else { return }
             guard !job.isActive else { return }
-
-            switch job.state {
-            case .completed:
-                modelOperationMessage = "Installed \(job.modelID)."
-                modelOperationIsError = false
-            case .failed, .cancelled:
-                modelOperationMessage = job.errorMessage ?? "\(job.displayName) download failed."
-                modelOperationIsError = true
-            case .queued, .running, .finishing:
-                break
-            }
         }
     }
 

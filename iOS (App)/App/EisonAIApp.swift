@@ -45,6 +45,7 @@ private struct RootGateView: View {
         }
         .task {
             await refreshLifetimeAccessIfNeeded()
+            MLXDownloadCoordinator.shared.refreshState()
             MLXDownloadDropNotifier.shared.startIfNeeded()
         }
         .sheet(isPresented: $downloadsPresentation.isPresented) {

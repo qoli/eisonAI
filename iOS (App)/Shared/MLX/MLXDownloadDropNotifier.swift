@@ -73,7 +73,12 @@ final class MLXDownloadDropNotifier {
     }
 
     private func handle(job: MLXDownloadJob?) {
-        guard let job else { return }
+        guard let job else {
+            lastStateByJobID.removeAll()
+            lastRunningSnapshotByJobID.removeAll()
+            speedStateByJobID.removeAll()
+            return
+        }
 
         let previousState = lastStateByJobID[job.jobID]
         let bytesPerSecond = updateSpeedState(for: job)
@@ -157,7 +162,6 @@ final class MLXDownloadDropNotifier {
         lastStateByJobID[job.jobID] = job.state
         if !job.isActive {
             lastRunningSnapshotByJobID.removeValue(forKey: job.jobID)
-            lastStateByJobID.removeValue(forKey: job.jobID)
             speedStateByJobID.removeValue(forKey: job.jobID)
         }
     }
