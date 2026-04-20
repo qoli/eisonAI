@@ -3,6 +3,11 @@ import Foundation
 import OSLog
 
 final class MLXDownloadCoordinator: ObservableObject {
+    private enum ProgressRefreshSource: String {
+        case callback
+        case poll
+    }
+
     enum DownloadError: LocalizedError {
         case anotherJobInProgress(String)
 
@@ -30,7 +35,6 @@ final class MLXDownloadCoordinator: ObservableObject {
     private var lastProgressEventAt: Date = .distantPast
     private var lastObservedCompletedUnitCount: Int64 = 0
     private var lastObservedDownloadedBytes: Int64 = 0
-    private var observedTempBaselineBytes: Int64 = 0
 
     init(
         jobStore: MLXDownloadJobStore = MLXDownloadJobStore(),
@@ -89,6 +93,7 @@ final class MLXDownloadCoordinator: ObservableObject {
             displayName: model.displayName,
             source: source,
             state: .queued,
+            expectedTotalBytes: model.rawSafeTensorTotal,
             autoSelectOnCompletion: autoSelect,
             catalogModel: model
         )
@@ -143,7 +148,6 @@ final class MLXDownloadCoordinator: ObservableObject {
         publish(runningJob, persist: true)
         lastProgressEventAt = .now
         lastObservedCompletedUnitCount = runningJob.completedUnitCount
-        observedTempBaselineBytes = observedAssetProgress(for: runningJob).largestTempFileBytes
         lastObservedDownloadedBytes = 0
         let stallMonitorTask = makeStallMonitorTask(for: runningJob)
         let assetProgressTask = makeObservedProgressMonitorTask(for: runningJob)
@@ -153,9 +157,32 @@ final class MLXDownloadCoordinator: ObservableObject {
             "MLX download run begin job={\(jobSummary(runningJob))} assetState={\(AnyLanguageModelClient.describeDownloadedLocalModelAssets(modelID: runningJob.modelID))}"
         )
 
+        if runningJob.expectedTotalBytes == nil {
+            Task { [weak self] in
+                guard let self else { return }
+                guard let expectedTotalBytes = await AnyLanguageModelClient.expectedLocalModelAssetBytes(
+                    modelID: runningJob.modelID,
+                    fallbackWeightBytes: runningJob.catalogModel?.rawSafeTensorTotal
+                ),
+                let currentRunningJob = self.currentJobForID(jobID),
+                currentRunningJob.isActive
+                else {
+                    return
+                }
+
+                self.publish(
+                    currentRunningJob.updating(
+                        totalUnitCount: expectedTotalBytes,
+                        expectedTotalBytes: .some(expectedTotalBytes)
+                    ),
+                    persist: true
+                )
+            }
+        }
+
         do {
             _ = try await AnyLanguageModelClient.downloadLocalModelAssets(modelID: runningJob.modelID) { [weak self] progress in
-                self?.handleProgress(progress, forJobID: jobID)
+                self?.handleProgress(forJobID: jobID, progress: progress)
             }
             try Task.checkCancellation()
 
@@ -171,9 +198,9 @@ final class MLXDownloadCoordinator: ObservableObject {
         }
     }
 
-    private func handleProgress(_ progress: Progress, forJobID jobID: String) {
+    private func handleProgress(forJobID jobID: String, progress: Progress) {
         guard let currentJob = currentJobForID(jobID) else { return }
-        refreshObservedProgress(for: currentJob, fallbackProgress: progress)
+        refreshObservedProgress(for: currentJob, source: .callback, callbackProgress: progress)
     }
 
     private func finalizeSuccessfulDownload(forJobID jobID: String) async {
@@ -294,7 +321,6 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastProgressEventAt = .distantPast
         lastObservedCompletedUnitCount = 0
         lastObservedDownloadedBytes = 0
-        observedTempBaselineBytes = 0
         logNotice("Cleared active MLX download task state")
     }
 
@@ -394,61 +420,74 @@ final class MLXDownloadCoordinator: ObservableObject {
         Task { [weak self] in
             guard let self else { return }
             self.logNotice("Started asset progress monitor for job={\(self.jobSummary(job))}")
+            var tick: Int = 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(2))
                 guard !Task.isCancelled else { break }
                 guard let currentJob = self.currentJobForID(job.jobID), currentJob.isActive else {
                     break
                 }
-                self.refreshObservedProgress(for: currentJob)
+                tick += 1
+                self.refreshObservedProgress(for: currentJob, source: .poll, pollTick: tick)
             }
         }
     }
 
     private func refreshObservedProgress(
         for currentJob: MLXDownloadJob,
-        fallbackProgress: Progress? = nil
+        source: ProgressRefreshSource,
+        pollTick: Int? = nil,
+        callbackProgress: Progress? = nil
     ) {
         let assetProgress = observedAssetProgress(for: currentJob)
-        let effectiveTempDownloadedBytes = max(
-            0,
-            assetProgress.largestTempFileBytes - observedTempBaselineBytes
-        )
-        let observedDownloadedBytesForProgress = max(
-            assetProgress.repoBytes,
-            assetProgress.hubCacheBytes,
-            assetProgress.repoBytes + effectiveTempDownloadedBytes
-        )
+        let observedDownloadedBytesForProgress = assetProgress.localBytes
 
         let previousCompleted = currentJob.completedUnitCount
         let previousTotal = currentJob.totalUnitCount
         let previousFraction = currentJob.fractionCompleted
+        let previousBytesPerSecond = currentJob.bytesPerSecond
+        let deltaObservedBytes = observedDownloadedBytesForProgress - previousCompleted
 
-        var totalUnitCount: Int64 = 0
-        var completedUnitCount: Int64 = 0
-        var fractionCompleted: Double = 0
+        var totalUnitCount: Int64 = currentJob.expectedTotalBytes ?? 0
+        var completedUnitCount: Int64 = currentJob.completedUnitCount
+        var fractionCompleted: Double = currentJob.fractionCompleted
+        var bytesPerSecond: Double? = source == .poll ? nil : currentJob.bytesPerSecond
+
+        if let callbackProgress {
+            let callbackFraction: Double = {
+                if callbackProgress.totalUnitCount > 0 {
+                    return Double(callbackProgress.completedUnitCount) / Double(callbackProgress.totalUnitCount)
+                }
+                return callbackProgress.fractionCompleted
+            }()
+
+            if callbackFraction.isFinite, callbackFraction > 0 {
+                fractionCompleted = max(currentJob.fractionCompleted, min(1, callbackFraction))
+                if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
+                    totalUnitCount = expectedBytes
+                    completedUnitCount = max(
+                        currentJob.completedUnitCount,
+                        min(expectedBytes, Int64((Double(expectedBytes) * fractionCompleted).rounded(.down)))
+                    )
+                } else if callbackProgress.totalUnitCount > 0 {
+                    totalUnitCount = callbackProgress.totalUnitCount
+                    completedUnitCount = max(currentJob.completedUnitCount, callbackProgress.completedUnitCount)
+                }
+            }
+
+            bytesPerSecond = callbackProgress.userInfo[.throughputKey] as? Double
+        }
 
         if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
-            totalUnitCount = expectedBytes
-            completedUnitCount = max(
-                currentJob.totalUnitCount == expectedBytes ? currentJob.completedUnitCount : 0,
-                min(observedDownloadedBytesForProgress, expectedBytes)
-            )
             let observedFraction = min(1, Double(observedDownloadedBytesForProgress) / Double(expectedBytes))
             if observedFraction.isFinite {
-                fractionCompleted = max(
-                    currentJob.totalUnitCount == expectedBytes ? currentJob.fractionCompleted : 0,
-                    observedFraction
-                )
-            }
-        } else if let fallbackProgress {
-            totalUnitCount = 0
-            completedUnitCount = 0
-            fractionCompleted = 0
-            if fallbackProgress.totalUnitCount > 0 || fallbackProgress.completedUnitCount > 0 || fallbackProgress.fractionCompleted > 0 {
-                logNotice(
-                    "MLX download callback progress without expected bytes job={\(jobSummary(currentJob))} callbackCompleted=\(fallbackProgress.completedUnitCount) callbackTotal=\(fallbackProgress.totalUnitCount) callbackFraction=\(String(format: "%.3f", fallbackProgress.fractionCompleted))"
-                )
+                if totalUnitCount <= 0 {
+                    totalUnitCount = expectedBytes
+                }
+                if observedFraction > fractionCompleted {
+                    fractionCompleted = observedFraction
+                    completedUnitCount = min(expectedBytes, observedDownloadedBytesForProgress)
+                }
             }
         }
 
@@ -466,12 +505,28 @@ final class MLXDownloadCoordinator: ObservableObject {
             completedUnitCount: completedUnitCount,
             totalUnitCount: totalUnitCount,
             fractionCompleted: fractionCompleted,
+            expectedTotalBytes: .some(
+                source == .callback
+                    ? currentJob.expectedTotalBytes
+                    : (totalUnitCount > 0 ? totalUnitCount : currentJob.expectedTotalBytes)
+            ),
+            bytesPerSecond: .some(bytesPerSecond),
             errorMessage: .some(nil)
         )
 
+        if source == .poll {
+            let tickDescription = pollTick.map(String.init) ?? "?"
+            let expectedBytesDescription = assetProgress.expectedBytes.map(String.init) ?? "nil"
+            let fractionDescription = String(format: "%.3f", fractionCompleted)
+            logNotice(
+                "MLX asset poll tick=\(tickDescription) jobID=\(currentJob.jobID) model=\(currentJob.modelID) localBytes=\(observedDownloadedBytesForProgress) expectedBytes=\(expectedBytesDescription) deltaBytes=\(deltaObservedBytes) previousCompleted=\(previousCompleted) previousTotal=\(previousTotal) fraction=\(fractionDescription) assetBytes={\(assetProgress.summary)}"
+            )
+        }
+
         if updatedJob.completedUnitCount != previousCompleted ||
             updatedJob.totalUnitCount != previousTotal ||
-            abs(updatedJob.fractionCompleted - previousFraction) >= 0.001
+            abs(updatedJob.fractionCompleted - previousFraction) >= 0.001 ||
+            speedDidChange(previous: previousBytesPerSecond, current: updatedJob.bytesPerSecond)
         {
             publish(updatedJob, persist: true, throttleProgressPersistence: true)
         }
@@ -482,7 +537,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         {
             lastLoggedProgressFraction = fractionCompleted
             logNotice(
-                "MLX download progress job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} progressObservedBytes=\(observedDownloadedBytesForProgress) effectiveTempBytes=\(effectiveTempDownloadedBytes) tempBaselineBytes=\(observedTempBaselineBytes)"
+                "MLX download progress source=\(source.rawValue) job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} progressObservedBytes=\(observedDownloadedBytesForProgress)"
             )
         }
     }
@@ -496,6 +551,9 @@ final class MLXDownloadCoordinator: ObservableObject {
     }
 
     private func expectedDownloadBytes(for job: MLXDownloadJob) -> Int64? {
+        if let expectedTotalBytes = job.expectedTotalBytes, expectedTotalBytes > 0 {
+            return expectedTotalBytes
+        }
         if let rawSafeTensorTotal = job.catalogModel?.rawSafeTensorTotal, rawSafeTensorTotal > 0 {
             return rawSafeTensorTotal
         }
@@ -515,5 +573,16 @@ final class MLXDownloadCoordinator: ObservableObject {
 
     private func logError(_ message: String) {
         logger.xcodeError(message)
+    }
+
+    private func speedDidChange(previous: Double?, current: Double?) -> Bool {
+        switch (previous, current) {
+        case (nil, nil):
+            return false
+        case (.some, nil), (nil, .some):
+            return true
+        case let (.some(previous), .some(current)):
+            return abs(previous - current) >= 1
+        }
     }
 }

@@ -52,6 +52,8 @@ struct MLXDownloadJob: Codable, Hashable, Identifiable {
     var completedUnitCount: Int64
     var totalUnitCount: Int64
     var fractionCompleted: Double
+    var expectedTotalBytes: Int64?
+    var bytesPerSecond: Double?
     var errorMessage: String?
     var updatedAt: Date
     var catalogModel: MLXCatalogModel?
@@ -87,6 +89,8 @@ struct MLXDownloadJob: Codable, Hashable, Identifiable {
         completedUnitCount: Int64 = 0,
         totalUnitCount: Int64 = 0,
         fractionCompleted: Double = 0,
+        expectedTotalBytes: Int64? = nil,
+        bytesPerSecond: Double? = nil,
         errorMessage: String? = nil,
         autoSelectOnCompletion: Bool,
         requestedAt: Date = .now,
@@ -102,6 +106,8 @@ struct MLXDownloadJob: Codable, Hashable, Identifiable {
         self.completedUnitCount = completedUnitCount
         self.totalUnitCount = totalUnitCount
         self.fractionCompleted = max(0, min(1, fractionCompleted))
+        self.expectedTotalBytes = expectedTotalBytes
+        self.bytesPerSecond = bytesPerSecond
         self.errorMessage = errorMessage
         self.autoSelectOnCompletion = autoSelectOnCompletion
         self.requestedAt = requestedAt
@@ -114,6 +120,8 @@ struct MLXDownloadJob: Codable, Hashable, Identifiable {
         completedUnitCount: Int64? = nil,
         totalUnitCount: Int64? = nil,
         fractionCompleted: Double? = nil,
+        expectedTotalBytes: Int64?? = nil,
+        bytesPerSecond: Double?? = nil,
         errorMessage: String?? = nil,
         catalogModel: MLXCatalogModel?? = nil,
         updatedAt: Date = .now
@@ -128,6 +136,8 @@ struct MLXDownloadJob: Codable, Hashable, Identifiable {
             completedUnitCount: completedUnitCount ?? self.completedUnitCount,
             totalUnitCount: totalUnitCount ?? self.totalUnitCount,
             fractionCompleted: fractionCompleted ?? self.fractionCompleted,
+            expectedTotalBytes: expectedTotalBytes ?? self.expectedTotalBytes,
+            bytesPerSecond: bytesPerSecond ?? self.bytesPerSecond,
             errorMessage: errorMessage ?? self.errorMessage,
             autoSelectOnCompletion: autoSelectOnCompletion,
             requestedAt: requestedAt,

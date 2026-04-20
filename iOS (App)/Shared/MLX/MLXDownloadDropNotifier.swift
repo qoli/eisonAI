@@ -13,12 +13,6 @@ final class MLXDownloadDropNotifier {
         let progressStyle: String
     }
 
-    private struct SpeedState {
-        var lastCompletedUnitCount: Int64
-        var lastUpdateAt: Date
-        var bytesPerSecond: Double?
-    }
-
     private let coordinator: MLXDownloadCoordinator
     private let drops: Drops
     private let downloadsPresentation: MLXDownloadsPresentationController
@@ -35,7 +29,6 @@ final class MLXDownloadDropNotifier {
     private var hasStarted = false
     private var lastStateByJobID: [String: MLXDownloadJob.State] = [:]
     private var lastRunningSnapshotByJobID: [String: RunningSnapshot] = [:]
-    private var speedStateByJobID: [String: SpeedState] = [:]
 
     init(
         coordinator: MLXDownloadCoordinator = .shared,
@@ -76,13 +69,11 @@ final class MLXDownloadDropNotifier {
         guard let job else {
             lastStateByJobID.removeAll()
             lastRunningSnapshotByJobID.removeAll()
-            speedStateByJobID.removeAll()
             return
         }
 
         let previousState = lastStateByJobID[job.jobID]
-        let bytesPerSecond = updateSpeedState(for: job)
-        let runningSnapshot = runningSnapshot(for: job, bytesPerSecond: bytesPerSecond)
+        let runningSnapshot = runningSnapshot(for: job)
         let previousRunningSnapshot = lastRunningSnapshotByJobID[job.jobID]
 
         switch job.state {
@@ -162,7 +153,6 @@ final class MLXDownloadDropNotifier {
         lastStateByJobID[job.jobID] = job.state
         if !job.isActive {
             lastRunningSnapshotByJobID.removeValue(forKey: job.jobID)
-            speedStateByJobID.removeValue(forKey: job.jobID)
         }
     }
 
@@ -191,9 +181,9 @@ final class MLXDownloadDropNotifier {
         return .indeterminate
     }
 
-    private func runningSnapshot(for job: MLXDownloadJob, bytesPerSecond: Double?) -> RunningSnapshot {
+    private func runningSnapshot(for job: MLXDownloadJob) -> RunningSnapshot {
         RunningSnapshot(
-            subtitle: runningSubtitle(for: job, bytesPerSecond: bytesPerSecond),
+            subtitle: runningSubtitle(for: job),
             progressStyle: dropProgressDescription(progress(for: job))
         )
     }
@@ -202,9 +192,9 @@ final class MLXDownloadDropNotifier {
         "mlx-download-\(job.jobID)"
     }
 
-    private func runningSubtitle(for job: MLXDownloadJob, bytesPerSecond: Double?) -> String {
+    private func runningSubtitle(for job: MLXDownloadJob) -> String {
         var parts: [String] = []
-        if let bytesPerSecondText = bytesPerSecondText(bytesPerSecond) {
+        if let bytesPerSecondText = bytesPerSecondText(job.bytesPerSecond) {
             parts.append(bytesPerSecondText)
         }
         if let progressPercentText = progressPercentText(for: job) {
@@ -216,35 +206,6 @@ final class MLXDownloadDropNotifier {
     private func bytesPerSecondText(_ bytesPerSecond: Double?) -> String? {
         guard let bytesPerSecond, bytesPerSecond > 0 else { return nil }
         return "\(speedFormatter.string(fromByteCount: Int64(bytesPerSecond)))/s"
-    }
-
-    private func updateSpeedState(for job: MLXDownloadJob) -> Double? {
-        guard job.state == .running else { return nil }
-
-        var state = speedStateByJobID[job.jobID] ?? SpeedState(
-            lastCompletedUnitCount: job.completedUnitCount,
-            lastUpdateAt: job.updatedAt,
-            bytesPerSecond: nil
-        )
-
-        let deltaCompleted = max(0, job.completedUnitCount - state.lastCompletedUnitCount)
-        let deltaTime = job.updatedAt.timeIntervalSince(state.lastUpdateAt)
-
-        if deltaCompleted > 0, deltaTime > 0.2 {
-            let instantaneousBytesPerSecond = Double(deltaCompleted) / deltaTime
-            if let previousBytesPerSecond = state.bytesPerSecond {
-                state.bytesPerSecond = (previousBytesPerSecond * 0.65) + (instantaneousBytesPerSecond * 0.35)
-            } else {
-                state.bytesPerSecond = instantaneousBytesPerSecond
-            }
-            state.lastCompletedUnitCount = job.completedUnitCount
-            state.lastUpdateAt = job.updatedAt
-        } else if deltaTime >= 12 {
-            state.bytesPerSecond = nil
-        }
-
-        speedStateByJobID[job.jobID] = state
-        return state.bytesPerSecond
     }
 
     private func logProgressDropStyle(for job: MLXDownloadJob) {
@@ -260,7 +221,8 @@ final class MLXDownloadDropNotifier {
             """
             MLX drop progress style jobID=\(job.jobID) model=\(job.modelID) state=\(job.state.rawValue) style=\(style) \
             completed=\(job.completedUnitCount) total=\(job.totalUnitCount) fraction=\(String(format: "%.3f", job.fractionCompleted)) \
-            subtitle=\(runningSubtitle(for: job, bytesPerSecond: speedStateByJobID[job.jobID]?.bytesPerSecond))
+            speed=\(job.bytesPerSecond.map { String(format: "%.0f", $0) } ?? "nil") \
+            subtitle=\(runningSubtitle(for: job))
             """
         )
     }

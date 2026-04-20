@@ -17,6 +17,10 @@ import MLXLMCommon
 import Hub
 #endif
 
+#if canImport(HuggingFace)
+import HuggingFace
+#endif
+
 #if canImport(MLXLMCommon) && canImport(Hub)
 private struct MLXHubDownloaderBridge: Downloader {
     let upstream: HubApi
@@ -203,20 +207,18 @@ final class AnyLanguageModelClient {
 
     struct LocalModelAssetProgress: Sendable {
         let repoBytes: Int64
-        let hubCacheBytes: Int64
-        let largestTempFileBytes: Int64
-        let observedDownloadedBytes: Int64
+        let cacheBlobBytes: Int64
+        let localBytes: Int64
         let expectedBytes: Int64?
 
         var fractionCompleted: Double? {
             guard let expectedBytes, expectedBytes > 0 else { return nil }
-            return min(1, max(0, Double(observedDownloadedBytes) / Double(expectedBytes)))
+            return min(1, max(0, Double(localBytes) / Double(expectedBytes)))
         }
 
         var summary: String {
             let expected = expectedBytes.map(String.init) ?? "nil"
-            return
-                "repoBytes=\(repoBytes) hubCacheBytes=\(hubCacheBytes) tempBytes=\(largestTempFileBytes) observedBytes=\(observedDownloadedBytes) expectedBytes=\(expected)"
+            return "repoBytes=\(repoBytes) cacheBlobBytes=\(cacheBlobBytes) localBytes=\(localBytes) expectedBytes=\(expected)"
         }
     }
 
@@ -369,59 +371,22 @@ final class AnyLanguageModelClient {
         modelID: String,
         expectedBytes: Int64? = nil
     ) -> LocalModelAssetProgress {
-        #if canImport(Hub)
-            let fileManager = FileManager.default
+        #if canImport(Hub) && canImport(HuggingFace)
             let hub = HubApi()
             let repoURL = hub.localRepoLocation(Hub.Repo(id: modelID))
-            let repoCacheName = "models--\(modelID.replacingOccurrences(of: "/", with: "--"))"
-            let containerURL = fileManager
-                .urls(for: .documentDirectory, in: .userDomainMask)
-                .first?
-                .deletingLastPathComponent()
-
-            let repoBytes = directorySize(at: repoURL)
-            let hubCacheBytes: Int64
-            let largestTempFileBytes: Int64
-
-            if let containerURL {
-                let hubCacheRoot = containerURL
-                    .appending(path: "Library/Caches/huggingface/hub", directoryHint: .isDirectory)
-                let cachedRepoURL = hubCacheRoot.appending(path: repoCacheName, directoryHint: .isDirectory)
-                hubCacheBytes = directorySize(at: cachedRepoURL)
-
-                let tempDirectory = containerURL.appending(path: "tmp", directoryHint: .isDirectory)
-                let tempFiles =
-                    (try? fileManager.contentsOfDirectory(
-                        at: tempDirectory,
-                        includingPropertiesForKeys: [.fileSizeKey]
-                    ).filter { $0.lastPathComponent.hasPrefix("CFNetworkDownload_") }) ?? []
-                largestTempFileBytes = tempFiles.compactMap { url in
-                    (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap(Int64.init)
-                }.max() ?? 0
-            } else {
-                hubCacheBytes = 0
-                largestTempFileBytes = 0
-            }
-
-            let observedDownloadedBytes = max(
-                repoBytes,
-                hubCacheBytes,
-                repoBytes + largestTempFileBytes
-            )
-
+            let repoBytes = trackedLocalModelAssetBytes(at: repoURL)
+            let cacheBlobBytes = trackedHubCacheBlobBytes(modelID: modelID)
             return LocalModelAssetProgress(
                 repoBytes: repoBytes,
-                hubCacheBytes: hubCacheBytes,
-                largestTempFileBytes: largestTempFileBytes,
-                observedDownloadedBytes: observedDownloadedBytes,
+                cacheBlobBytes: cacheBlobBytes,
+                localBytes: max(repoBytes, cacheBlobBytes),
                 expectedBytes: expectedBytes
             )
         #else
             return LocalModelAssetProgress(
                 repoBytes: 0,
-                hubCacheBytes: 0,
-                largestTempFileBytes: 0,
-                observedDownloadedBytes: 0,
+                cacheBlobBytes: 0,
+                localBytes: 0,
                 expectedBytes: expectedBytes
             )
         #endif
@@ -448,6 +413,36 @@ final class AnyLanguageModelClient {
         #else
             return nil
         #endif
+    }
+
+    nonisolated static func expectedLocalModelAssetBytes(
+        modelID: String,
+        fallbackWeightBytes: Int64? = nil
+    ) async -> Int64? {
+        #if canImport(Hub)
+            let repo = Hub.Repo(id: modelID)
+            if let remoteSum = try? await HubApi().getFileMetadata(
+                from: repo,
+                matching: trackedLocalModelAssetGlobs
+            ).reduce(Int64(0), { partialResult, metadata in
+                partialResult + Int64(max(metadata.size ?? 0, 0))
+            }), remoteSum > 0 {
+                return remoteSum
+            }
+        #endif
+
+        if let fallbackWeightBytes, fallbackWeightBytes > 0 {
+            return max(
+                fallbackWeightBytes,
+                fallbackWeightBytes + nonWeightLocalModelAssetBytes(modelID: modelID)
+            )
+        }
+
+        if let inferred = inferredExpectedLocalModelBytes(modelID: modelID), inferred > 0 {
+            return inferred
+        }
+
+        return nil
     }
 
     func unloadLocalModel(modelID: String) async {
@@ -885,6 +880,98 @@ final class AnyLanguageModelClient {
                     total += Int64(fileSize)
                 }
                 return total
+            }
+
+            nonisolated private static let trackedLocalModelAssetGlobs: [String] = [
+                "*.safetensors",
+                "*.json",
+                "*.txt",
+                "*.model",
+                "*.tiktoken",
+                "*.jinja",
+            ]
+
+            nonisolated private static func isTrackedLocalModelAssetFile(_ url: URL) -> Bool {
+                let filename = url.lastPathComponent.lowercased()
+                return filename.hasSuffix(".safetensors") ||
+                    filename.hasSuffix(".json") ||
+                    filename.hasSuffix(".txt") ||
+                    filename.hasSuffix(".model") ||
+                    filename.hasSuffix(".tiktoken") ||
+                    filename.hasSuffix(".jinja")
+            }
+
+            nonisolated private static func trackedLocalModelAssetBytes(at repoURL: URL) -> Int64 {
+                let fileManager = FileManager.default
+                guard let enumerator = fileManager.enumerator(
+                    at: repoURL,
+                    includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+                    options: [.skipsHiddenFiles]
+                ) else {
+                    return 0
+                }
+
+                var total: Int64 = 0
+                for case let fileURL as URL in enumerator {
+                    guard isTrackedLocalModelAssetFile(fileURL),
+                          let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                          values.isRegularFile == true,
+                          let fileSize = values.fileSize
+                    else {
+                        continue
+                    }
+                    total += Int64(fileSize)
+                }
+                return total
+            }
+
+            nonisolated private static func nonWeightLocalModelAssetBytes(modelID: String) -> Int64 {
+                #if canImport(Hub)
+                    let repoURL = HubApi().localRepoLocation(Hub.Repo(id: modelID))
+                    let fileManager = FileManager.default
+                    guard let enumerator = fileManager.enumerator(
+                        at: repoURL,
+                        includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
+                        options: [.skipsHiddenFiles]
+                    ) else {
+                        return 0
+                    }
+
+                    var total: Int64 = 0
+                    for case let fileURL as URL in enumerator {
+                        let filename = fileURL.lastPathComponent.lowercased()
+                        guard isTrackedLocalModelAssetFile(fileURL),
+                              !filename.hasSuffix(".safetensors"),
+                              let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
+                              values.isRegularFile == true,
+                              let fileSize = values.fileSize
+                        else {
+                            continue
+                        }
+                        total += Int64(fileSize)
+                    }
+                    return total
+                #else
+                    return 0
+                #endif
+            }
+
+            nonisolated private static func trackedHubCacheBlobBytes(modelID: String) -> Int64 {
+                #if canImport(Hub) && canImport(HuggingFace)
+                    let components = modelID.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+                    guard components.count == 2 else { return 0 }
+                    let cache = HubCache.default
+                    let blobsURL = cache.blobsDirectory(
+                        repo: HuggingFace.Repo.ID(
+                            namespace: String(components[0]),
+                            name: String(components[1])
+                        ),
+                        kind: .model
+                    )
+                    return directorySize(at: blobsURL)
+                #else
+                    return 0
+                #endif
             }
         #endif
 
