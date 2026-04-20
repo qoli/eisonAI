@@ -10,6 +10,9 @@ struct DropsDebugView: View {
     @State private var progress: Double = 0.18
     @StateObject private var downloadsPresentation = MLXDownloadsPresentationController.shared
 
+    private let observedModelID = "mlx-community/Qwen3-1.7B-4bit"
+    private let observedModelName = "Qwen3-1.7B-4bit"
+
     var body: some View {
         NavigationStack(path: $path) {
             List {
@@ -81,6 +84,34 @@ struct DropsDebugView: View {
                 Text("States")
             } footer: {
                 Text("Downloading and finalizing drops keep the same id so they update in place.")
+            }
+
+            Section {
+                Button("Show Logged Queue") {
+                    downloadsPresentation.debugJob = makeObservedJob(state: .queued)
+                    Drops.show(observedQueuedDrop)
+                }
+
+                Button("Show Logged Downloading") {
+                    downloadsPresentation.debugJob = makeObservedJob(state: .running)
+                    Drops.show(observedDownloadingDrop)
+                }
+
+                Button("Replay Logged Queue -> Downloading") {
+                    replayObservedDownloadSequence()
+                }
+
+                Button("Show Logged Cancelled") {
+                    downloadsPresentation.debugJob = makeObservedJob(
+                        state: .cancelled,
+                        errorMessage: "Cancelled by user."
+                    )
+                    Drops.show(observedCancelledDrop)
+                }
+            } header: {
+                Text("Observed Logs")
+            } footer: {
+                Text("These actions mirror the real MLX log sequence: queued notification, then an indeterminate downloading drop with the same Qwen subtitle.")
             }
         }
         .navigationTitle("Drops Preview")
@@ -185,6 +216,52 @@ struct DropsDebugView: View {
         )
     }
 
+    private var observedQueuedDrop: Drop {
+        Drop(
+            title: "Queued MLX Download",
+            subtitle: observedModelName,
+            icon: UIImage(systemName: "clock.badge"),
+            action: .init {
+                downloadsPresentation.present(debugJob: makeObservedJob(state: .queued))
+            },
+            position: .top,
+            duration: 1.4
+        )
+    }
+
+    private var observedDownloadingDrop: Drop {
+        Drop(
+            title: "Downloading MLX Model",
+            subtitle: observedModelName,
+            icon: UIImage(systemName: "arrow.down.circle"),
+            action: .init {
+                downloadsPresentation.present(debugJob: makeObservedJob(state: .running))
+            },
+            position: .top,
+            duration: .untilHidden,
+            id: "mlx-download-debug-observed",
+            progress: .indeterminate
+        )
+    }
+
+    private var observedCancelledDrop: Drop {
+        Drop(
+            title: "MLX Download Cancelled",
+            subtitle: "Cancelled by user.",
+            icon: UIImage(systemName: "xmark.circle.fill"),
+            action: .init {
+                downloadsPresentation.present(
+                    debugJob: makeObservedJob(
+                        state: .cancelled,
+                        errorMessage: "Cancelled by user."
+                    )
+                )
+            },
+            position: .top,
+            duration: 2.4
+        )
+    }
+
     private func prepareDebugJob(state: MLXDownloadJob.State) {
         switch state {
         case .queued:
@@ -237,6 +314,35 @@ struct DropsDebugView: View {
             errorMessage: errorMessage,
             autoSelectOnCompletion: true
         )
+    }
+
+    private func makeObservedJob(
+        state: MLXDownloadJob.State,
+        errorMessage: String? = nil
+    ) -> MLXDownloadJob {
+        MLXDownloadJob(
+            taskIdentifier: "drops-debug-observed-job",
+            modelID: observedModelID,
+            displayName: observedModelName,
+            source: .catalog,
+            state: state,
+            completedUnitCount: 0,
+            totalUnitCount: 0,
+            fractionCompleted: 0,
+            errorMessage: errorMessage,
+            autoSelectOnCompletion: true
+        )
+    }
+
+    private func replayObservedDownloadSequence() {
+        downloadsPresentation.debugJob = makeObservedJob(state: .queued)
+        Drops.show(observedQueuedDrop)
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1600))
+            downloadsPresentation.debugJob = makeObservedJob(state: .running)
+            Drops.show(observedDownloadingDrop)
+        }
     }
 }
 

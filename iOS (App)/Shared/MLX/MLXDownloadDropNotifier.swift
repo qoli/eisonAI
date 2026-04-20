@@ -1,6 +1,7 @@
 import Combine
 import Drops
 import Foundation
+import OSLog
 import UIKit
 
 @MainActor
@@ -15,6 +16,7 @@ final class MLXDownloadDropNotifier {
     private let coordinator: MLXDownloadCoordinator
     private let drops: Drops
     private let downloadsPresentation: MLXDownloadsPresentationController
+    private let logger = Logger(subsystem: "com.qoli.eisonAI", category: "MLXDownloadDropNotifier")
     private var cancellable: AnyCancellable?
     private var hasStarted = false
     private var lastStateByJobID: [String: MLXDownloadJob.State] = [:]
@@ -28,6 +30,19 @@ final class MLXDownloadDropNotifier {
         self.coordinator = coordinator
         self.drops = drops
         self.downloadsPresentation = downloadsPresentation
+
+        self.drops.willShowDrop = { [weak self] drop in
+            self?.logDropLifecycle(event: "willShow", drop: drop)
+        }
+        self.drops.didShowDrop = { [weak self] drop in
+            self?.logDropLifecycle(event: "didShow", drop: drop)
+        }
+        self.drops.willDismissDrop = { [weak self] drop in
+            self?.logDropLifecycle(event: "willDismiss", drop: drop)
+        }
+        self.drops.didDismissDrop = { [weak self] drop in
+            self?.logDropLifecycle(event: "didDismiss", drop: drop)
+        }
     }
 
     func startIfNeeded() {
@@ -60,6 +75,7 @@ final class MLXDownloadDropNotifier {
 
         case .running:
             if previousState != .running {
+                logProgressDropStyle(for: job)
                 showProgress(
                     title: "Downloading MLX Model",
                     subtitle: progressSubtitle(for: job, fallback: job.displayName),
@@ -70,6 +86,7 @@ final class MLXDownloadDropNotifier {
             } else {
                 let progressSnapshot = progressSnapshot(for: job)
                 guard progressSnapshot != previousProgressSnapshot else { break }
+                logProgressDropStyle(for: job)
                 showProgress(
                     title: "Downloading MLX Model",
                     subtitle: progressSubtitle(for: job, fallback: job.displayName),
@@ -162,6 +179,56 @@ final class MLXDownloadDropNotifier {
 
     private func progressDropID(for job: MLXDownloadJob) -> String {
         "mlx-download-\(job.jobID)"
+    }
+
+    private func logProgressDropStyle(for job: MLXDownloadJob) {
+        let style: String
+        switch progress(for: job) {
+        case let .determinate(value):
+            style = "determinate(\(String(format: "%.3f", value)))"
+        case .indeterminate:
+            style = "indeterminate"
+        }
+
+        logger.xcodeNotice(
+            """
+            MLX drop progress style jobID=\(job.jobID) model=\(job.modelID) state=\(job.state.rawValue) style=\(style) \
+            completed=\(job.completedUnitCount) total=\(job.totalUnitCount) fraction=\(String(format: "%.3f", job.fractionCompleted)) \
+            subtitle=\(progressSubtitle(for: job, fallback: job.displayName))
+            """
+        )
+    }
+
+    private func logDropLifecycle(event: String, drop: Drop) {
+        logger.xcodeNotice(
+            """
+            MLX drop lifecycle event=\(event) id=\(drop.id ?? "nil") title=\(drop.title) \
+            subtitle=\(drop.subtitle ?? "nil") progress=\(dropProgressDescription(drop.progress)) \
+            duration=\(dropDurationDescription(drop.duration))
+            """
+        )
+    }
+
+    private func dropProgressDescription(_ progress: Drop.Progress?) -> String {
+        switch progress {
+        case let .determinate(value):
+            return "determinate(\(String(format: "%.3f", value)))"
+        case .indeterminate:
+            return "indeterminate"
+        case nil:
+            return "nil"
+        }
+    }
+
+    private func dropDurationDescription(_ duration: Drop.Duration) -> String {
+        switch duration {
+        case let .seconds(seconds):
+            return "seconds(\(String(format: "%.2f", seconds)))"
+        case .recommended:
+            return "recommended"
+        case .untilHidden:
+            return "untilHidden"
+        }
     }
 
     private func showProgress(
