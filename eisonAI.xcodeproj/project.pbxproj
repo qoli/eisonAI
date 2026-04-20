@@ -1301,10 +1301,10 @@
 		};
 		EABCD6802F00650B0013F6F9 /* XCRemoteSwiftPackageReference "Drops" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/omaralbeik/Drops.git";
+			repositoryURL = "https://github.com/qoli/Drops.git";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.7.0;
+				branch = "codex/progress-ring-mlx";
+				kind = branch;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
