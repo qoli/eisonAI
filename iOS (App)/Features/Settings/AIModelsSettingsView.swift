@@ -705,12 +705,6 @@ struct AIModelsSettingsView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    downloadsPresentation.present()
-                } label: {
-                    Image(systemName: "arrow.down.circle")
-                }
-
                 if isRefreshingCatalog {
                     ProgressView()
                 }
@@ -723,6 +717,12 @@ struct AIModelsSettingsView: View {
                 .disabled(isRefreshingCatalog)
 
                 Menu {
+                    Button {
+                        downloadsPresentation.present()
+                    } label: {
+                        Label("Downloads", systemImage: "arrow.down.circle")
+                    }
+
                     Toggle(isOn: $showCustomRepoSection) {
                         Label("Custom Repo", systemImage: "text.cursor")
                     }
