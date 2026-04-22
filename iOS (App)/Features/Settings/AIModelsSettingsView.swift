@@ -13,6 +13,7 @@ struct AIModelsSettingsView: View {
     private let modelStore = MLXModelStore()
     private let client = AnyLanguageModelClient()
     @ObservedObject private var downloadCoordinator = MLXDownloadCoordinator.shared
+    @StateObject private var downloadsPresentation = MLXDownloadsPresentationController.shared
     private let debugAutomationRequest: MLXDebugAutomationRequest?
     private let startInMLXManagement: Bool
     private let longDocumentChunkSizeOptions: [Int] = LongDocumentDefaults.allowedChunkSizes
@@ -341,9 +342,9 @@ struct AIModelsSettingsView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Manage Models")
-                        Text(mlxManagementSummary)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
+//                        Text(mlxManagementSummary)
+//                            .font(.footnote)
+//                            .foregroundStyle(.secondary)
                     }
                 }
             } header: {
@@ -704,6 +705,12 @@ struct AIModelsSettingsView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    downloadsPresentation.present()
+                } label: {
+                    Image(systemName: "arrow.down.circle")
+                }
+
                 if isRefreshingCatalog {
                     ProgressView()
                 }

@@ -128,6 +128,7 @@ final class MLXDownloadDropNotifier {
                 duration: 2.2,
                 replacingCurrent: true
             )
+            coordinator.dismissCurrentJob()
 
         case .failed:
             guard previousState != .failed else { break }
@@ -138,6 +139,7 @@ final class MLXDownloadDropNotifier {
                 duration: 3.0,
                 replacingCurrent: true
             )
+            coordinator.dismissCurrentJob()
 
         case .cancelled:
             guard previousState != .cancelled else { break }
@@ -148,6 +150,7 @@ final class MLXDownloadDropNotifier {
                 duration: 2.4,
                 replacingCurrent: true
             )
+            coordinator.dismissCurrentJob()
         }
 
         lastStateByJobID[job.jobID] = job.state
