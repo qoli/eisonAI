@@ -210,19 +210,8 @@ struct MLXCuratedModelRow: View {
                 if let recommendation {
                     MLXRecommendationBadge(recommendation: recommendation)
                 }
-
-                if isInstalled {
-                    MLXSelectionBadge(isSelected: isSelected)
-                }
             }
 
-            if let job {
-                MLXDownloadJobStatusView(
-                    job: job,
-                    onCancel: onCancelDownload,
-                    onDismiss: onDismissJob
-                )
-            }
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -262,6 +251,192 @@ struct MLXCuratedModelRow: View {
                 .disabled(isInstallDisabled)
         }
     }
+}
+
+#Preview("Curated Model Row Installable") {
+    MLXCuratedModelRowPreviewScene(
+        title: "Available",
+        rows: [
+            MLXCuratedModelRowPreviewFixtures.installableRow,
+        ]
+    )
+}
+
+#Preview("Curated Model Row Installed") {
+    MLXCuratedModelRowPreviewScene(
+        title: "Installed",
+        rows: [
+            MLXCuratedModelRowPreviewFixtures.installedRow,
+        ]
+    )
+}
+
+#Preview("Curated Model Row Selected") {
+    MLXCuratedModelRowPreviewScene(
+        title: "Selected",
+        rows: [
+            MLXCuratedModelRowPreviewFixtures.selectedRow,
+        ]
+    )
+}
+
+#Preview("Curated Model Row Download States") {
+    MLXCuratedModelRowPreviewScene(
+        title: "Download States",
+        rows: [
+            MLXCuratedModelRowPreviewFixtures.downloadingRow,
+            MLXCuratedModelRowPreviewFixtures.failedRow,
+        ]
+    )
+}
+
+private struct MLXCuratedModelRowPreviewScene: View {
+    let title: String
+    let rows: [MLXCuratedModelRowContext]
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(rows) { row in
+                    MLXCuratedModelRow(
+                        curatedModel: row.curatedModel,
+                        metadataLine: row.metadataLine,
+                        recommendation: row.recommendation,
+                        isInstalled: row.isInstalled,
+                        isSelected: row.isSelected,
+                        job: row.job,
+                        isInstallDisabled: row.isInstallDisabled,
+                        onSelect: row.onSelect,
+                        onInstall: row.onInstall,
+                        onCancelDownload: row.onCancelDownload,
+                        onDismissJob: row.onDismissJob
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 16)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle(title)
+    }
+}
+
+private enum MLXCuratedModelRowPreviewFixtures {
+    private static let baseModel = MLXCuratedModel(
+        id: "lfm2_5-1_2b-instruct-4bit",
+        title: "LFM 2.5 (1.2B Instruct)",
+        repoID: "mlx-community/LFM2.5-1.2B-Instruct-4bit",
+        summary: "A lightweight general chat model focused on fast on-device instruction following."
+    )
+
+    private static let installableModel = MLXCuratedModel(
+        id: "lfm2_5-1_2b-thinking-4bit",
+        title: "LFM 2.5 (1.2B Thinking)",
+        repoID: "mlx-community/LFM2.5-1.2B-Thinking-4bit",
+        summary: "A small reasoning-oriented variant for users who want more deliberate answers without leaving the lightweight tier."
+    )
+
+    private static let failedModel = MLXCuratedModel(
+        id: "lfm2_5-vl-1_6b-4bit",
+        title: "LFM 2.5 VL (1.6B)",
+        repoID: "mlx-community/LFM2.5-VL-1.6B-4bit",
+        summary: "A compact vision-language model for image-aware prompts while staying in the lightweight local range."
+    )
+
+    static let installableRow = MLXCuratedModelRowContext(
+        curatedModel: installableModel,
+        metadataLine: "text-generation · 659 MB · ~1.2B · updated recently",
+        recommendation: .recommended,
+        isInstalled: false,
+        isSelected: false,
+        job: nil,
+        isInstallDisabled: false,
+        onSelect: {},
+        onInstall: {},
+        onCancelDownload: {},
+        onDismissJob: {}
+    )
+
+    static let installedRow = MLXCuratedModelRowContext(
+        curatedModel: baseModel,
+        metadataLine: "text-generation · 659 MB · ~1.2B · updated recently",
+        recommendation: .recommended,
+        isInstalled: true,
+        isSelected: false,
+        job: nil,
+        isInstallDisabled: false,
+        onSelect: {},
+        onInstall: {},
+        onCancelDownload: {},
+        onDismissJob: {}
+    )
+
+    static let selectedRow = MLXCuratedModelRowContext(
+        curatedModel: baseModel,
+        metadataLine: "text-generation · 659 MB · ~1.2B · updated recently",
+        recommendation: .recommended,
+        isInstalled: true,
+        isSelected: true,
+        job: nil,
+        isInstallDisabled: false,
+        onSelect: {},
+        onInstall: {},
+        onCancelDownload: {},
+        onDismissJob: {}
+    )
+
+    static let downloadingJob = MLXDownloadJob(
+        taskIdentifier: "preview-curated-downloading",
+        modelID: installableModel.repoID,
+        displayName: installableModel.title,
+        source: .catalog,
+        state: .running,
+        completedUnitCount: 182,
+        totalUnitCount: 1024,
+        fractionCompleted: 0.18,
+        autoSelectOnCompletion: true
+    )
+
+    static let failedJob = MLXDownloadJob(
+        taskIdentifier: "preview-curated-failed",
+        modelID: failedModel.repoID,
+        displayName: failedModel.title,
+        source: .catalog,
+        state: .failed,
+        completedUnitCount: 0,
+        totalUnitCount: 0,
+        fractionCompleted: 0,
+        errorMessage: "Network connection lost while downloading model assets.",
+        autoSelectOnCompletion: true
+    )
+
+    static let downloadingRow = MLXCuratedModelRowContext(
+        curatedModel: installableModel,
+        metadataLine: "text-generation · 659 MB · ~1.2B · updated recently",
+        recommendation: .recommended,
+        isInstalled: false,
+        isSelected: false,
+        job: downloadingJob,
+        isInstallDisabled: true,
+        onSelect: {},
+        onInstall: {},
+        onCancelDownload: {},
+        onDismissJob: {}
+    )
+
+    static let failedRow = MLXCuratedModelRowContext(
+        curatedModel: failedModel,
+        metadataLine: "image-text-to-text · 1.49 GB · ~1.6B · updated recently",
+        recommendation: .caution,
+        isInstalled: false,
+        isSelected: false,
+        job: failedJob,
+        isInstallDisabled: false,
+        onSelect: {},
+        onInstall: {},
+        onCancelDownload: {},
+        onDismissJob: {}
+    )
 }
 
 struct MLXSelectionBadge: View {

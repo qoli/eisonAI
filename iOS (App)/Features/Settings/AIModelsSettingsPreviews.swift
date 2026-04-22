@@ -1,20 +1,8 @@
 import Drops
 import SwiftUI
 
-#Preview("AI Models") {
-    NavigationStack {
-        AIModelsSettingsView()
-    }
-}
-
-#Preview("MLX Download Style") {
+#Preview("Manage Models Download Style") {
     MLXModelsDownloadStylePreview()
-}
-
-#Preview("MLX Family Index") {
-    NavigationStack {
-        MLXCuratedFamilyIndexPreview()
-    }
 }
 
 #Preview("Manage Models Downloading") {
@@ -102,7 +90,7 @@ private struct MLXModelsDownloadStylePreview: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .navigationTitle("MLX Models")
+            .navigationTitle("Manage Models")
             .safeAreaInset(edge: .top, spacing: 12) {
                 MLXDownloadToastPreview(job: activeJob)
                     .padding(.horizontal, 16)
@@ -224,61 +212,6 @@ private struct MLXDownloadToastPreview: View {
                 .stroke(Color.white.opacity(0.45), lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.08), radius: 20, y: 10)
-    }
-}
-
-private struct MLXCuratedFamilyIndexPreview: View {
-    private let group = MLXCuratedModelGroup(
-        id: "lfm2_5",
-        title: "LFM 2.5",
-        summary: "Small Liquid AI models that stay lightweight while covering chat, reasoning, Japanese, and vision use cases.",
-        models: [
-            MLXCuratedModel(
-                id: "lfm2_5-1_2b-instruct-4bit",
-                title: "LFM 2.5 (1.2B Instruct)",
-                repoID: "mlx-community/LFM2.5-1.2B-Instruct-4bit",
-                summary: "A lightweight general chat model focused on fast on-device instruction following."
-            ),
-            MLXCuratedModel(
-                id: "lfm2_5-1_2b-thinking-4bit",
-                title: "LFM 2.5 (1.2B Thinking)",
-                repoID: "mlx-community/LFM2.5-1.2B-Thinking-4bit",
-                summary: "A small reasoning-oriented variant for users who want more deliberate answers without leaving the lightweight tier."
-            ),
-            MLXCuratedModel(
-                id: "lfm2_5-vl-1_6b-4bit",
-                title: "LFM 2.5 VL (1.6B)",
-                repoID: "mlx-community/LFM2.5-VL-1.6B-4bit",
-                summary: "A compact vision-language model for image-aware prompts while staying in the lightweight local range."
-            )
-        ]
-    )
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                MLXLibraryHeroCard(
-                    installedCount: 1,
-                    selectedModelID: "mlx-community/LFM2.5-1.2B-Instruct-4bit",
-                    deviceRAMGiB: 6
-                )
-
-                MLXSectionTitle(
-                    title: "Models",
-                    subtitle: "Choose a model family first. The next page shows the actual models in that family."
-                )
-
-                MLXCuratedGroupCard(
-                    group: group,
-                    installedCount: 1,
-                    selectedModelID: "mlx-community/LFM2.5-1.2B-Instruct-4bit"
-                )
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
-        }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("MLX Models")
     }
 }
 
@@ -419,7 +352,7 @@ private struct MLXManageModelsDownloadingPreview: View {
                     .navigationBarTitleDisplayMode(.inline)
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Installed Models List")
+                        Text("Installed")
                             .foregroundStyle(.primary)
                         Text("1 installed · Selected")
                             .font(.footnote)
