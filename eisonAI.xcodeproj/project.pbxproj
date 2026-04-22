@@ -36,7 +36,7 @@
 		EAD9D7932F080B7600DA6923 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAD9D7912F080B7600DA6923 /* Assets.xcassets */; };
 		EFDE86CE86262B564D06DBBA /* LongDocumentPromptBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D97AD928B421BA1E948E413 /* LongDocumentPromptBuilderTests.swift */; };
 		F859CD0359BA4345930FE1C0 /* Drops in Frameworks */ = {isa = PBXBuildFile; productRef = EABCD6812F00650B0013F6F9 /* Drops */; };
-		FDFF207F854238C9A4A5A869 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
+		FDFF207F854238C9A4A5A869 /* EisonAIExtensionModelKit in Frameworks */ = {isa = PBXBuildFile; productRef = B1E57A0E2F2B100100000002 /* EisonAIExtensionModelKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -204,7 +204,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FDFF207F854238C9A4A5A869 /* AnyLanguageModel in Frameworks */,
+				FDFF207F854238C9A4A5A869 /* EisonAIExtensionModelKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -433,6 +433,9 @@
 				EAF7571C2EF3D24F00CA34C3 /* Resources */,
 			);
 			name = "eisonAI Extension (iOS)";
+			packageProductDependencies = (
+				B1E57A0E2F2B100100000002 /* EisonAIExtensionModelKit */,
+			);
 			productName = "eisonAI Extension (iOS)";
 			productReference = EA7726512BC5B6B3005A194D /* eisonAI Extension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -495,6 +498,7 @@
 			packageReferences = (
 				19CEC796B1633FE031717595 /* XCLocalSwiftPackageReference "../AnyLanguageModel" */,
 				A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */,
+				B1E57A0E2F2B100100000001 /* XCLocalSwiftPackageReference "Packages/EisonAIExtensionModelKit" */,
 				EABCD6802F00650B0013F6F9 /* XCLocalSwiftPackageReference "../Drops" */,
 				EA9655212F18CBE700936E0D /* XCRemoteSwiftPackageReference "swift-collections" */,
 				A8E53E4312F8745B400FA777 /* XCRemoteSwiftPackageReference "textual" */,
@@ -1280,6 +1284,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Packages/EisonAIModelKit;
 		};
+		B1E57A0E2F2B100100000001 /* XCLocalSwiftPackageReference "Packages/EisonAIExtensionModelKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/EisonAIExtensionModelKit;
+		};
 		EABCD6802F00650B0013F6F9 /* XCLocalSwiftPackageReference "../Drops" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Drops;
@@ -1315,6 +1323,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1F642F326514D8F91A90311 /* XCLocalSwiftPackageReference "Packages/EisonAIModelKit" */;
 			productName = EisonAIModelKit;
+		};
+		B1E57A0E2F2B100100000002 /* EisonAIExtensionModelKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B1E57A0E2F2B100100000001 /* XCLocalSwiftPackageReference "Packages/EisonAIExtensionModelKit" */;
+			productName = EisonAIExtensionModelKit;
 		};
 		A8E53E4412F8745B400FA777 /* Textual */ = {
 			isa = XCSwiftPackageProductDependency;

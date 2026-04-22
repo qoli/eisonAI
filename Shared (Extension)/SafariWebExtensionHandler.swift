@@ -11,8 +11,8 @@ import Foundation
 import os.log
 import SafariServices
 
-#if canImport(AnyLanguageModel)
-    import AnyLanguageModel
+#if canImport(EisonAIExtensionModelKit)
+    import EisonAIExtensionModelKit
 #endif
 
 enum GenerationBackendSelection: String {
@@ -470,7 +470,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
     private func isAppleIntelligenceAvailableForExtension() -> Bool {
         guard #available(iOS 26.0, macOS 26.0, *) else { return false }
-        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+        #if canImport(FoundationModels) && canImport(EisonAIExtensionModelKit)
             if case .available = SystemLanguageModel.default.availability {
                 return true
             }
@@ -1129,7 +1129,7 @@ actor FoundationModelsStreamManager {
             ]
         }
 
-        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+        #if canImport(FoundationModels) && canImport(EisonAIExtensionModelKit)
             let model = SystemLanguageModel.default
             switch model.availability {
             case .available:
@@ -1176,7 +1176,7 @@ actor FoundationModelsStreamManager {
             return
         }
         guard #available(iOS 26.0, macOS 26.0, *) else { throw StreamError.notSupported }
-        #if canImport(FoundationModels) && canImport(AnyLanguageModel)
+        #if canImport(FoundationModels) && canImport(EisonAIExtensionModelKit)
             let availability = SystemLanguageModel.default.availability
             if case let .unavailable(reason) = availability {
                 let message: String
@@ -1250,7 +1250,7 @@ actor FoundationModelsStreamManager {
         return jobId
     }
 
-    #if canImport(AnyLanguageModel)
+    #if canImport(EisonAIExtensionModelKit)
         private func runJob(
             jobId: String,
             systemPrompt: String,
@@ -1299,7 +1299,7 @@ actor FoundationModelsStreamManager {
         }
     #endif
 
-    #if canImport(AnyLanguageModel)
+    #if canImport(EisonAIExtensionModelKit)
         private func takePrewarmedSession(systemPrompt: String, userPrompt: String) -> LanguageModelSession? {
             guard let prewarmedSession = prewarmedSession as? LanguageModelSession,
                   prewarmSystemPrompt == systemPrompt else {
@@ -1337,7 +1337,7 @@ actor FoundationModelsStreamManager {
         return nil
     }
 
-    #if canImport(AnyLanguageModel)
+    #if canImport(EisonAIExtensionModelKit)
         private enum BYOKHTTPProvider: String {
             case ollama
             case anthropic
@@ -1501,7 +1501,7 @@ actor FoundationModelsStreamManager {
         return nil
     }
 
-    #if canImport(AnyLanguageModel)
+    #if canImport(EisonAIExtensionModelKit)
         fileprivate static func mapFoundationModelsGenerationErrorCode(
             _ generationError: LanguageModelSession.GenerationError
         ) -> String {
