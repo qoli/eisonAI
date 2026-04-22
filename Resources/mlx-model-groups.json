@@ -2,28 +2,47 @@
   "version": 1,
   "groups": [
     {
-      "id": "qwen3",
-      "title": "Qwen 3",
-      "summary": "Compact Qwen 3 picks for everyday chat on tighter memory budgets.",
+      "id": "qwen3_5",
+      "title": "Qwen 3.5",
+      "summary": "Three compact Qwen 3.5 sizes for 6 GB RAM devices, from the lightest everyday chat option to a stronger small local model.",
       "models": [
         {
-          "id": "qwen3-0_6b-4bit",
-          "title": "Qwen 3 (0.6B)",
-          "repo_id": "mlx-community/Qwen3-0.6B-4bit",
-          "summary": "The lightest option in this family. Best when you care most about install size and speed."
+          "id": "qwen3_5-0_8b-4bit",
+          "title": "Qwen 3.5 (0.8B)",
+          "repo_id": "mlx-community/Qwen3.5-0.8B-4bit",
+          "summary": "The lightest Qwen 3.5 option. Best when you care most about install size, launch speed, and basic on-device chat."
         },
         {
-          "id": "qwen3-1_7b-4bit",
-          "title": "Qwen 3 (1.7B)",
-          "repo_id": "mlx-community/Qwen3-1.7B-4bit",
-          "summary": "A small but more usable daily model than 0.6B. Good for lightweight on-device chat."
+          "id": "qwen3_5-2b-4bit",
+          "title": "Qwen 3.5 (2B)",
+          "repo_id": "mlx-community/Qwen3.5-2B-4bit",
+          "summary": "A balanced middle tier for users who want a better everyday local model without moving into the heavier small-model range."
+        },
+        {
+          "id": "qwen3_5-4b-4bit",
+          "title": "Qwen 3.5 (4B)",
+          "repo_id": "mlx-community/Qwen3.5-4B-MLX-4bit",
+          "summary": "The strongest Qwen 3.5 pick in this 6 GB-oriented set. Best when you want better quality and can accept a larger install."
+        }
+      ]
+    },
+    {
+      "id": "gemma4",
+      "title": "Gemma 4",
+      "summary": "A compact Gemma 4 E2B pick for users who want the Gemma family on 6 GB-class devices without jumping to much larger models.",
+      "models": [
+        {
+          "id": "gemma4-e2b-it-4bit",
+          "title": "Gemma 4 (E2B)",
+          "repo_id": "mlx-community/gemma-4-e2b-it-4bit",
+          "summary": "A small instruction-tuned Gemma 4 option that keeps the family available on tighter memory budgets."
         }
       ]
     },
     {
       "id": "lfm2_5",
       "title": "LFM 2.5",
-      "summary": "Small Liquid AI models that stay lightweight while covering chat, reasoning, Japanese, and vision use cases.",
+      "summary": "Compact Liquid AI picks that split cleanly across general chat, more deliberate thinking, and lightweight vision use cases.",
       "models": [
         {
           "id": "lfm2_5-1_2b-instruct-4bit",
@@ -38,29 +57,10 @@
           "summary": "A small reasoning-oriented variant for users who want more deliberate answers without leaving the lightweight tier."
         },
         {
-          "id": "lfm2_5-1_2b-jp-4bit",
-          "title": "LFM 2.5 (1.2B JP)",
-          "repo_id": "mlx-community/LFM2.5-1.2B-JP-4bit",
-          "summary": "A Japanese-focused variant for users who want better Japanese handling in a compact local model."
-        },
-        {
           "id": "lfm2_5-vl-1_6b-4bit",
           "title": "LFM 2.5 VL (1.6B)",
           "repo_id": "mlx-community/LFM2.5-VL-1.6B-4bit",
           "summary": "A compact vision-language model for image-aware prompts while staying in the lightweight local range."
-        }
-      ]
-    },
-    {
-      "id": "translate-gemma",
-      "title": "Translate Gemma",
-      "summary": "A translation-focused pick for users who work across languages often.",
-      "models": [
-        {
-          "id": "translategemma-4b-it-4bit",
-          "title": "Translate Gemma (4B)",
-          "repo_id": "mlx-community/translategemma-4b-it-4bit_immersive-translate",
-          "summary": "A focused model for translation-heavy workflows, especially when you care more about multilingual handling than broad general chat quality."
         }
       ]
     }
