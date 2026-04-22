@@ -758,14 +758,21 @@ struct AIModelsSettingsView: View {
             } else {
                 Section {
                     ForEach(installedModels) { model in
+                        let isBusy = activeModelOperationIDs.contains(model.id)
                         MLXInstalledModelRow(
                             model: model,
                             metadataLine: installedMetadataLine(model),
                             isSelected: selectedMLXModelID == model.id,
-                            isBusy: activeModelOperationIDs.contains(model.id),
-                            onSelect: { selectInstalledModel(id: model.id) },
-                            onDelete: { deleteInstalledModel(id: model.id) }
+                            isBusy: isBusy,
+                            onSelect: { selectInstalledModel(id: model.id) }
                         )
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            if !isBusy {
+                                Button("Delete", role: .destructive) {
+                                    deleteInstalledModel(id: model.id)
+                                }
+                            }
+                        }
                     }
                 }
             }

@@ -151,8 +151,7 @@ struct MLXCuratedGroupCard: View {
             }
 
             if let selectedModelID,
-               group.models.contains(where: { $0.repoID == selectedModelID })
-            {
+               group.models.contains(where: { $0.repoID == selectedModelID }) {
                 Label("Selected model is in this family", systemImage: "checkmark.circle.fill")
                     .font(.footnote)
                     .foregroundStyle(.green)
@@ -293,8 +292,7 @@ struct MLXCuratedGroupDetailPage: View {
                 )
 
                 if let selectedModelID,
-                   group.models.contains(where: { $0.repoID == selectedModelID })
-                {
+                   group.models.contains(where: { $0.repoID == selectedModelID }) {
                     Label("Your selected MLX model is in this family.", systemImage: "checkmark.circle.fill")
                         .font(.footnote)
                         .foregroundStyle(.green)
@@ -347,38 +345,211 @@ struct MLXInstalledModelRow: View {
     let isSelected: Bool
     let isBusy: Bool
     let onSelect: () -> Void
-    let onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(model.id)
-                .font(.subheadline)
-                .fontWeight(.semibold)
 
-            Text(metadataLine)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-
+        Button(action: onSelect) {
             HStack {
-                if isSelected {
-                    Label("Selected", systemImage: "checkmark.circle.fill")
+
+                VStack(alignment: .leading) {
+
+                    Text(model.id)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+
+                    Text(metadataLine)
                         .font(.footnote)
-                        .foregroundStyle(.green)
-                } else {
-                    Button("Select", action: onSelect)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
                 }
 
                 Spacer()
 
+                rightPanel()
+
+            }
+        }
+        .buttonStyle(.plain)
+
+    }
+
+    @ViewBuilder func rightPanel() -> some View {
+        HStack {
+
+            if isSelected {
+
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.green)
+
+            } else {
                 if isBusy {
                     ProgressView()
-                } else {
-                    Button("Delete", role: .destructive, action: onDelete)
+                }
+            }
+
+        }
+    }
+
+}
+
+#Preview("Installed Models Empty") {
+    NavigationStack {
+        MLXInstalledModelsEmptyPreview()
+    }
+}
+
+#Preview("Installed Models List") {
+    NavigationStack {
+        MLXInstalledModelsListPreview()
+    }
+}
+
+#Preview("Installed Models States") {
+    NavigationStack {
+        MLXInstalledModelsStatesPreview()
+    }
+}
+
+private struct MLXInstalledModelsEmptyPreview: View {
+    var body: some View {
+        Form {
+            Section {
+                Text("No models installed yet.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Installed Models")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MLXInstalledModelsListPreview: View {
+    private let items = MLXInstalledModelsPreviewFixtures.mixedItems
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(items) { item in
+                    MLXInstalledModelRow(
+                        model: item.model,
+                        metadataLine: item.metadataLine,
+                        isSelected: item.isSelected,
+                        isBusy: item.isBusy,
+                        onSelect: {}
+                    )
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        if !item.isBusy {
+                            Button("Delete", role: .destructive) {}
+                        }
+                    }
                 }
             }
         }
-        .padding(.vertical, 4)
+        .navigationTitle("Installed Models")
+        .navigationBarTitleDisplayMode(.inline)
     }
+}
+
+private struct MLXInstalledModelsStatesPreview: View {
+    var body: some View {
+        Form {
+            Section("Selected") {
+                MLXInstalledModelRow(
+                    model: MLXInstalledModelsPreviewFixtures.selectedItem.model,
+                    metadataLine: MLXInstalledModelsPreviewFixtures.selectedItem.metadataLine,
+                    isSelected: true,
+                    isBusy: false,
+                    onSelect: {}
+                )
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button("Delete", role: .destructive) {}
+                }
+            }
+
+            Section("Installed") {
+                MLXInstalledModelRow(
+                    model: MLXInstalledModelsPreviewFixtures.idleItem.model,
+                    metadataLine: MLXInstalledModelsPreviewFixtures.idleItem.metadataLine,
+                    isSelected: false,
+                    isBusy: false,
+                    onSelect: {}
+                )
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button("Delete", role: .destructive) {}
+                }
+            }
+
+            Section("Deleting") {
+                MLXInstalledModelRow(
+                    model: MLXInstalledModelsPreviewFixtures.busyItem.model,
+                    metadataLine: MLXInstalledModelsPreviewFixtures.busyItem.metadataLine,
+                    isSelected: false,
+                    isBusy: true,
+                    onSelect: {}
+                )
+            }
+        }
+        .navigationTitle("Installed Models")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct MLXInstalledModelPreviewItem: Identifiable {
+    let model: InstalledMLXModel
+    let metadataLine: String
+    let isSelected: Bool
+    let isBusy: Bool
+
+    var id: String { model.id }
+}
+
+private enum MLXInstalledModelsPreviewFixtures {
+    static let selectedItem = MLXInstalledModelPreviewItem(
+        model: InstalledMLXModel(model: MLXCatalogModel(
+            id: "mlx-community/Qwen3-1.7B-4bit",
+            pipelineTag: "text-generation",
+            baseModel: "Qwen/Qwen3-1.7B",
+            lastModified: .now.addingTimeInterval(-172_800),
+            estimatedParameterCount: 1_700_000_000,
+            rawSafeTensorTotal: 1_050_000_000
+        )),
+        metadataLine: "text-generation · ~1.7B · 2d ago",
+        isSelected: true,
+        isBusy: false
+    )
+
+    static let idleItem = MLXInstalledModelPreviewItem(
+        model: InstalledMLXModel(model: MLXCatalogModel(
+            id: "mlx-community/LFM2.5-1.2B-Instruct-4bit",
+            pipelineTag: "text-generation",
+            baseModel: "LiquidAI/LFM2.5-1.2B-Instruct",
+            lastModified: .now.addingTimeInterval(-86_400),
+            estimatedParameterCount: 1_200_000_000,
+            rawSafeTensorTotal: 659_000_000
+        )),
+        metadataLine: "text-generation · ~1.2B · yesterday",
+        isSelected: false,
+        isBusy: false
+    )
+
+    static let busyItem = MLXInstalledModelPreviewItem(
+        model: InstalledMLXModel(model: MLXCatalogModel(
+            id: "mlx-community/LFM2.5-1.2B-Thinking-4bit",
+            pipelineTag: "text-generation",
+            baseModel: "LiquidAI/LFM2.5-1.2B-Thinking",
+            lastModified: .now.addingTimeInterval(-43_200),
+            estimatedParameterCount: 1_200_000_000,
+            rawSafeTensorTotal: 659_000_000
+        )),
+        metadataLine: "text-generation · ~1.2B · 12h ago",
+        isSelected: false,
+        isBusy: true
+    )
+
+    static let mixedItems = [selectedItem, idleItem, busyItem]
 }
 
 struct MLXCatalogModelRow: View {
@@ -491,8 +662,7 @@ struct MLXDownloadJobStatusView: View {
 
             if let errorMessage = job.errorMessage,
                !errorMessage.isEmpty,
-               isError
-            {
+               isError {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)

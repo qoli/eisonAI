@@ -408,9 +408,11 @@ private struct MLXManageModelsDownloadingPreview: View {
                                 metadataLine: "text-generation · ~1.7B · 2d ago",
                                 isSelected: true,
                                 isBusy: false,
-                                onSelect: {},
-                                onDelete: {}
+                                onSelect: {}
                             )
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button("Delete", role: .destructive) {}
+                            }
                         }
                     }
                     .navigationTitle("Installed Models")
