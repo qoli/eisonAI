@@ -16,6 +16,13 @@ The current inference stack is broad but operationally expensive:
 - WebLLM and MLC create parallel local-model paths with different runtime constraints.
 - Product positioning is shifting toward a broader assistant rather than a local-model showcase.
 
+### Reported Runtime Risk
+
+- 2026-04-27: User suspects the eisonAI app may automatically start the MLX/MLC runtime while idle, causing unnecessary heat or battery drain.
+- This is not yet confirmed. It should be treated as an observability-first investigation item before any runtime removal or lazy-loading fix is proposed.
+- The first diagnostic pass should verify whether local runtime initialization happens during app launch, settings render, demo view discovery, background resume, or only after an explicit inference action.
+- Useful signals include runtime initialization logs, Instruments energy impact, process CPU/GPU activity while idle, and call-site tracing around MLX/MLC model loading.
+
 If the product direction becomes "local AI / information organization / learning assistant," the backend strategy may need to become simpler and more legible.
 
 One possible simplification is:
@@ -120,6 +127,7 @@ If adopted, this plan should later produce follow-up docs for:
 - Does the product still want to claim strong offline capability after this change?
 - Can `AnyLanguageModel` fully cover the app and extension request patterns now handled by separate stacks?
 - Should MLC remain as a debug-only or legacy fallback path during migration?
+- Is the suspected idle heat caused by automatic MLX/MLC runtime startup, model preloading, WebGPU/Metal initialization, or an unrelated app lifecycle path?
 
 ## Suggested Next Steps
 
@@ -127,3 +135,4 @@ If adopted, this plan should later produce follow-up docs for:
 2. Decide whether WebLLM is in scope for removal or whether only app-side MLC is being deprecated.
 3. Audit every user-facing place that currently promises on-device local inference.
 4. Define a staged migration plan before touching assets, scripts, or docs that still describe MLC as current architecture.
+5. Instrument app launch and idle state to confirm whether MLX/MLC initializes without explicit user inference, then capture energy/CPU/GPU evidence before deciding on lazy loading or removal.
