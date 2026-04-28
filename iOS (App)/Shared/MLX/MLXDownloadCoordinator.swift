@@ -452,6 +452,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         var completedUnitCount: Int64 = currentJob.completedUnitCount
         var fractionCompleted: Double = currentJob.fractionCompleted
         var bytesPerSecond: Double? = source == .poll ? nil : currentJob.bytesPerSecond
+        var callbackReportedActivity = false
 
         if let callbackProgress {
             let callbackFraction: Double = {
@@ -460,22 +461,28 @@ final class MLXDownloadCoordinator: ObservableObject {
                 }
                 return callbackProgress.fractionCompleted
             }()
+            let callbackIsByteProgress = isByteProgress(
+                callbackProgress,
+                expectedBytes: assetProgress.expectedBytes
+            )
 
             if callbackFraction.isFinite, callbackFraction > 0 {
-                fractionCompleted = max(currentJob.fractionCompleted, min(1, callbackFraction))
-                if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
+                if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0, callbackIsByteProgress {
+                    fractionCompleted = max(currentJob.fractionCompleted, min(1, callbackFraction))
                     totalUnitCount = expectedBytes
                     completedUnitCount = max(
                         currentJob.completedUnitCount,
                         min(expectedBytes, Int64((Double(expectedBytes) * fractionCompleted).rounded(.down)))
                     )
-                } else if callbackProgress.totalUnitCount > 0 {
+                } else if assetProgress.expectedBytes == nil, callbackProgress.totalUnitCount > 0 {
+                    fractionCompleted = max(currentJob.fractionCompleted, min(1, callbackFraction))
                     totalUnitCount = callbackProgress.totalUnitCount
                     completedUnitCount = max(currentJob.completedUnitCount, callbackProgress.completedUnitCount)
                 }
             }
 
             bytesPerSecond = callbackProgress.userInfo[.throughputKey] as? Double
+            callbackReportedActivity = callbackProgress.completedUnitCount > 0 || (bytesPerSecond ?? 0) > 0
         }
 
         if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
@@ -492,7 +499,8 @@ final class MLXDownloadCoordinator: ObservableObject {
         }
 
         if observedDownloadedBytesForProgress > lastObservedDownloadedBytes ||
-            completedUnitCount > lastObservedCompletedUnitCount
+            completedUnitCount > lastObservedCompletedUnitCount ||
+            callbackReportedActivity
         {
             lastProgressEventAt = .now
         }
@@ -540,6 +548,22 @@ final class MLXDownloadCoordinator: ObservableObject {
                 "MLX download progress source=\(source.rawValue) job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} progressObservedBytes=\(observedDownloadedBytesForProgress)"
             )
         }
+    }
+
+    private func isByteProgress(_ progress: Progress, expectedBytes: Int64?) -> Bool {
+        guard progress.totalUnitCount > 0 else { return false }
+        guard let expectedBytes, expectedBytes > 0 else { return true }
+
+        if progress.totalUnitCount == expectedBytes {
+            return true
+        }
+
+        let tolerance = max(Int64(1_048_576), expectedBytes / 100)
+        if abs(progress.totalUnitCount - expectedBytes) <= tolerance {
+            return true
+        }
+
+        return progress.totalUnitCount >= 1_048_576
     }
 
     private func observedAssetProgress(for job: MLXDownloadJob) -> AnyLanguageModelClient.LocalModelAssetProgress {

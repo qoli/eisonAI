@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 struct MLXCuratedModelCatalog: Codable {
     let version: Int
@@ -27,13 +28,35 @@ struct MLXCuratedModel: Codable, Hashable, Identifiable {
 }
 
 enum MLXCuratedModelGroupsLoader {
+    private static let logger = Logger(subsystem: "com.qoli.eisonAI", category: "MLXCuratedModelGroupsLoader")
+
     static func load() -> [MLXCuratedModelGroup] {
         let decoder = JSONDecoder()
+        let urls = candidateURLs()
 
-        for url in candidateURLs() {
-            guard let data = try? Data(contentsOf: url) else { continue }
-            guard let catalog = try? decoder.decode(MLXCuratedModelCatalog.self, from: data) else { continue }
-            return catalog.groups
+        for url in urls {
+            let data: Data
+            do {
+                data = try Data(contentsOf: url)
+            } catch {
+                logger.warning("Unable to read curated model index at \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                continue
+            }
+
+            do {
+                let catalog = try decoder.decode(MLXCuratedModelCatalog.self, from: data)
+                logger.notice("Loaded curated model index from \(url.path, privacy: .public) groups=\(catalog.groups.count)")
+                return catalog.groups
+            } catch {
+                logger.error("Unable to decode curated model index at \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                continue
+            }
+        }
+
+        if urls.isEmpty {
+            logger.error("Curated model index not found in app bundle.")
+        } else {
+            logger.error("Curated model index candidates existed but none could be loaded.")
         }
 
         return []
