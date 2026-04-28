@@ -77,6 +77,10 @@ final class MLXDownloadCoordinator: ObservableObject {
     private var lastObservedCompletedUnitCount: Int64 = 0
     private var lastObservedDownloadedBytes: Int64 = 0
     private var activeProgressBaseline: ProgressBaseline?
+    private var lastSpeedSampleAt: Date = .distantPast
+    private var lastSpeedSampleObservedRunBytes: Int64 = 0
+    private var lastObservedSpeedAt: Date = .distantPast
+    private var smoothedObservedBytesPerSecond: Double?
 
     init(
         jobStore: MLXDownloadJobStore = MLXDownloadJobStore(),
@@ -192,6 +196,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastProgressEventAt = .now
         lastObservedCompletedUnitCount = runningJob.completedUnitCount
         lastObservedDownloadedBytes = 0
+        resetObservedSpeed()
         establishProgressBaseline(for: runningJob)
         let stallMonitorTask = makeStallMonitorTask(for: runningJob)
         let assetProgressTask = makeObservedProgressMonitorTask(for: runningJob)
@@ -367,6 +372,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastObservedCompletedUnitCount = 0
         lastObservedDownloadedBytes = 0
         activeProgressBaseline = nil
+        resetObservedSpeed()
         logNotice("Cleared active MLX download task state")
     }
 
@@ -504,7 +510,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         var totalUnitCount: Int64 = currentJob.expectedTotalBytes ?? assetProgress.expectedBytes ?? 0
         var completedUnitCount: Int64 = currentJob.completedUnitCount
         var fractionCompleted: Double = currentJob.fractionCompleted
-        var bytesPerSecond: Double? = currentJob.bytesPerSecond
+        let bytesPerSecond = updateObservedBytesPerSecond(observedRunBytes: progressSample.observedRunBytes)
         var callbackReportedActivity = false
 
         if let callbackProgress {
@@ -518,9 +524,6 @@ final class MLXDownloadCoordinator: ObservableObject {
             }
 
             let reportedBytesPerSecond = callbackProgress.userInfo[.throughputKey] as? Double
-            if let reportedBytesPerSecond, reportedBytesPerSecond > 0 {
-                bytesPerSecond = reportedBytesPerSecond
-            }
             callbackReportedActivity =
                 (progressSample.callbackEstimatedBytes ?? 0) > 0 ||
                 (progressSample.callbackFraction ?? 0) > 0 ||
@@ -573,8 +576,9 @@ final class MLXDownloadCoordinator: ObservableObject {
             let tickDescription = pollTick.map(String.init) ?? "?"
             let expectedBytesDescription = assetProgress.expectedBytes.map(String.init) ?? "nil"
             let fractionDescription = String(format: "%.3f", fractionCompleted)
+            let speedDescription = bytesPerSecond.map { String(format: "%.0f", $0) } ?? "nil"
             logNotice(
-                "MLX asset poll tick=\(tickDescription) jobID=\(currentJob.jobID) model=\(currentJob.modelID) expectedBytes=\(expectedBytesDescription) deltaLiveBytes=\(deltaLiveBytes) previousCompleted=\(previousCompleted) previousTotal=\(previousTotal) fraction=\(fractionDescription) progress={\(progressSample.summary)} assetBytes={\(assetProgress.summary)}"
+                "MLX asset poll tick=\(tickDescription) jobID=\(currentJob.jobID) model=\(currentJob.modelID) expectedBytes=\(expectedBytesDescription) deltaLiveBytes=\(deltaLiveBytes) previousCompleted=\(previousCompleted) previousTotal=\(previousTotal) fraction=\(fractionDescription) observedSpeed=\(speedDescription) progress={\(progressSample.summary)} assetBytes={\(assetProgress.summary)}"
             )
         }
 
@@ -736,6 +740,47 @@ final class MLXDownloadCoordinator: ObservableObject {
             return cacheWasWarm ? "callback-cache" : "callback-transfer"
         }
         return "observing"
+    }
+
+    private func resetObservedSpeed() {
+        lastSpeedSampleAt = .distantPast
+        lastSpeedSampleObservedRunBytes = 0
+        lastObservedSpeedAt = .distantPast
+        smoothedObservedBytesPerSecond = nil
+    }
+
+    private func updateObservedBytesPerSecond(observedRunBytes: Int64) -> Double? {
+        let now = Date.now
+
+        if lastSpeedSampleAt == .distantPast || observedRunBytes < lastSpeedSampleObservedRunBytes {
+            lastSpeedSampleAt = now
+            lastSpeedSampleObservedRunBytes = observedRunBytes
+            return smoothedObservedBytesPerSecond
+        }
+
+        let deltaBytes = observedRunBytes - lastSpeedSampleObservedRunBytes
+        let deltaTime = now.timeIntervalSince(lastSpeedSampleAt)
+
+        if deltaBytes > 0, deltaTime >= 0.25 {
+            let rawBytesPerSecond = Double(deltaBytes) / deltaTime
+            if let current = smoothedObservedBytesPerSecond {
+                smoothedObservedBytesPerSecond = current * 0.65 + rawBytesPerSecond * 0.35
+            } else {
+                smoothedObservedBytesPerSecond = rawBytesPerSecond
+            }
+            lastSpeedSampleAt = now
+            lastSpeedSampleObservedRunBytes = observedRunBytes
+            lastObservedSpeedAt = now
+            return smoothedObservedBytesPerSecond
+        }
+
+        if lastObservedSpeedAt != .distantPast,
+           now.timeIntervalSince(lastObservedSpeedAt) > 5
+        {
+            smoothedObservedBytesPerSecond = nil
+        }
+
+        return smoothedObservedBytesPerSecond
     }
 
     private func shouldPublishProgressUpdate(

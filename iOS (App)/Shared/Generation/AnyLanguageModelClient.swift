@@ -901,19 +901,23 @@ final class AnyLanguageModelClient {
                     filename.hasSuffix(".jinja")
             }
 
+            nonisolated private static func isTrackedLocalModelProgressFile(_ url: URL) -> Bool {
+                isTrackedLocalModelAssetFile(url) || url.lastPathComponent.lowercased().hasSuffix(".incomplete")
+            }
+
             nonisolated private static func trackedLocalModelAssetBytes(at repoURL: URL) -> Int64 {
                 let fileManager = FileManager.default
                 guard let enumerator = fileManager.enumerator(
                     at: repoURL,
                     includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
-                    options: [.skipsHiddenFiles]
+                    options: []
                 ) else {
                     return 0
                 }
 
                 var total: Int64 = 0
                 for case let fileURL as URL in enumerator {
-                    guard isTrackedLocalModelAssetFile(fileURL),
+                    guard isTrackedLocalModelProgressFile(fileURL),
                           let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
                           values.isRegularFile == true,
                           let fileSize = values.fileSize
