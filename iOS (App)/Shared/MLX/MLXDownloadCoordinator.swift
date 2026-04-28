@@ -8,6 +8,46 @@ final class MLXDownloadCoordinator: ObservableObject {
         case poll
     }
 
+    private struct ProgressBaseline {
+        let jobID: String
+        let modelID: String
+        let snapshotBytes: Int64
+        let cacheBlobBytes: Int64
+
+        init(job: MLXDownloadJob, assetProgress: AnyLanguageModelClient.LocalModelAssetProgress) {
+            self.jobID = job.jobID
+            self.modelID = job.modelID
+            self.snapshotBytes = assetProgress.repoBytes
+            self.cacheBlobBytes = assetProgress.cacheBlobBytes
+        }
+
+        var summary: String {
+            "snapshotBytes=\(snapshotBytes) cacheBlobBytes=\(cacheBlobBytes)"
+        }
+    }
+
+    private struct ProgressSample {
+        let baseline: ProgressBaseline
+        let assetProgress: AnyLanguageModelClient.LocalModelAssetProgress
+        let materializedDelta: Int64
+        let cacheDelta: Int64
+        let observedRunBytes: Int64
+        let callbackFraction: Double?
+        let callbackEstimatedBytes: Int64?
+        let liveBytes: Int64
+        let phase: String
+
+        var summary: String {
+            let callbackBytes = callbackEstimatedBytes.map(String.init) ?? "nil"
+            let callbackFractionDescription = callbackFraction.map { String(format: "%.3f", $0) } ?? "nil"
+            return
+                "phase=\(phase) liveBytes=\(liveBytes) observedRunBytes=\(observedRunBytes) " +
+                "materializedBytes=\(assetProgress.repoBytes) materializedDelta=\(materializedDelta) " +
+                "cacheBlobBytes=\(assetProgress.cacheBlobBytes) cacheDelta=\(cacheDelta) " +
+                "callbackBytes=\(callbackBytes) callbackFraction=\(callbackFractionDescription) baseline={\(baseline.summary)}"
+        }
+    }
+
     enum DownloadError: LocalizedError {
         case anotherJobInProgress(String)
 
@@ -36,6 +76,7 @@ final class MLXDownloadCoordinator: ObservableObject {
     private var lastPublishedProgressAt: Date = .distantPast
     private var lastObservedCompletedUnitCount: Int64 = 0
     private var lastObservedDownloadedBytes: Int64 = 0
+    private var activeProgressBaseline: ProgressBaseline?
 
     init(
         jobStore: MLXDownloadJobStore = MLXDownloadJobStore(),
@@ -151,6 +192,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastProgressEventAt = .now
         lastObservedCompletedUnitCount = runningJob.completedUnitCount
         lastObservedDownloadedBytes = 0
+        establishProgressBaseline(for: runningJob)
         let stallMonitorTask = makeStallMonitorTask(for: runningJob)
         let assetProgressTask = makeObservedProgressMonitorTask(for: runningJob)
         defer { stallMonitorTask.cancel() }
@@ -324,6 +366,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         lastPublishedProgressAt = .distantPast
         lastObservedCompletedUnitCount = 0
         lastObservedDownloadedBytes = 0
+        activeProgressBaseline = nil
         logNotice("Cleared active MLX download task state")
     }
 
@@ -443,84 +486,82 @@ final class MLXDownloadCoordinator: ObservableObject {
         callbackProgress: Progress? = nil
     ) {
         let assetProgress = observedAssetProgress(for: currentJob)
-        let observedDownloadedBytesForProgress = assetProgress.localBytes
+        let progressSample = makeProgressSample(
+            for: currentJob,
+            assetProgress: assetProgress,
+            callbackProgress: callbackProgress
+        )
 
         let previousCompleted = currentJob.completedUnitCount
         let previousTotal = currentJob.totalUnitCount
         let previousFraction = currentJob.fractionCompleted
         let previousBytesPerSecond = currentJob.bytesPerSecond
-        let deltaObservedBytes = observedDownloadedBytesForProgress - previousCompleted
+        let effectiveLiveBytes = assetProgress.expectedBytes == nil
+            ? progressSample.liveBytes
+            : max(progressSample.liveBytes, currentJob.completedUnitCount)
+        let deltaLiveBytes = effectiveLiveBytes - previousCompleted
 
-        var totalUnitCount: Int64 = currentJob.expectedTotalBytes ?? 0
+        var totalUnitCount: Int64 = currentJob.expectedTotalBytes ?? assetProgress.expectedBytes ?? 0
         var completedUnitCount: Int64 = currentJob.completedUnitCount
         var fractionCompleted: Double = currentJob.fractionCompleted
         var bytesPerSecond: Double? = source == .poll ? nil : currentJob.bytesPerSecond
         var callbackReportedActivity = false
 
         if let callbackProgress {
-            let callbackFraction: Double = {
-                if callbackProgress.totalUnitCount > 0 {
-                    return Double(callbackProgress.completedUnitCount) / Double(callbackProgress.totalUnitCount)
-                }
-                return callbackProgress.fractionCompleted
-            }()
-            let callbackIsByteProgress = isByteProgress(
-                callbackProgress,
-                expectedBytes: assetProgress.expectedBytes
-            )
-
-            if callbackFraction.isFinite, callbackFraction > 0 {
-                if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0, callbackIsByteProgress {
-                    fractionCompleted = max(currentJob.fractionCompleted, min(1, callbackFraction))
-                    totalUnitCount = expectedBytes
-                    completedUnitCount = max(
-                        currentJob.completedUnitCount,
-                        min(expectedBytes, Int64((Double(expectedBytes) * fractionCompleted).rounded(.down)))
-                    )
-                } else if assetProgress.expectedBytes == nil, callbackProgress.totalUnitCount > 0 {
-                    fractionCompleted = max(currentJob.fractionCompleted, min(1, callbackFraction))
-                    totalUnitCount = callbackProgress.totalUnitCount
-                    completedUnitCount = max(currentJob.completedUnitCount, callbackProgress.completedUnitCount)
-                }
+            if assetProgress.expectedBytes == nil,
+               let callbackFraction = progressSample.callbackFraction,
+               callbackProgress.totalUnitCount > 0
+            {
+                fractionCompleted = max(currentJob.fractionCompleted, callbackFraction)
+                totalUnitCount = callbackProgress.totalUnitCount
+                completedUnitCount = max(currentJob.completedUnitCount, callbackProgress.completedUnitCount)
             }
 
             bytesPerSecond = callbackProgress.userInfo[.throughputKey] as? Double
-            callbackReportedActivity = callbackProgress.completedUnitCount > 0 || (bytesPerSecond ?? 0) > 0
+            callbackReportedActivity =
+                (progressSample.callbackEstimatedBytes ?? 0) > 0 ||
+                (progressSample.callbackFraction ?? 0) > 0 ||
+                callbackProgress.completedUnitCount > 0 ||
+                (bytesPerSecond ?? 0) > 0
         }
 
         if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
-            let observedFraction = min(1, Double(observedDownloadedBytesForProgress) / Double(expectedBytes))
-            if observedFraction.isFinite {
-                if totalUnitCount <= 0 {
-                    totalUnitCount = expectedBytes
-                }
-                if observedFraction > fractionCompleted {
-                    fractionCompleted = observedFraction
-                    completedUnitCount = min(expectedBytes, observedDownloadedBytesForProgress)
-                }
+            totalUnitCount = expectedBytes
+            let liveFraction = min(1, Double(effectiveLiveBytes) / Double(expectedBytes))
+            if liveFraction.isFinite, liveFraction > fractionCompleted {
+                fractionCompleted = liveFraction
+                completedUnitCount = max(
+                    currentJob.completedUnitCount,
+                    min(expectedBytes, effectiveLiveBytes)
+                )
             }
         }
 
-        if observedDownloadedBytesForProgress > lastObservedDownloadedBytes ||
+        if totalUnitCount > 0 {
+            completedUnitCount = max(0, min(completedUnitCount, totalUnitCount))
+            fractionCompleted = min(1, max(0, fractionCompleted))
+        }
+
+        if effectiveLiveBytes > lastObservedDownloadedBytes ||
             completedUnitCount > lastObservedCompletedUnitCount ||
             callbackReportedActivity
         {
             lastProgressEventAt = .now
         }
 
-        lastObservedDownloadedBytes = max(lastObservedDownloadedBytes, observedDownloadedBytesForProgress)
+        lastObservedDownloadedBytes = max(lastObservedDownloadedBytes, effectiveLiveBytes)
         lastObservedCompletedUnitCount = max(lastObservedCompletedUnitCount, completedUnitCount)
+        let updatedExpectedTotalBytes =
+            currentJob.expectedTotalBytes ??
+            assetProgress.expectedBytes ??
+            (totalUnitCount > 0 ? totalUnitCount : nil)
 
         let updatedJob = currentJob.updating(
             state: .running,
             completedUnitCount: completedUnitCount,
             totalUnitCount: totalUnitCount,
             fractionCompleted: fractionCompleted,
-            expectedTotalBytes: .some(
-                source == .callback
-                    ? currentJob.expectedTotalBytes
-                    : (totalUnitCount > 0 ? totalUnitCount : currentJob.expectedTotalBytes)
-            ),
+            expectedTotalBytes: .some(updatedExpectedTotalBytes),
             bytesPerSecond: .some(bytesPerSecond),
             errorMessage: .some(nil)
         )
@@ -530,7 +571,7 @@ final class MLXDownloadCoordinator: ObservableObject {
             let expectedBytesDescription = assetProgress.expectedBytes.map(String.init) ?? "nil"
             let fractionDescription = String(format: "%.3f", fractionCompleted)
             logNotice(
-                "MLX asset poll tick=\(tickDescription) jobID=\(currentJob.jobID) model=\(currentJob.modelID) localBytes=\(observedDownloadedBytesForProgress) expectedBytes=\(expectedBytesDescription) deltaBytes=\(deltaObservedBytes) previousCompleted=\(previousCompleted) previousTotal=\(previousTotal) fraction=\(fractionDescription) assetBytes={\(assetProgress.summary)}"
+                "MLX asset poll tick=\(tickDescription) jobID=\(currentJob.jobID) model=\(currentJob.modelID) expectedBytes=\(expectedBytesDescription) deltaLiveBytes=\(deltaLiveBytes) previousCompleted=\(previousCompleted) previousTotal=\(previousTotal) fraction=\(fractionDescription) progress={\(progressSample.summary)} assetBytes={\(assetProgress.summary)}"
             )
         }
 
@@ -551,25 +592,9 @@ final class MLXDownloadCoordinator: ObservableObject {
         {
             lastLoggedProgressFraction = fractionCompleted
             logNotice(
-                "MLX download progress source=\(source.rawValue) job={\(jobSummary(updatedJob))} assetBytes={\(assetProgress.summary)} progressObservedBytes=\(observedDownloadedBytesForProgress)"
+                "MLX download progress source=\(source.rawValue) job={\(jobSummary(updatedJob))} progress={\(progressSample.summary)} assetBytes={\(assetProgress.summary)}"
             )
         }
-    }
-
-    private func isByteProgress(_ progress: Progress, expectedBytes: Int64?) -> Bool {
-        guard progress.totalUnitCount > 0 else { return false }
-        guard let expectedBytes, expectedBytes > 0 else { return true }
-
-        if progress.totalUnitCount == expectedBytes {
-            return true
-        }
-
-        let tolerance = max(Int64(1_048_576), expectedBytes / 100)
-        if abs(progress.totalUnitCount - expectedBytes) <= tolerance {
-            return true
-        }
-
-        return progress.totalUnitCount >= 1_048_576
     }
 
     private func observedAssetProgress(for job: MLXDownloadJob) -> AnyLanguageModelClient.LocalModelAssetProgress {
@@ -591,6 +616,123 @@ final class MLXDownloadCoordinator: ObservableObject {
             return inferred
         }
         return nil
+    }
+
+    private func establishProgressBaseline(for job: MLXDownloadJob) {
+        let assetProgress = observedAssetProgress(for: job)
+        let baseline = ProgressBaseline(job: job, assetProgress: assetProgress)
+        activeProgressBaseline = baseline
+        let expectedBytesDescription = assetProgress.expectedBytes.map(String.init) ?? "nil"
+        logNotice(
+            "MLX download progress baseline jobID=\(job.jobID) model=\(job.modelID) expectedBytes=\(expectedBytesDescription) baseline={\(baseline.summary)} assetBytes={\(assetProgress.summary)}"
+        )
+    }
+
+    private func progressBaseline(
+        for job: MLXDownloadJob,
+        assetProgress: AnyLanguageModelClient.LocalModelAssetProgress
+    ) -> ProgressBaseline {
+        if let activeProgressBaseline,
+           activeProgressBaseline.jobID == job.jobID,
+           activeProgressBaseline.modelID == job.modelID
+        {
+            return activeProgressBaseline
+        }
+
+        let baseline = ProgressBaseline(job: job, assetProgress: assetProgress)
+        activeProgressBaseline = baseline
+        logWarning(
+            "Created missing MLX download progress baseline jobID=\(job.jobID) model=\(job.modelID) baseline={\(baseline.summary)} assetBytes={\(assetProgress.summary)}"
+        )
+        return baseline
+    }
+
+    private func makeProgressSample(
+        for job: MLXDownloadJob,
+        assetProgress: AnyLanguageModelClient.LocalModelAssetProgress,
+        callbackProgress: Progress?
+    ) -> ProgressSample {
+        let baseline = progressBaseline(for: job, assetProgress: assetProgress)
+        let materializedDelta = max(0, assetProgress.repoBytes - baseline.snapshotBytes)
+        let cacheDelta = max(0, assetProgress.cacheBlobBytes - baseline.cacheBlobBytes)
+        let observedRunBytes = max(materializedDelta, cacheDelta)
+        let callbackFraction = normalizedCallbackFraction(callbackProgress)
+        let callbackEstimatedBytes = callbackEstimatedBytes(
+            fraction: callbackFraction,
+            expectedBytes: assetProgress.expectedBytes
+        )
+        let liveBytes = max(observedRunBytes, callbackEstimatedBytes ?? 0)
+        let phase = progressPhaseDescription(
+            baseline: baseline,
+            assetProgress: assetProgress,
+            materializedDelta: materializedDelta,
+            cacheDelta: cacheDelta,
+            callbackEstimatedBytes: callbackEstimatedBytes,
+            liveBytes: liveBytes
+        )
+
+        return ProgressSample(
+            baseline: baseline,
+            assetProgress: assetProgress,
+            materializedDelta: materializedDelta,
+            cacheDelta: cacheDelta,
+            observedRunBytes: observedRunBytes,
+            callbackFraction: callbackFraction,
+            callbackEstimatedBytes: callbackEstimatedBytes,
+            liveBytes: liveBytes,
+            phase: phase
+        )
+    }
+
+    private func normalizedCallbackFraction(_ progress: Progress?) -> Double? {
+        guard let progress else { return nil }
+
+        let directFraction = progress.fractionCompleted
+        if directFraction.isFinite, directFraction > 0 {
+            return min(1, max(0, directFraction))
+        }
+
+        guard progress.totalUnitCount > 0 else { return nil }
+        let unitFraction = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+        guard unitFraction.isFinite, unitFraction > 0 else { return nil }
+        return min(1, max(0, unitFraction))
+    }
+
+    private func callbackEstimatedBytes(fraction: Double?, expectedBytes: Int64?) -> Int64? {
+        guard let fraction,
+              let expectedBytes,
+              expectedBytes > 0
+        else {
+            return nil
+        }
+        return Int64((Double(expectedBytes) * fraction).rounded(.down))
+    }
+
+    private func progressPhaseDescription(
+        baseline: ProgressBaseline,
+        assetProgress: AnyLanguageModelClient.LocalModelAssetProgress,
+        materializedDelta: Int64,
+        cacheDelta: Int64,
+        callbackEstimatedBytes: Int64?,
+        liveBytes: Int64
+    ) -> String {
+        let cacheWasWarm = assetProgress.expectedBytes.map { expectedBytes in
+            expectedBytes > 0 && baseline.cacheBlobBytes >= expectedBytes
+        } ?? false
+
+        if liveBytes == 0 {
+            return cacheWasWarm ? "cache-warm" : "starting"
+        }
+        if cacheDelta > materializedDelta {
+            return "network-cache"
+        }
+        if materializedDelta > 0 {
+            return cacheWasWarm ? "materializing-cache" : "materialized"
+        }
+        if callbackEstimatedBytes != nil {
+            return cacheWasWarm ? "callback-cache" : "callback-transfer"
+        }
+        return "observing"
     }
 
     private func shouldPublishProgressUpdate(
