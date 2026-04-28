@@ -12,10 +12,12 @@ copilot_run_root="$project_path/logs/new_version_copilot"
 copilot_task_complete_grace_period=10
 
 usage() {
-    echo "使用方式: ./new_version.sh <version> <platform> <method>"
+    echo "使用方式: ./new_version.sh <version> [platform] [method]"
+    echo "例如: ./new_version.sh 1.1"
     echo "例如: ./new_version.sh 1.1 ios tf"
     echo "platform: ios | macos | all"
     echo "method: tf | release"
+    echo "預設: platform=all, method=release"
 }
 
 require_non_empty_file() {
@@ -237,6 +239,8 @@ fi
 
 # 設定新版本號
 new_version="$1"
+platform="${2:-all}"
+method="${3:-release}"
 
 if [ ! -x "$copilot_wrapper" ]; then
     echo "找不到可執行的 callCopilot.sh：$copilot_wrapper"
@@ -306,19 +310,7 @@ sed -i '' "s/MARKETING_VERSION = .*/MARKETING_VERSION = $new_version;/g" "$proje
 echo "已修改 MARKETING_VERSION 為：$new_version"
 
 # 發佈平台
-if [ -z "${2:-}" ]; then
-    echo "請提供發佈平台。"
-    usage
-    exit 1
-fi
-
-if [ -z "${3:-}" ]; then
-    echo "請提供發佈方法。"
-    usage
-    exit 1
-fi
-
-case "$2" in
+case "$platform" in
     ios)
         lane_prefix="ios"
         ;;
@@ -329,13 +321,13 @@ case "$2" in
         lane_prefix="all"
         ;;
     *)
-        echo "未知平台: $2"
+        echo "未知平台: $platform"
         usage
         exit 1
         ;;
 esac
 
-case "$3" in
+case "$method" in
     tf)
         lane_suffix="tf"
         ;;
@@ -343,7 +335,7 @@ case "$3" in
         lane_suffix="release"
         ;;
     *)
-        echo "未知發佈方法: $3"
+        echo "未知發佈方法: $method"
         usage
         exit 1
         ;;
