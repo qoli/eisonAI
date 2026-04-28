@@ -33,6 +33,7 @@ final class MLXDownloadCoordinator: ObservableObject {
     private var lastPersistedProgressAt: Date = .distantPast
     private var lastLoggedProgressFraction = -1.0
     private var lastProgressEventAt: Date = .distantPast
+    private var lastPublishedProgressAt: Date = .distantPast
     private var lastObservedCompletedUnitCount: Int64 = 0
     private var lastObservedDownloadedBytes: Int64 = 0
 
@@ -132,6 +133,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         guard activeTask == nil else { return }
         pendingCancellationReason = nil
         lastLoggedProgressFraction = -1.0
+        lastPublishedProgressAt = .distantPast
         logNotice("Starting foreground MLX download job={\(jobSummary(job))}")
         activeTask = Task { [weak self] in
             await self?.runDownload(forJobID: job.jobID)
@@ -319,6 +321,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         pendingCancellationReason = nil
         lastLoggedProgressFraction = -1.0
         lastProgressEventAt = .distantPast
+        lastPublishedProgressAt = .distantPast
         lastObservedCompletedUnitCount = 0
         lastObservedDownloadedBytes = 0
         logNotice("Cleared active MLX download task state")
@@ -531,11 +534,14 @@ final class MLXDownloadCoordinator: ObservableObject {
             )
         }
 
-        if updatedJob.completedUnitCount != previousCompleted ||
-            updatedJob.totalUnitCount != previousTotal ||
-            abs(updatedJob.fractionCompleted - previousFraction) >= 0.001 ||
-            speedDidChange(previous: previousBytesPerSecond, current: updatedJob.bytesPerSecond)
-        {
+        if shouldPublishProgressUpdate(
+            source: source,
+            updatedJob: updatedJob,
+            previousCompleted: previousCompleted,
+            previousTotal: previousTotal,
+            previousFraction: previousFraction,
+            previousBytesPerSecond: previousBytesPerSecond
+        ) {
             publish(updatedJob, persist: true, throttleProgressPersistence: true)
         }
 
@@ -585,6 +591,43 @@ final class MLXDownloadCoordinator: ObservableObject {
             return inferred
         }
         return nil
+    }
+
+    private func shouldPublishProgressUpdate(
+        source: ProgressRefreshSource,
+        updatedJob: MLXDownloadJob,
+        previousCompleted: Int64,
+        previousTotal: Int64,
+        previousFraction: Double,
+        previousBytesPerSecond: Double?
+    ) -> Bool {
+        let completedDelta = abs(updatedJob.completedUnitCount - previousCompleted)
+        let fractionDelta = abs(updatedJob.fractionCompleted - previousFraction)
+        let totalDidChange = updatedJob.totalUnitCount != previousTotal
+        let speedChanged = speedDidChange(previous: previousBytesPerSecond, current: updatedJob.bytesPerSecond)
+
+        guard completedDelta > 0 ||
+            totalDidChange ||
+            fractionDelta >= 0.001 ||
+            speedChanged
+        else {
+            return false
+        }
+
+        guard source == .callback else {
+            lastPublishedProgressAt = .now
+            return true
+        }
+
+        let now = Date.now
+        let elapsed = now.timeIntervalSince(lastPublishedProgressAt)
+
+        guard totalDidChange || elapsed >= 1 else {
+            return false
+        }
+
+        lastPublishedProgressAt = now
+        return true
     }
 
     private func logNotice(_ message: String) {
