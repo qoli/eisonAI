@@ -121,34 +121,9 @@ progress::-webkit-progress-value {
   text-decoration-color: var(--link);
 }
 
-.link,
-#input-tokens {
+.link {
   font-size: 11px;
   color: var(--link);
-}
-
-.webgpu-status {
-  font-size: 11px;
-  color: var(--link);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.webgpu-status.is-checking {
-  color: var(--muted);
-}
-
-.webgpu-status.is-available {
-  color: var(--status-green);
-}
-
-.webgpu-status.is-limited {
-  color: var(--status-yellow);
-}
-
-.webgpu-status.is-unavailable,
-.webgpu-status.is-error {
-  color: var(--status-red);
 }
 
 .container {
@@ -420,23 +395,4 @@ progress::-webkit-progress-value {
   font-weight: lighter;
   text-transform: capitalize;
 
-}
-
-.popup-button {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  border-radius: 999px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.popup-button.secondary {
-  color: var(--link);
-}
-
-.popup-button:hover {
-  opacity: 0.9;
 }
