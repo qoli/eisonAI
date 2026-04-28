@@ -16,6 +16,7 @@ struct Configuration {
     var pollInterval: TimeInterval = 1
     var callbackThrottle: TimeInterval = 1
     var clearFirst = false
+    var clearCache = false
     var metadataOnly = false
 }
 
@@ -49,6 +50,7 @@ Options:
   --poll <seconds>        Local byte polling interval. Default: 1
   --throttle <seconds>    Callback print throttle. Default: 1
   --clear                 Remove the model snapshot under download-base before starting.
+  --clear-cache           Remove this model from the default Hugging Face cache before starting.
   --metadata-only         Resolve metadata and print expected bytes without downloading.
   --help                  Show this help.
 
@@ -78,6 +80,9 @@ struct MLXDownloadProbe {
 
         if config.clearFirst, fileManager.fileExists(atPath: repoURL.path) {
             try fileManager.removeItem(at: repoURL)
+        }
+        if config.clearCache {
+            try clearModelCache(modelID: config.modelID)
         }
         try fileManager.createDirectory(at: config.downloadBase, withIntermediateDirectories: true)
 
@@ -111,6 +116,7 @@ struct MLXDownloadProbe {
             expectedBytes: metadata.expectedBytes,
             callbackThrottle: config.callbackThrottle
         )
+        reporter.printBaseline()
 
         let pollTask = Task {
             while !Task.isCancelled {
@@ -158,18 +164,31 @@ final class ProgressReporter: @unchecked Sendable {
     private let expectedBytes: Int64?
     private let callbackThrottle: TimeInterval
     private let startedAt = Date()
+    private let baselineSnapshotBytes: Int64
+    private let baselineCacheBytes: Int64
     private var lastCallbackPrintedAt = Date.distantPast
-    private var lastPollBytes: Int64 = 0
+    private var lastPollObservedBytes: Int64 = -1
 
     init(repoURL: URL, modelID: String, expectedBytes: Int64?, callbackThrottle: TimeInterval) {
         self.repoURL = repoURL
         self.modelID = modelID
         self.expectedBytes = expectedBytes
         self.callbackThrottle = callbackThrottle
+        self.baselineSnapshotBytes = trackedBytes(at: repoURL)
+        self.baselineCacheBytes = cacheBlobBytes(modelID: modelID)
+    }
+
+    func printBaseline() {
+        print("baselineSnapshotBytes=\(formatBytes(baselineSnapshotBytes)) (\(baselineSnapshotBytes))")
+        print("baselineCacheBytes=\(formatBytes(baselineCacheBytes)) (\(baselineCacheBytes))")
+        if let expectedBytes, expectedBytes > 0 {
+            let percent = min(1, Double(baselineCacheBytes) / Double(expectedBytes)) * 100
+            print("baselineCachePercent=\(String(format: "%.3f", percent))%")
+        }
     }
 
     func printHeader() {
-        print("time source callback localBytes expectedBytes localPercent callbackUnits callbackFraction speed")
+        print("time source phase livePercent liveBytes materializedBytes materializedDelta cacheNewBytes cacheTotalBytes callbackUnits callbackFraction speed")
     }
 
     func callback(progress: Progress, speed: Double?) {
@@ -182,40 +201,42 @@ final class ProgressReporter: @unchecked Sendable {
             return
         }
         lastCallbackPrintedAt = now
-        let localBytes = localObservedBytes()
-        printLine(source: "callback", progress: progress, localBytes: localBytes, speed: speed)
+        printLine(source: "callback", progress: progress, speed: speed)
         lock.unlock()
     }
 
     func poll() {
         lock.lock()
-        let localBytes = localObservedBytes()
-        guard localBytes != lastPollBytes else {
+        let sample = currentSample(progress: nil)
+        guard sample.observedRunBytes != lastPollObservedBytes else {
             lock.unlock()
             return
         }
-        lastPollBytes = localBytes
-        printLine(source: "poll", progress: nil, localBytes: localBytes, speed: nil)
+        lastPollObservedBytes = sample.observedRunBytes
+        printLine(source: "poll", progress: nil, speed: nil)
         lock.unlock()
     }
 
     func finish(resultURL: URL, elapsed: TimeInterval) {
         lock.lock()
-        let localBytes = localObservedBytes()
-        let averageSpeed = elapsed > 0 ? Double(localBytes) / elapsed : 0
-        printLine(source: "finish", progress: nil, localBytes: localBytes, speed: averageSpeed)
+        let sample = currentSample(progress: nil)
+        let averageSpeed = elapsed > 0 ? Double(sample.observedRunBytes) / elapsed : 0
+        printLine(source: "finish", progress: nil, speed: averageSpeed)
         print("result=\(resultURL.path)")
         print("elapsed=\(String(format: "%.2f", elapsed))s")
-        print("averageSpeed=\(formatBytes(Int64(averageSpeed)))/s")
-        print("finalBytes=\(formatBytes(localBytes)) (\(localBytes))")
+        print("averageEffectiveSpeed=\(formatBytes(Int64(averageSpeed)))/s")
+        print("finalMaterializedBytes=\(formatBytes(sample.materializedBytes)) (\(sample.materializedBytes))")
+        print("finalMaterializedDelta=\(formatBytes(sample.materializedDelta)) (\(sample.materializedDelta))")
+        print("finalCacheNewBytes=\(formatBytes(sample.cacheDelta)) (\(sample.cacheDelta))")
         lock.unlock()
     }
 
-    private func printLine(source: String, progress: Progress?, localBytes: Int64, speed: Double?) {
+    private func printLine(source: String, progress: Progress?, speed: Double?) {
+        let sample = currentSample(progress: progress)
         let elapsed = Date().timeIntervalSince(startedAt)
-        let localPercent = expectedBytes.map { expected -> String in
+        let livePercent = expectedBytes.map { expected -> String in
             guard expected > 0 else { return "n/a" }
-            return String(format: "%.3f", min(1, Double(localBytes) / Double(expected)) * 100)
+            return String(format: "%.3f", min(1, Double(sample.liveBytes) / Double(expected)) * 100)
         } ?? "n/a"
         let callbackUnits: String
         let callbackFraction: String
@@ -228,17 +249,79 @@ final class ProgressReporter: @unchecked Sendable {
         }
         let speedText = speed.map { "\(formatBytes(Int64($0)))/s" } ?? "n/a"
         print(
-            "\(String(format: "%.2f", elapsed))s \(source) \(formatBytes(localBytes)) \(expectedBytes.map(formatBytes) ?? "unknown") \(localPercent)% \(callbackUnits) \(callbackFraction) \(speedText)"
+            "\(String(format: "%.2f", elapsed))s \(source) \(sample.phase) \(livePercent)% \(formatBytes(sample.liveBytes)) \(formatBytes(sample.materializedBytes)) \(formatBytes(sample.materializedDelta)) \(formatBytes(sample.cacheDelta)) \(formatBytes(sample.cacheBytes)) \(callbackUnits) \(callbackFraction) \(speedText)"
         )
         fflush(stdout)
     }
 
-    private func localObservedBytes() -> Int64 {
-        max(
-            trackedBytes(at: repoURL),
-            cacheBlobBytes(modelID: modelID)
+    private func currentSample(progress: Progress?) -> ProgressSample {
+        let materializedBytes = trackedBytes(at: repoURL)
+        let cacheBytes = cacheBlobBytes(modelID: modelID)
+        let materializedDelta = max(0, materializedBytes - baselineSnapshotBytes)
+        let cacheDelta = max(0, cacheBytes - baselineCacheBytes)
+        let callbackBytes = callbackEstimatedBytes(progress: progress)
+        let observedRunBytes = max(materializedDelta, cacheDelta)
+        let liveBytes = max(observedRunBytes, callbackBytes ?? 0)
+        let phase = phaseDescription(
+            materializedDelta: materializedDelta,
+            cacheDelta: cacheDelta,
+            callbackBytes: callbackBytes,
+            liveBytes: liveBytes
+        )
+
+        return ProgressSample(
+            phase: phase,
+            liveBytes: liveBytes,
+            observedRunBytes: observedRunBytes,
+            materializedBytes: materializedBytes,
+            materializedDelta: materializedDelta,
+            cacheBytes: cacheBytes,
+            cacheDelta: cacheDelta
         )
     }
+
+    private func callbackEstimatedBytes(progress: Progress?) -> Int64? {
+        guard let progress, let expectedBytes, expectedBytes > 0 else {
+            return nil
+        }
+        let fraction = min(1, max(0, progress.fractionCompleted))
+        guard fraction.isFinite else {
+            return nil
+        }
+        return Int64((Double(expectedBytes) * fraction).rounded(.down))
+    }
+
+    private func phaseDescription(
+        materializedDelta: Int64,
+        cacheDelta: Int64,
+        callbackBytes: Int64?,
+        liveBytes: Int64
+    ) -> String {
+        let cacheWasWarm = expectedBytes.map { baselineCacheBytes >= $0 } ?? false
+        if liveBytes == 0 {
+            return cacheWasWarm ? "cache-warm" : "starting"
+        }
+        if cacheDelta > materializedDelta {
+            return "network-cache"
+        }
+        if materializedDelta > 0 {
+            return cacheWasWarm ? "materializing-cache" : "materialized"
+        }
+        if callbackBytes != nil {
+            return cacheWasWarm ? "callback-cache" : "callback-transfer"
+        }
+        return "observing"
+    }
+}
+
+private struct ProgressSample {
+    let phase: String
+    let liveBytes: Int64
+    let observedRunBytes: Int64
+    let materializedBytes: Int64
+    let materializedDelta: Int64
+    let cacheBytes: Int64
+    let cacheDelta: Int64
 }
 
 private func parseArguments(_ args: [String]) throws -> Configuration {
@@ -286,6 +369,8 @@ private func parseArguments(_ args: [String]) throws -> Configuration {
             index += 1
         case "--clear":
             config.clearFirst = true
+        case "--clear-cache":
+            config.clearCache = true
         case "--metadata-only":
             config.metadataOnly = true
         default:
@@ -318,6 +403,21 @@ private func cacheBlobBytes(modelID: String) -> Int64 {
     return cacheRoots().map {
         directoryBytes(at: $0.appendingPathComponent(cacheName).appendingPathComponent("blobs")) { _ in true }
     }.max() ?? 0
+}
+
+private func clearModelCache(modelID: String) throws {
+    let cacheName = "models--\(modelID.replacingOccurrences(of: "/", with: "--"))"
+    let fileManager = FileManager.default
+    for root in cacheRoots() {
+        let repoCache = root.appendingPathComponent(cacheName, isDirectory: true)
+        let lockCache = root
+            .appendingPathComponent(".locks", isDirectory: true)
+            .appendingPathComponent(cacheName, isDirectory: true)
+        for url in [repoCache, lockCache] where fileManager.fileExists(atPath: url.path) {
+            try fileManager.removeItem(at: url)
+            print("removedCache=\(url.path)")
+        }
+    }
 }
 
 private func cacheRoots() -> [URL] {
