@@ -504,7 +504,7 @@ final class MLXDownloadCoordinator: ObservableObject {
         var totalUnitCount: Int64 = currentJob.expectedTotalBytes ?? assetProgress.expectedBytes ?? 0
         var completedUnitCount: Int64 = currentJob.completedUnitCount
         var fractionCompleted: Double = currentJob.fractionCompleted
-        var bytesPerSecond: Double? = source == .poll ? nil : currentJob.bytesPerSecond
+        var bytesPerSecond: Double? = currentJob.bytesPerSecond
         var callbackReportedActivity = false
 
         if let callbackProgress {
@@ -517,12 +517,15 @@ final class MLXDownloadCoordinator: ObservableObject {
                 completedUnitCount = max(currentJob.completedUnitCount, callbackProgress.completedUnitCount)
             }
 
-            bytesPerSecond = callbackProgress.userInfo[.throughputKey] as? Double
+            let reportedBytesPerSecond = callbackProgress.userInfo[.throughputKey] as? Double
+            if let reportedBytesPerSecond, reportedBytesPerSecond > 0 {
+                bytesPerSecond = reportedBytesPerSecond
+            }
             callbackReportedActivity =
                 (progressSample.callbackEstimatedBytes ?? 0) > 0 ||
                 (progressSample.callbackFraction ?? 0) > 0 ||
                 callbackProgress.completedUnitCount > 0 ||
-                (bytesPerSecond ?? 0) > 0
+                (reportedBytesPerSecond ?? 0) > 0
         }
 
         if let expectedBytes = assetProgress.expectedBytes, expectedBytes > 0 {
