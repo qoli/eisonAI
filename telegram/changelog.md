@@ -1,6 +1,5 @@
-## 2.8
+## 2.9
 
 ### 修正
-- 修正推薦模型文件未能正確載入
-- 修正模型下載能力的進度報告問題
-- 修正 Safari Extension 被錯誤清理的樣式、長文 Pipeline 等
+- 修正 2.8 未能完整恢復 Safari Extension 能力
+- Safari Extension 在 Auto Apple Intelligence 遇到錯誤，會自動回落到 BYOK 模型
