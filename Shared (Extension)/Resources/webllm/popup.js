@@ -12,27 +12,64 @@ const DEFAULT_TOKEN_ESTIMATOR = "cl100k_base";
 const DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE = 1792;
 const DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD = 2048;
 const DEFAULT_LONG_DOCUMENT_MAX_CHUNKS = 5;
+const DEFAULT_AUTO_STRATEGY_THRESHOLD = 1792;
 const MAX_OUTPUT_TOKENS = 1500;
-const LONG_DOCUMENT_RETRY_CHUNK_STEP = 256;
-const LONG_DOCUMENT_MIN_CHUNK_TOKEN_SIZE = 256;
 const TOKENIZER_GLOBALS = {
   cl100k_base: "GPTTokenizer_cl100k_base",
   o200k_base: "GPTTokenizer_o200k_base",
   p50k_base: "GPTTokenizer_p50k_base",
   r50k_base: "GPTTokenizer_r50k_base",
 };
+const DEFAULT_SYSTEM_PROMPT =
+  `Transform the given content into a concise, structured brief with key points.
+
+Output requirements:
+- Clear structured headings + bullet points
+- No tables (including Markdown tables)`;
+const DEFAULT_CHUNK_PROMPT =
+  `You are a text organizer.
+
+Your task is to help the user fully read very long content.
+
+- Extract the key points from this article`;
+const DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE =
+  "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})";
+const DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE = "CONTENT\n{{content}}";
+const DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE = "Chunk {{chunk_index}}\n{{chunk_text}}";
+const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
+const READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL = new URL(
+  "../reading_anchor_system_suffix.txt",
+  import.meta.url,
+);
+const READING_ANCHOR_USER_PROMPT_TEMPLATE_URL = new URL(
+  "../reading_anchor_user_prompt.txt",
+  import.meta.url,
+);
+const READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL = new URL(
+  "../reading_anchor_summary_item.txt",
+  import.meta.url,
+);
 const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
 const CJK_SINGLE_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
 const state = {
   backendSelection: "auto",
+  executionBackend: "",
   availability: null,
+  autoAppleAvailability: null,
+  autoStrategyThreshold: DEFAULT_AUTO_STRATEGY_THRESHOLD,
   byokSettings: null,
   systemPrompt: "",
+  defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
+  chunkPrompt: DEFAULT_CHUNK_PROMPT,
+  readingAnchorSystemSuffixTemplate: DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE,
+  readingAnchorUserPromptTemplate: DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE,
+  readingAnchorSummaryItemTemplate: DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE,
   tokenEstimatorEncoding: DEFAULT_TOKEN_ESTIMATOR,
   longDocumentChunkTokenSize: DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE,
   longDocumentRoutingThreshold: DEFAULT_LONG_DOCUMENT_ROUTING_THRESHOLD,
   longDocumentMaxChunks: DEFAULT_LONG_DOCUMENT_MAX_CHUNKS,
+  allowedChunkTokenSizes: [DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE],
   effectiveChunkTokenSize: 0,
   articleContext: null,
   summary: "",
@@ -48,6 +85,66 @@ const tokenizerInstances = new Map();
 
 function logPopupEvent(event, details = {}) {
   console.log(`[eisonAI Popup] ${event}`, details);
+}
+
+function normalizePositiveNumbers(raw) {
+  if (!Array.isArray(raw)) return [];
+  const values = raw
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  return Array.from(new Set(values)).sort((a, b) => a - b);
+}
+
+function renderPromptTemplate(template, values) {
+  return String(template ?? "").replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) => {
+    if (!Object.prototype.hasOwnProperty.call(values, key)) return match;
+    return String(values[key] ?? "");
+  });
+}
+
+async function loadBundledPromptText(url, fallback) {
+  try {
+    const response = await fetch(url);
+    const text = response?.ok ? await response.text() : "";
+    return String(text ?? "").trim() || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+async function refreshPromptTemplates() {
+  const [
+    defaultSystemPrompt,
+    readingAnchorSystemSuffixTemplate,
+    readingAnchorUserPromptTemplate,
+    readingAnchorSummaryItemTemplate,
+  ] = await Promise.all([
+    loadBundledPromptText(DEFAULT_SYSTEM_PROMPT_URL, DEFAULT_SYSTEM_PROMPT),
+    loadBundledPromptText(
+      READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL,
+      DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE,
+    ),
+    loadBundledPromptText(
+      READING_ANCHOR_USER_PROMPT_TEMPLATE_URL,
+      DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE,
+    ),
+    loadBundledPromptText(
+      READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL,
+      DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE,
+    ),
+  ]);
+
+  state.defaultSystemPrompt = defaultSystemPrompt;
+  state.readingAnchorSystemSuffixTemplate = readingAnchorSystemSuffixTemplate;
+  state.readingAnchorUserPromptTemplate = readingAnchorUserPromptTemplate;
+  state.readingAnchorSummaryItemTemplate = readingAnchorSummaryItemTemplate;
+}
+
+function removeThinkTags(text) {
+  return String(text ?? "")
+    .replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, "")
+    .replace(/<thinking\b[^>]*>[\s\S]*?<\/thinking>/gi, "")
+    .trim();
 }
 
 function callWithOptionalCallback(invoker) {
@@ -180,38 +277,39 @@ function buildUserPrompt(context) {
 }
 
 function buildReadingAnchorSystemPrompt({ index, total }) {
-  return [
-    "You create compact reading anchors for a longer document.",
-    `This is chunk ${index} of ${total}.`,
-    "Return markdown bullets only. Preserve concrete facts, names, numbers, and caveats.",
-  ].join("\n");
+  const base = String(state.chunkPrompt || DEFAULT_CHUNK_PROMPT).trim();
+  const suffix = renderPromptTemplate(
+    state.readingAnchorSystemSuffixTemplate ||
+      DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE,
+    {
+      chunk_index: index,
+      chunk_total: total,
+    },
+  );
+  return base ? [base, "", suffix].join("\n") : suffix;
 }
 
 function buildReadingAnchorUserPrompt(chunkText) {
-  return [
-    "Create a concise reading anchor for this chunk.",
-    "",
-    chunkText,
-  ].join("\n");
+  return renderPromptTemplate(
+    state.readingAnchorUserPromptTemplate || DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE,
+    {
+      content: String(chunkText ?? "").trim() || "(empty)",
+    },
+  );
 }
 
 function buildSummaryUserPromptFromAnchors(context, anchors) {
-  const sections = [];
-  if (context.title) {
-    sections.push(`TITLE\n${context.title}`);
-  }
-  if (context.url) {
-    sections.push(`URL\n${context.url}`);
-  }
-  sections.push(
-    `READING ANCHORS\n${anchors
-      .map((anchor) => `Chunk ${anchor.index + 1} (${anchor.tokenCount} tokens)\n${anchor.text}`)
-      .join("\n\n")}`,
-  );
-  sections.push(
-    "TASK\nCreate a concise markdown cognitive index with:\n- one short overview\n- key claims\n- caveats or risks\n- open questions",
-  );
-  return sections.join("\n\n");
+  if (!anchors?.length) return "(empty)";
+  const template =
+    state.readingAnchorSummaryItemTemplate || DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE;
+  return anchors
+    .map((anchor) =>
+      renderPromptTemplate(template, {
+        chunk_index: anchor.index + 1,
+        chunk_text: removeThinkTags(anchor.text),
+      }).trim(),
+    )
+    .join("\n\n");
 }
 
 function resolveTokenizer(encoding) {
@@ -358,13 +456,19 @@ function chunkByTokens(text, chunkTokenSize) {
   return { totalTokens: tokens.length, chunks };
 }
 
-function nextLowerChunkTokenSize(current) {
+function getAllowedChunkTokenSizes() {
+  return normalizePositiveNumbers(state.allowedChunkTokenSizes);
+}
+
+function nextLowerChunkTokenSize(current, allowedSizes = getAllowedChunkTokenSizes()) {
   const currentValue = Number(current) || 0;
-  if (currentValue <= LONG_DOCUMENT_MIN_CHUNK_TOKEN_SIZE) return null;
-  return Math.max(
-    LONG_DOCUMENT_MIN_CHUNK_TOKEN_SIZE,
-    currentValue - LONG_DOCUMENT_RETRY_CHUNK_STEP,
-  );
+  if (currentValue <= 0) return null;
+  const sorted = normalizePositiveNumbers(allowedSizes);
+  let candidate = null;
+  for (const size of sorted) {
+    if (size < currentValue) candidate = size;
+  }
+  return candidate;
 }
 
 function collectErrorMessages(error) {
@@ -464,8 +568,39 @@ function isContextWindowExceededError(error) {
   return false;
 }
 
+function normalizeBackendSelection(value) {
+  const raw = String(value || "auto");
+  if (raw === "appleIntelligence" || raw === "apple" || raw === "local") return "apple";
+  if (raw === "byok") return "byok";
+  return "auto";
+}
+
+function isAppleAvailableForAuto() {
+  return Boolean(state.autoAppleAvailability?.available || state.availability?.available);
+}
+
+function resolveExecutionBackend(tokenEstimate) {
+  const selection = normalizeBackendSelection(state.backendSelection);
+  if (selection === "apple") return "apple";
+  if (selection === "byok") return "byok";
+
+  const threshold = Number(state.autoStrategyThreshold);
+  const resolvedThreshold =
+    Number.isFinite(threshold) && threshold > 0
+      ? threshold
+      : DEFAULT_AUTO_STRATEGY_THRESHOLD;
+  const count = Number.isFinite(tokenEstimate) ? Number(tokenEstimate) : 0;
+  if (count <= resolvedThreshold && isAppleAvailableForAuto()) {
+    return "apple";
+  }
+  return "byok";
+}
+
 function resolvedBackendLabel() {
-  const selection = state.backendSelection;
+  if (state.executionBackend === "apple") return "Apple Intelligence";
+  if (state.executionBackend === "byok") return "BYOK";
+
+  const selection = normalizeBackendSelection(state.backendSelection);
   if (selection === "apple") {
     return "Apple Intelligence";
   }
@@ -479,16 +614,14 @@ function resolvedBackendLabel() {
 }
 
 function resolvedModelId() {
-  if (state.backendSelection === "apple") {
+  const executionBackend = state.executionBackend || normalizeBackendSelection(state.backendSelection);
+  if (executionBackend === "apple") {
     return "apple-intelligence";
   }
-  if (state.backendSelection === "byok") {
+  if (executionBackend === "byok") {
     return state.byokSettings?.model?.trim() || "byok";
   }
-  if (state.availability?.available) {
-    return "apple-intelligence";
-  }
-  return state.byokSettings?.model?.trim() || "byok";
+  return isAppleAvailableForAuto() ? "apple-intelligence" : state.byokSettings?.model?.trim() || "byok";
 }
 
 function renderSummary(markdown, asMarkdown = false) {
@@ -538,7 +671,9 @@ async function refreshConfiguration() {
     backendPayload,
     byokPayload,
     availabilityPayload,
+    autoStrategyPayload,
     systemPromptPayload,
+    chunkPromptPayload,
     tokenEstimatorPayload,
     chunkSizePayload,
     maxChunksPayload,
@@ -546,22 +681,48 @@ async function refreshConfiguration() {
     sendNative("getGenerationBackend"),
     sendNative("getBYOKSettings"),
     sendNative("fm.checkAvailability"),
+    sendNative("getAutoStrategySettings"),
     sendNative("getSystemPrompt"),
+    sendNative("getChunkPrompt"),
     sendNative("getTokenEstimatorEncoding"),
     sendNative("getLongDocumentChunkTokenSize"),
     sendNative("getLongDocumentMaxChunks"),
   ]);
+  await refreshPromptTemplates();
 
-  state.backendSelection = backendPayload.backend || "auto";
+  state.backendSelection = normalizeBackendSelection(backendPayload.backend || "auto");
+  state.executionBackend = "";
   state.byokSettings = byokPayload;
   state.availability = availabilityPayload;
+  state.autoAppleAvailability = autoStrategyPayload.appleAvailability || availabilityPayload;
+  const strategyThreshold = Number(autoStrategyPayload.strategyThreshold);
+  state.autoStrategyThreshold =
+    Number.isFinite(strategyThreshold) && strategyThreshold > 0
+      ? strategyThreshold
+      : DEFAULT_AUTO_STRATEGY_THRESHOLD;
   state.systemPrompt = systemPromptPayload.prompt || "";
+  state.chunkPrompt = chunkPromptPayload.prompt || DEFAULT_CHUNK_PROMPT;
   if (TOKENIZER_GLOBALS[tokenEstimatorPayload.encoding]) {
     state.tokenEstimatorEncoding = tokenEstimatorPayload.encoding;
   }
+  const allowedChunkTokenSizes = normalizePositiveNumbers(chunkSizePayload.allowedChunkSizes);
+  if (allowedChunkTokenSizes.length) {
+    state.allowedChunkTokenSizes = allowedChunkTokenSizes;
+  }
   const chunkTokenSize = Number(chunkSizePayload.chunkTokenSize);
-  if (Number.isFinite(chunkTokenSize) && chunkTokenSize > 0) {
+  if (
+    Number.isFinite(chunkTokenSize) &&
+    chunkTokenSize > 0 &&
+    state.allowedChunkTokenSizes.includes(chunkTokenSize)
+  ) {
     state.longDocumentChunkTokenSize = chunkTokenSize;
+  } else {
+    const fallbackChunkSize = Number(chunkSizePayload.fallbackChunkSize);
+    state.longDocumentChunkTokenSize =
+      Number.isFinite(fallbackChunkSize) &&
+      state.allowedChunkTokenSizes.includes(fallbackChunkSize)
+        ? fallbackChunkSize
+        : DEFAULT_LONG_DOCUMENT_CHUNK_TOKEN_SIZE;
   }
   const routingThreshold = Number(chunkSizePayload.routingThreshold);
   if (Number.isFinite(routingThreshold) && routingThreshold > 0) {
@@ -576,8 +737,11 @@ async function refreshConfiguration() {
   logPopupEvent("config.loaded", {
     backend: state.backendSelection,
     resolvedBackend: resolvedModelId(),
+    autoStrategyThreshold: state.autoStrategyThreshold,
+    appleAvailable: isAppleAvailableForAuto(),
     tokenEstimator: state.tokenEstimatorEncoding,
     chunkTokenSize: state.longDocumentChunkTokenSize,
+    allowedChunkTokenSizes: state.allowedChunkTokenSizes,
     routingThreshold: state.longDocumentRoutingThreshold,
     maxChunks: state.longDocumentMaxChunks,
   });
@@ -587,6 +751,7 @@ async function streamNativeText({
   systemPrompt,
   userPrompt,
   tokenEstimate,
+  backend = state.executionBackend || "byok",
   renderOutput = true,
 }) {
   try {
@@ -594,6 +759,7 @@ async function streamNativeText({
       systemPrompt,
       promptPrefix: userPrompt.slice(0, 1200),
       tokenEstimate,
+      backend,
     });
   } catch (_) {
     // Prewarm is optional.
@@ -603,6 +769,7 @@ async function streamNativeText({
     systemPrompt,
     userPrompt,
     tokenEstimate,
+    backend,
     options: {
       temperature: 0.2,
       maximumResponseTokens: MAX_OUTPUT_TOKENS,
@@ -613,6 +780,7 @@ async function streamNativeText({
   state.cursor = startPayload.cursor || 0;
   let text = "";
   logPopupEvent("stream.start", {
+    backend,
     tokenEstimate,
     promptChars: userPrompt.length,
     systemPromptChars: systemPrompt.length,
@@ -647,6 +815,7 @@ async function streamNativeText({
 
 async function summarizeLongDocument(context, tokenEstimate) {
   let chunkTokenSize = Math.max(1, state.longDocumentChunkTokenSize);
+  const allowedChunkSizes = getAllowedChunkTokenSizes();
   let lastError = null;
 
   while (chunkTokenSize) {
@@ -658,10 +827,11 @@ async function summarizeLongDocument(context, tokenEstimate) {
         throw error;
       }
 
-      const nextChunkTokenSize = nextLowerChunkTokenSize(chunkTokenSize);
+      const nextChunkTokenSize = nextLowerChunkTokenSize(chunkTokenSize, allowedChunkSizes);
       logPopupEvent("longdoc.contextLimit", {
         previousChunkTokenSize: chunkTokenSize,
         nextChunkTokenSize,
+        allowedChunkSizes,
         tokenEstimate,
         errorCode: error.code,
         errorMessage: error.message,
@@ -672,6 +842,9 @@ async function summarizeLongDocument(context, tokenEstimate) {
 
       setStatus(`Context limit, retry ${nextChunkTokenSize}…`);
       renderSummary(`Context limit, retrying with ${nextChunkTokenSize}-token chunks…`);
+      if (state.jobId) {
+        await sendNative("fm.stream.cancel", { jobId: state.jobId }).catch(() => {});
+      }
       state.readingAnchors = [];
       state.jobId = null;
       state.cursor = 0;
@@ -719,6 +892,7 @@ async function summarizeLongDocumentWithChunkSize(context, tokenEstimate, chunkT
       }),
       userPrompt: buildReadingAnchorUserPrompt(chunk.text),
       tokenEstimate,
+      backend: "apple",
       renderOutput: true,
     });
     if (state.cancelRequested) {
@@ -727,7 +901,7 @@ async function summarizeLongDocumentWithChunkSize(context, tokenEstimate, chunkT
     state.readingAnchors.push({
       index: chunk.index,
       tokenCount: chunk.tokenCount,
-      text: anchorText.trim(),
+      text: removeThinkTags(anchorText),
       startUTF16: chunk.startUTF16,
       endUTF16: chunk.endUTF16,
     });
@@ -748,9 +922,10 @@ async function summarizeLongDocumentWithChunkSize(context, tokenEstimate, chunkT
     chunkTokenSize,
   });
   return streamNativeText({
-    systemPrompt: state.systemPrompt,
+    systemPrompt: state.defaultSystemPrompt,
     userPrompt: summaryUserPrompt,
     tokenEstimate,
+    backend: "apple",
     renderOutput: true,
   }).then((summaryText) => ({
     summaryText,
@@ -771,10 +946,17 @@ async function startSummary() {
   const context = await getActiveArticleContext();
   state.articleContext = context;
   state.tokenEstimate = estimateTokensWithTokenizer(context.body);
-  state.isLongDocument = state.tokenEstimate > state.longDocumentRoutingThreshold;
+  state.executionBackend = resolveExecutionBackend(state.tokenEstimate);
+  state.isLongDocument =
+    state.executionBackend === "apple" &&
+    state.tokenEstimate > state.longDocumentRoutingThreshold;
   state.readingAnchors = [];
   state.effectiveChunkTokenSize = 0;
+  updateBackendBadge();
   logPopupEvent("summary.context", {
+    backendSelection: state.backendSelection,
+    executionBackend: state.executionBackend,
+    autoStrategyThreshold: state.autoStrategyThreshold,
     tokenEstimate: state.tokenEstimate,
     routingThreshold: state.longDocumentRoutingThreshold,
     isLongDocument: state.isLongDocument,
@@ -796,32 +978,13 @@ async function startSummary() {
   } else {
     setStatus("Generating…");
     setProgressState("generating", true);
-    try {
-      state.summary = await streamNativeText({
-        systemPrompt: state.systemPrompt,
-        userPrompt,
-        tokenEstimate: state.tokenEstimate,
-        renderOutput: true,
-      });
-    } catch (error) {
-      if (!isContextWindowExceededError(error)) {
-        throw error;
-      }
-      logPopupEvent("summary.direct.contextLimit", {
-        tokenEstimate: state.tokenEstimate,
-        routingThreshold: state.longDocumentRoutingThreshold,
-        errorCode: error.code,
-        errorMessage: error.message,
-      });
-      state.isLongDocument = true;
-      setStatus(`Context limit, retry ${state.longDocumentChunkTokenSize}…`);
-      renderSummary(
-        `Context limit, retrying with ${state.longDocumentChunkTokenSize}-token chunks…`,
-      );
-      const result = await summarizeLongDocument(context, state.tokenEstimate);
-      state.summary = result.summaryText;
-      userPrompt = result.userPrompt;
-    }
+    state.summary = await streamNativeText({
+      systemPrompt: state.systemPrompt,
+      userPrompt,
+      tokenEstimate: state.tokenEstimate,
+      backend: state.executionBackend,
+      renderOutput: true,
+    });
   }
 
   if (state.cancelRequested) {
@@ -840,7 +1003,7 @@ async function startSummary() {
     title: context.title,
     articleText: context.body,
     summaryText: state.summary,
-    systemPrompt: state.systemPrompt,
+    systemPrompt: state.isLongDocument ? state.defaultSystemPrompt : state.systemPrompt,
     userPrompt,
     modelId: resolvedModelId(),
     readingAnchors: state.readingAnchors,

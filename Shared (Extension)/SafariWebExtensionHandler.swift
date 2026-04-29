@@ -675,6 +675,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                     "payload": [
                         "strategyThreshold": loadAutoStrategyThreshold(),
                         "localPreference": loadAutoLocalPreference(),
+                        "qwenEnabled": false,
                         "appleAvailability": applePayload,
                     ],
                 ])
