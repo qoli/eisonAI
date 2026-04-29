@@ -271,6 +271,24 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         ChunkPromptStore().loadWithLanguage()
     }
 
+    private func loadLongDocumentPromptTemplates() -> [String: String] {
+        [
+            "defaultSystemPrompt": AppConfig.defaultSystemPrompt,
+            "readingAnchorSystemSuffix": PromptTemplates.load(
+                name: "reading_anchor_system_suffix",
+                fallback: "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})"
+            ),
+            "readingAnchorUserPrompt": PromptTemplates.load(
+                name: "reading_anchor_user_prompt",
+                fallback: "CONTENT\n{{content}}"
+            ),
+            "readingAnchorSummaryItem": PromptTemplates.load(
+                name: "reading_anchor_summary_item",
+                fallback: "Chunk {{chunk_index}}\n{{chunk_text}}"
+            ),
+        ]
+    }
+
     private func loadTokenEstimatorEncoding() -> String {
         guard let stored = sharedDefaults()?.string(forKey: tokenEstimatorEncodingKey) else {
             return "cl100k_base"
@@ -624,6 +642,15 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 "payload": [
                     "prompt": loadChunkPrompt(),
                 ],
+            ])
+            return
+
+        case "getLongDocumentPromptTemplates":
+            complete(context, responseMessage: [
+                "v": 1,
+                "type": "response",
+                "name": "longDocumentPromptTemplates",
+                "payload": loadLongDocumentPromptTemplates(),
             ])
             return
 

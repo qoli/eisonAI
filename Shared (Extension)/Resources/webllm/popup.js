@@ -36,19 +36,6 @@ const DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE =
   "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})";
 const DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE = "CONTENT\n{{content}}";
 const DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE = "Chunk {{chunk_index}}\n{{chunk_text}}";
-const DEFAULT_SYSTEM_PROMPT_URL = new URL("../default_system_prompt.txt", import.meta.url);
-const READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL = new URL(
-  "../reading_anchor_system_suffix.txt",
-  import.meta.url,
-);
-const READING_ANCHOR_USER_PROMPT_TEMPLATE_URL = new URL(
-  "../reading_anchor_user_prompt.txt",
-  import.meta.url,
-);
-const READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL = new URL(
-  "../reading_anchor_summary_item.txt",
-  import.meta.url,
-);
 const CJK_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu;
 const CJK_SINGLE_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 
@@ -100,44 +87,6 @@ function renderPromptTemplate(template, values) {
     if (!Object.prototype.hasOwnProperty.call(values, key)) return match;
     return String(values[key] ?? "");
   });
-}
-
-async function loadBundledPromptText(url, fallback) {
-  try {
-    const response = await fetch(url);
-    const text = response?.ok ? await response.text() : "";
-    return String(text ?? "").trim() || fallback;
-  } catch (_) {
-    return fallback;
-  }
-}
-
-async function refreshPromptTemplates() {
-  const [
-    defaultSystemPrompt,
-    readingAnchorSystemSuffixTemplate,
-    readingAnchorUserPromptTemplate,
-    readingAnchorSummaryItemTemplate,
-  ] = await Promise.all([
-    loadBundledPromptText(DEFAULT_SYSTEM_PROMPT_URL, DEFAULT_SYSTEM_PROMPT),
-    loadBundledPromptText(
-      READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE_URL,
-      DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE,
-    ),
-    loadBundledPromptText(
-      READING_ANCHOR_USER_PROMPT_TEMPLATE_URL,
-      DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE,
-    ),
-    loadBundledPromptText(
-      READING_ANCHOR_SUMMARY_ITEM_TEMPLATE_URL,
-      DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE,
-    ),
-  ]);
-
-  state.defaultSystemPrompt = defaultSystemPrompt;
-  state.readingAnchorSystemSuffixTemplate = readingAnchorSystemSuffixTemplate;
-  state.readingAnchorUserPromptTemplate = readingAnchorUserPromptTemplate;
-  state.readingAnchorSummaryItemTemplate = readingAnchorSummaryItemTemplate;
 }
 
 function removeThinkTags(text) {
@@ -579,6 +528,10 @@ function isAppleAvailableForAuto() {
   return Boolean(state.autoAppleAvailability?.available || state.availability?.available);
 }
 
+function isAutoSelection() {
+  return normalizeBackendSelection(state.backendSelection) === "auto";
+}
+
 function resolveExecutionBackend(tokenEstimate) {
   const selection = normalizeBackendSelection(state.backendSelection);
   if (selection === "apple") return "apple";
@@ -597,8 +550,12 @@ function resolveExecutionBackend(tokenEstimate) {
 }
 
 function resolvedBackendLabel() {
-  if (state.executionBackend === "apple") return "Apple Intelligence";
-  if (state.executionBackend === "byok") return "BYOK";
+  if (state.executionBackend === "apple") {
+    return isAutoSelection() ? "Apple Intelligence (Auto)" : "Apple Intelligence";
+  }
+  if (state.executionBackend === "byok") {
+    return isAutoSelection() ? "BYOK (Auto)" : "BYOK";
+  }
 
   const selection = normalizeBackendSelection(state.backendSelection);
   if (selection === "apple") {
@@ -608,9 +565,9 @@ function resolvedBackendLabel() {
     return "BYOK";
   }
   if (state.availability?.available) {
-    return "Auto Apple";
+    return "Apple Intelligence (Auto)";
   }
-  return "Auto BYOK";
+  return "BYOK (Auto)";
 }
 
 function resolvedModelId() {
@@ -622,6 +579,15 @@ function resolvedModelId() {
     return state.byokSettings?.model?.trim() || "byok";
   }
   return isAppleAvailableForAuto() ? "apple-intelligence" : state.byokSettings?.model?.trim() || "byok";
+}
+
+function describeError(error) {
+  return {
+    code: error?.code || error?.errorCode || "",
+    command: error?.nativeCommand || "",
+    message: error?.message || String(error),
+    messages: collectErrorMessages(error),
+  };
 }
 
 function renderSummary(markdown, asMarkdown = false) {
@@ -674,6 +640,7 @@ async function refreshConfiguration() {
     autoStrategyPayload,
     systemPromptPayload,
     chunkPromptPayload,
+    promptTemplatesPayload,
     tokenEstimatorPayload,
     chunkSizePayload,
     maxChunksPayload,
@@ -684,11 +651,11 @@ async function refreshConfiguration() {
     sendNative("getAutoStrategySettings"),
     sendNative("getSystemPrompt"),
     sendNative("getChunkPrompt"),
+    sendNative("getLongDocumentPromptTemplates"),
     sendNative("getTokenEstimatorEncoding"),
     sendNative("getLongDocumentChunkTokenSize"),
     sendNative("getLongDocumentMaxChunks"),
   ]);
-  await refreshPromptTemplates();
 
   state.backendSelection = normalizeBackendSelection(backendPayload.backend || "auto");
   state.executionBackend = "";
@@ -702,6 +669,17 @@ async function refreshConfiguration() {
       : DEFAULT_AUTO_STRATEGY_THRESHOLD;
   state.systemPrompt = systemPromptPayload.prompt || "";
   state.chunkPrompt = chunkPromptPayload.prompt || DEFAULT_CHUNK_PROMPT;
+  state.defaultSystemPrompt =
+    promptTemplatesPayload.defaultSystemPrompt || DEFAULT_SYSTEM_PROMPT;
+  state.readingAnchorSystemSuffixTemplate =
+    promptTemplatesPayload.readingAnchorSystemSuffix ||
+    DEFAULT_READING_ANCHOR_SYSTEM_SUFFIX_TEMPLATE;
+  state.readingAnchorUserPromptTemplate =
+    promptTemplatesPayload.readingAnchorUserPrompt ||
+    DEFAULT_READING_ANCHOR_USER_PROMPT_TEMPLATE;
+  state.readingAnchorSummaryItemTemplate =
+    promptTemplatesPayload.readingAnchorSummaryItem ||
+    DEFAULT_READING_ANCHOR_SUMMARY_ITEM_TEMPLATE;
   if (TOKENIZER_GLOBALS[tokenEstimatorPayload.encoding]) {
     state.tokenEstimatorEncoding = tokenEstimatorPayload.encoding;
   }
@@ -737,8 +715,21 @@ async function refreshConfiguration() {
   logPopupEvent("config.loaded", {
     backend: state.backendSelection,
     resolvedBackend: resolvedModelId(),
+    badgeLabel: resolvedBackendLabel(),
     autoStrategyThreshold: state.autoStrategyThreshold,
     appleAvailable: isAppleAvailableForAuto(),
+    appleAvailabilityReason:
+      state.autoAppleAvailability?.reason || state.availability?.reason || "",
+    byokProvider: state.byokSettings?.provider || "",
+    byokModel: state.byokSettings?.model || "",
+    byokConfigured: Boolean(
+      state.byokSettings?.apiURL &&
+      state.byokSettings?.model &&
+      (
+        state.byokSettings?.provider === "ollama" ||
+        state.byokSettings?.apiKey
+      ),
+    ),
     tokenEstimator: state.tokenEstimatorEncoding,
     chunkTokenSize: state.longDocumentChunkTokenSize,
     allowedChunkTokenSizes: state.allowedChunkTokenSizes,
@@ -781,6 +772,8 @@ async function streamNativeText({
   let text = "";
   logPopupEvent("stream.start", {
     backend,
+    backendSelection: state.backendSelection,
+    badgeLabel: resolvedBackendLabel(),
     tokenEstimate,
     promptChars: userPrompt.length,
     systemPromptChars: systemPrompt.length,
@@ -956,6 +949,7 @@ async function startSummary() {
   logPopupEvent("summary.context", {
     backendSelection: state.backendSelection,
     executionBackend: state.executionBackend,
+    badgeLabel: resolvedBackendLabel(),
     autoStrategyThreshold: state.autoStrategyThreshold,
     tokenEstimate: state.tokenEstimate,
     routingThreshold: state.longDocumentRoutingThreshold,
@@ -978,13 +972,62 @@ async function startSummary() {
   } else {
     setStatus("Generating…");
     setProgressState("generating", true);
-    state.summary = await streamNativeText({
-      systemPrompt: state.systemPrompt,
-      userPrompt,
-      tokenEstimate: state.tokenEstimate,
-      backend: state.executionBackend,
-      renderOutput: true,
-    });
+    try {
+      state.summary = await streamNativeText({
+        systemPrompt: state.systemPrompt,
+        userPrompt,
+        tokenEstimate: state.tokenEstimate,
+        backend: state.executionBackend,
+        renderOutput: true,
+      });
+    } catch (error) {
+      const canFallbackToBYOK =
+        isAutoSelection() &&
+        state.executionBackend === "apple" &&
+        isContextWindowExceededError(error);
+
+      logPopupEvent("summary.singleShot.error", {
+        backendSelection: state.backendSelection,
+        executionBackend: state.executionBackend,
+        canFallbackToBYOK,
+        tokenEstimate: state.tokenEstimate,
+        routingThreshold: state.longDocumentRoutingThreshold,
+        error: describeError(error),
+      });
+
+      if (!canFallbackToBYOK) {
+        throw error;
+      }
+
+      if (state.jobId) {
+        await sendNative("fm.stream.cancel", { jobId: state.jobId }).catch(() => {});
+      }
+      state.jobId = null;
+      state.cursor = 0;
+      state.executionBackend = "byok";
+      state.isLongDocument = false;
+      state.readingAnchors = [];
+      state.effectiveChunkTokenSize = 0;
+      updateBackendBadge();
+      setStatus("Apple context limit, using BYOK…");
+      renderSummary("");
+      logPopupEvent("summary.autoFallbackToBYOK", {
+        reason: "context_window_exceeded",
+        fromBackend: "apple",
+        toBackend: "byok",
+        tokenEstimate: state.tokenEstimate,
+        byokProvider: state.byokSettings?.provider || "",
+        byokModel: state.byokSettings?.model || "",
+      });
+
+      state.summary = await streamNativeText({
+        systemPrompt: state.systemPrompt,
+        userPrompt,
+        tokenEstimate: state.tokenEstimate,
+        backend: state.executionBackend,
+        renderOutput: true,
+      });
+    }
   }
 
   if (state.cancelRequested) {
@@ -1057,9 +1100,10 @@ async function handleSummarize() {
     setStatus("Error");
     setProgressState("error");
     logPopupEvent("summary.error", {
-      code: error?.code,
-      command: error?.nativeCommand,
-      message: error?.message || String(error),
+      error: describeError(error),
+      backendSelection: state.backendSelection,
+      executionBackend: state.executionBackend,
+      badgeLabel: resolvedBackendLabel(),
       tokenEstimate: state.tokenEstimate,
       isLongDocument: state.isLongDocument,
       chunkTokenSize: state.longDocumentChunkTokenSize,
