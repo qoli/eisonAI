@@ -20,6 +20,55 @@ usage() {
     echo "預設: platform=all, method=release"
 }
 
+fail() {
+    echo "錯誤: $*" >&2
+    exit 1
+}
+
+ensure_clean_worktree() {
+    cd "$project_path"
+
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        fail "目前目錄不是 git repository：$project_path"
+    fi
+
+    if [ -n "$(git status --porcelain=v1)" ]; then
+        echo "工作區不是空的，請先 commit/stash/清理後再發佈：" >&2
+        git status --short >&2
+        exit 1
+    fi
+}
+
+ensure_release_tag_available() {
+    local tag_name="v$1"
+
+    if git rev-parse -q --verify "refs/tags/$tag_name" >/dev/null; then
+        fail "tag 已存在：$tag_name"
+    fi
+}
+
+commit_and_tag_release() {
+    local version="$1"
+    local tag_name="v$version"
+
+    cd "$project_path"
+    ensure_release_tag_available "$version"
+
+    git add -u -- .
+
+    if git diff --cached --quiet; then
+        fail "發佈成功，但沒有可提交的版本變更。"
+    fi
+
+    echo "準備提交 release 變更："
+    git diff --cached --name-status
+
+    git commit -m "chore(release): $tag_name"
+    git tag -a "$tag_name" -m "Release $tag_name"
+
+    echo "已建立 release commit 並標註 tag：$tag_name"
+}
+
 require_non_empty_file() {
     local file_path="$1"
     if [ ! -s "$file_path" ]; then
@@ -242,6 +291,42 @@ new_version="$1"
 platform="${2:-all}"
 method="${3:-release}"
 
+ensure_clean_worktree
+
+case "$platform" in
+    ios)
+        lane_prefix="ios"
+        ;;
+    macos|mac)
+        lane_prefix="mac"
+        ;;
+    all)
+        lane_prefix="all"
+        ;;
+    *)
+        echo "未知平台: $platform"
+        usage
+        exit 1
+        ;;
+esac
+
+case "$method" in
+    tf)
+        lane_suffix="tf"
+        ;;
+    release)
+        lane_suffix="release"
+        ensure_release_tag_available "$new_version"
+        ;;
+    *)
+        echo "未知發佈方法: $method"
+        usage
+        exit 1
+        ;;
+esac
+
+lane="${lane_prefix}_${lane_suffix}"
+
 if [ ! -x "$copilot_wrapper" ]; then
     echo "找不到可執行的 callCopilot.sh：$copilot_wrapper"
     exit 1
@@ -309,39 +394,9 @@ sed -i '' "s/MARKETING_VERSION = .*/MARKETING_VERSION = $new_version;/g" "$proje
 
 echo "已修改 MARKETING_VERSION 為：$new_version"
 
-# 發佈平台
-case "$platform" in
-    ios)
-        lane_prefix="ios"
-        ;;
-    macos|mac)
-        lane_prefix="mac"
-        ;;
-    all)
-        lane_prefix="all"
-        ;;
-    *)
-        echo "未知平台: $platform"
-        usage
-        exit 1
-        ;;
-esac
-
-case "$method" in
-    tf)
-        lane_suffix="tf"
-        ;;
-    release)
-        lane_suffix="release"
-        ;;
-    *)
-        echo "未知發佈方法: $method"
-        usage
-        exit 1
-        ;;
-esac
-
-lane="${lane_prefix}_${lane_suffix}"
-
 cd "$project_path"
 fastlane ios "$lane"
+
+if [ "$method" = "release" ]; then
+    commit_and_tag_release "$new_version"
+fi
