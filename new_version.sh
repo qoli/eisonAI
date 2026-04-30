@@ -10,6 +10,7 @@ copilot_wrapper="/Volumes/Data/Github/macOSAgentBot/callCopilot.sh"
 copilot_home_seed="$HOME/.copilot"
 copilot_run_root="$project_path/logs/new_version_copilot"
 copilot_task_complete_grace_period=10
+copilot_max_autopilot_continues="${COPILOT_MAX_AUTOPILOT_CONTINUES:-10}"
 
 usage() {
     echo "使用方式: ./new_version.sh <version> [platform] [method]"
@@ -79,9 +80,37 @@ require_non_empty_file() {
 
 validation_error=""
 
+extract_version_headings() {
+    local file_path="$1"
+    grep -E '^## [0-9]+(\.[0-9]+)*$' "$file_path" | sed 's/^## //'
+}
+
+single_version_for_file() {
+    local file_path="$1"
+    local label="$2"
+    local headings
+    local versions
+    local total_count
+    local unique_count
+
+    headings="$(extract_version_headings "$file_path")"
+    versions="$(printf '%s\n' "$headings" | sed '/^$/d' | sort -u)"
+    total_count="$(printf '%s\n' "$headings" | sed '/^$/d' | wc -l | tr -d ' ')"
+    unique_count="$(printf '%s\n' "$versions" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+    if [ "$total_count" -ne 1 ] || [ "$unique_count" -ne 1 ]; then
+        validation_error="$label 必須剛好包含一個純版本 heading，目前找到 $total_count 個 heading、$unique_count 個版本。"
+        return 1
+    fi
+
+    printf '%s\n' "$versions"
+}
+
 validate_changelog_outputs() {
     local english_changelog="$project_path/fastlane/changelog.txt"
     local telegram_changelog="$project_path/telegram/changelog.md"
+    local english_version
+    local telegram_version
 
     validation_error=""
 
@@ -107,14 +136,18 @@ validate_changelog_outputs() {
         return 1
     fi
 
-    if ! grep -Eq '^## [0-9]+(\.[0-9]+)*$' "$english_changelog"; then
-        validation_error="fastlane/changelog.txt 缺少版本 heading。"
+    if ! english_version="$(single_version_for_file "$english_changelog" "fastlane/changelog.txt")"; then
         echo "$validation_error" >&2
         return 1
     fi
 
-    if ! grep -Eq '^## [0-9]+(\.[0-9]+)*$' "$telegram_changelog"; then
-        validation_error="telegram/changelog.md 缺少版本 heading。"
+    if ! telegram_version="$(single_version_for_file "$telegram_changelog" "telegram/changelog.md")"; then
+        echo "$validation_error" >&2
+        return 1
+    fi
+
+    if [ "$english_version" != "$telegram_version" ]; then
+        validation_error="兩個 changelog 的版本 heading 不一致：fastlane=$english_version, telegram=$telegram_version。"
         echo "$validation_error" >&2
         return 1
     fi
@@ -211,7 +244,7 @@ run_copilot_prompt() {
         echo '    --allow-all \'
         echo '    --no-ask-user \'
         echo '    --no-remote \'
-        echo '    --max-autopilot-continues 12 \'
+        printf '    --max-autopilot-continues %q \\\n' "$copilot_max_autopilot_continues"
         echo '    -i "$(cat "$PROMPT_FILE")"'
     } > "$runner_script"
     chmod +x "$runner_script"
@@ -265,9 +298,10 @@ $copilot_prompt
 $validation_error
 
 請直接覆寫 $project_path/fastlane/changelog.txt 與 $project_path/telegram/changelog.md。
-兩個檔案都必須包含且至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。
+兩個檔案都必須剛好包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。
 telegram/changelog.md 必須保留中文，不可改寫成英文版。
 不要使用 ## 未發佈 - 日期、不要省略版本 heading、不要只輸出條列內容。
+仍需使用 translation-validator agent 做唯讀驗證；不要呼叫其他 agent/subtask。
 EOF
 )
 
@@ -338,52 +372,18 @@ if ! command -v tmux >/dev/null 2>&1; then
 fi
 
 copilot_prompt=$(cat <<EOF
-你必須遵守以下強制工作流，不能跳步，也不能在未驗證前宣告完成。
+直接呼叫 Notion MCP 讀取 page 2e2c1b36c40180849002d41f8892a5c7，不要先檢查工具列表。只從主頁正文找純版本 heading：## x.y。
+選數值最大的版本，只取該 heading 到下一個純版本 heading 前的內容；不要混入頁首子頁、說明文字或舊版本。
 
-Phase 1: Tool check
-1. 先檢查當前可用工具中是否存在 notion MCP / notion 相關工具。
-2. 如果 notion 工具不存在，只能報錯一次並停止。不要重複道歉、不要重複輸出相同內容、不要寫任何輸出文件。
+覆寫這兩個文件：
+- ${project_path}/fastlane/changelog.txt：英文 plain text，保留同一行 ## x.y 版本 heading，不要 HTML 或中文。
+- ${project_path}/telegram/changelog.md：中文 Telegram markdown，保留同一行 ## x.y 版本 heading，不要翻成英文。
 
-Phase 2: Source extraction
-3. 如果 notion 工具存在，必須只使用該 notion MCP 工具讀取 page 2e2c1b36c40180849002d41f8892a5c7。
-4. 不要使用 web fetch、瀏覽器抓取、HTML 解析、或任何 notion 以外的替代讀取方式。
-5. 只從主頁正文中尋找版本 heading。合法版本 heading 的格式只能是 ## x.y。
-6. 不要把頁首子頁、頁面說明文字、封面摘要、或其他非 ## x.y heading 內容當成版本內容。
-7. 抽取所有 ## x.y 版本 heading，按版本號大小比較，選出數值最大的版本。
-8. 只提取該版本區塊直到下一個版本 heading 之前的內容，不要附帶其他版本。
-9. 如果你最終抽取到的區塊混入更舊版本內容，直接報錯並停止，不要寫出錯誤文件。
-
-Phase 3: Write outputs
-10. 必須真的覆寫兩個文件，而不是只在終端回覆：
-    - $project_path/fastlane/changelog.txt
-    - $project_path/telegram/changelog.md
-11. 英文 changelog 必須明確保留你選中的最新版本號，不能只輸出條列內容。請用 plain-text 形式寫入 $project_path/fastlane/changelog.txt。
-12. 把最新版本內容翻譯成自然英語，移除所有 HTML 標籤、HTML 實體、以及多餘的 Notion 標記，寫入 $project_path/fastlane/changelog.txt。
-13. 把最新版本內容保留版本號，整理成適合 Telegram 的 markdown，寫入 $project_path/telegram/changelog.md。
-14. $project_path/telegram/changelog.md 必須保留中文內容與中文表述，不可翻譯成英文，也不可直接複製 fastlane/changelog.txt 的英文內容。
-15. fastlane/changelog.txt 與 telegram/changelog.md 都必須至少包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。不要使用 ## 未發佈 - 日期 或其他非純版本號 heading。
-16. 如果任一輸出缺少你選中的最新版本號，直接視為失敗。
-
-Phase 4: Mandatory validation and repair
-17. 在你認為完成之前，必須重新讀取這兩個文件，並使用 translation-validator agent 驗證它們。translation-validator 只能用來驗證，不可用來寫檔。
-18. 你必須讓 translation-validator agent 檢查以下條件：
-    - 兩個文件都非空
-    - 兩個文件都包含至少一行完全符合 ## x.y 的版本 heading
-    - 兩個文件中的版本號都等於你提取到的最新版本號
-    - fastlane/changelog.txt 不包含任何 HTML tag
-    - fastlane/changelog.txt 不殘留中文或其他未翻譯的東亞文字
-    - telegram/changelog.md 必須保留中文，不能是純英文內容
-    - 兩個文件都沒有混入更舊版本內容
-19. 如果 validator 判定任一條件失敗，你必須直接覆寫修正文件，然後重新執行 validator。
-20. 不要在 validator 失敗時宣告完成。
-21. 只有當 validator 明確確認所有條件都通過時，才允許 task_complete。
-
-Final response rules
-22. 完成後，最後只回報以下三件事：
-    - SUCCESS 或 FAIL
-    - 你提取到的版本號
-    - 這兩個文件是否已成功寫入並通過驗證
-23. 除此之外不要輸出其他內容。
+父目錄已存在，直接寫入上述完整路徑；不要用 shell input 或 bash 建目錄/寫檔。
+寫完後只呼叫 translation-validator agent 做唯讀驗證；validator 只讀兩個輸出檔，不讀 Notion/web/curl。
+驗證：兩檔非空、各只有一個 ## x.y、版本一致、英文檔無 HTML/中文、Telegram 檔有中文、無舊版本 heading。
+呼叫 validator 時帶 name=translation-validator 並同步等待；不要用 background/read_agent。validator FAIL 時由 main agent 修檔後再驗證；validator PASS 後才 task_complete。不要使用 web/browser/HTML，也不要呼叫其他 agent/subtask。
+最後只輸出：SUCCESS/FAIL、version: x.y、validator: PASS/FAIL、files: written。
 EOF
 )
 
