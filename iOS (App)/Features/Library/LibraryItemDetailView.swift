@@ -1,3 +1,4 @@
+import AVFoundation
 import Drops
 import Foundation
 import SwiftUI
@@ -22,6 +23,7 @@ struct LibraryItemDetailView: View {
     @State private var exportedPDFURL: URL?
     @State private var pdfExportTask: Task<Void, Never>?
     @State private var showsOriginalSummary = false
+    @StateObject private var speechController = ResultSpeechController()
 
     private let rawLibraryStore = RawLibraryStore()
 
@@ -207,6 +209,20 @@ struct LibraryItemDetailView: View {
             }
 
             ToolbarItem(placement: .bottomBar) {
+                Button {
+                    toggleSpeechPlayback()
+                } label: {
+                    Label(
+                        speechController.isSpeaking ? "Stop Reading" : "Read Aloud",
+                        systemImage: speechController.isSpeaking ? "stop.fill" : "speaker.wave.2.fill"
+                    )
+                }
+                .labelStyle(.iconOnly)
+                .accessibilityLabel(speechController.isSpeaking ? "Stop Reading" : "Read Aloud")
+                .disabled(speechText.isEmpty)
+            }
+
+            ToolbarItem(placement: .bottomBar) {
                 Menu {
                     if let url = URL(string: entry.metadata.url), !entry.metadata.url.isEmpty {
                         ShareLink(
@@ -292,7 +308,43 @@ struct LibraryItemDetailView: View {
         }
         .onDisappear {
             pdfExportTask?.cancel()
+            speechController.stop()
         }
+        .onChange(of: showsOriginalSummary) { _, _ in
+            speechController.stop()
+        }
+    }
+
+    private var speechText: String {
+        guard let item else { return "" }
+        return displayedSummary(item).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func toggleSpeechPlayback() {
+        if speechController.isSpeaking {
+            speechController.stop()
+            return
+        }
+
+        guard let item, !speechText.isEmpty else { return }
+        do {
+            try speechController.speak(
+                markdown: speechText,
+                languageTag: speechLanguageTag(item)
+            )
+        } catch {
+            showDrop(
+                title: "Unable to Read Aloud",
+                subtitle: error.localizedDescription
+            )
+        }
+    }
+
+    private func speechLanguageTag(_ item: RawHistoryItem) -> String? {
+        if showsOriginalSummary, hasTranslatedSummary(item) {
+            return item.originalLanguageTag
+        }
+        return item.translatedLanguageTag ?? item.originalLanguageTag
     }
 
     private var header: some View {
@@ -858,4 +910,73 @@ private struct RegenerateRequest: Identifiable {
     let id = UUID().uuidString
     let input: KeyPointInput
     let saveMode: ClipboardKeyPointViewModel.SaveMode
+}
+
+@MainActor
+private final class ResultSpeechController: NSObject, ObservableObject, @preconcurrency AVSpeechSynthesizerDelegate {
+    enum SpeechError: LocalizedError {
+        case emptyContent
+        case voiceUnavailable(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .emptyContent:
+                return "The result does not contain readable text."
+            case let .voiceUnavailable(languageTag):
+                return "No system voice is installed for \(languageTag)."
+            }
+        }
+    }
+
+    @Published private(set) var isSpeaking = false
+
+    private let synthesizer = AVSpeechSynthesizer()
+
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
+
+    func speak(markdown: String, languageTag: String?) throws {
+        let attributedText = try AttributedString(
+            markdown: markdown,
+            options: .init(
+                interpretedSyntax: .full,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+        )
+        let text = String(attributedText.characters)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            throw SpeechError.emptyContent
+        }
+
+        let utterance = AVSpeechUtterance(string: text)
+        if let languageTag, !languageTag.isEmpty {
+            guard let voice = AVSpeechSynthesisVoice(language: languageTag) else {
+                throw SpeechError.voiceUnavailable(languageTag)
+            }
+            utterance.voice = voice
+        }
+
+        synthesizer.speak(utterance)
+        isSpeaking = true
+    }
+
+    func stop() {
+        guard synthesizer.isSpeaking || synthesizer.isPaused else {
+            isSpeaking = false
+            return
+        }
+        synthesizer.stopSpeaking(at: .immediate)
+        isSpeaking = false
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        isSpeaking = false
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        isSpeaking = false
+    }
 }
