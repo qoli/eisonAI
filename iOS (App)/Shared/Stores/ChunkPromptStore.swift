@@ -49,6 +49,14 @@ struct ChunkPromptStore {
         }
     }
 
+    func loadMatchingSourceLanguage() -> String {
+        let languageLine = PromptTemplates.load(
+            name: "summary_source_language_line",
+            fallback: "- Respond in the same language as the source content."
+        )
+        return compose(base: load(), languageLine: languageLine)
+    }
+
     private func compose(base: String, languageLine: String) -> String {
         let normalizedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedLanguageLine = languageLine.trimmingCharacters(in: .whitespacesAndNewlines)

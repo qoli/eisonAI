@@ -40,6 +40,14 @@ struct SystemPromptStore {
         return normalizeBase(trimmed)
     }
 
+    func loadMatchingSourceLanguage() -> String {
+        let languageLine = PromptTemplates.load(
+            name: "summary_source_language_line",
+            fallback: "- Respond in the same language as the source content."
+        )
+        return compose(base: loadBase(), languageLine: languageLine)
+    }
+
     func saveBase(_ value: String?) {
         guard let defaults else { return }
         let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)

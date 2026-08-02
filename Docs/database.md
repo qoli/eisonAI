@@ -71,6 +71,9 @@ AppGroup/
 - `url` / `title`
 - `articleText`：Readability 後正文（或你決定的原文）
 - `summaryText`：WebLLM 產出的摘要
+- `originalSummaryText`：以原文語言生成的摘要
+- `translatedSummaryText`：翻譯到用戶目標語言的摘要；沒有翻譯時省略
+- `originalLanguageTag` / `translatedLanguageTag`：兩份摘要對應的 BCP-47 語言標籤
 - `tags`：人工標籤（`[String]`，小寫去重、預設空陣列）
 - `generationState`：新記錄的生成生命週期，值為 `generating`、`completed` 或 `failed`
 - `generationError`：生成失敗原因；只有 `failed` 記錄需要保存

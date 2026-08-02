@@ -11,7 +11,7 @@ final class PromptTranslationCoordinator: ObservableObject {
 
     @Published private var configurationStorage: Any?
 
-    private var pendingRequest: TranslationRequest?
+    private var pendingRequest: PendingRequest?
 
     struct TranslationResult {
         let summary: String
@@ -26,11 +26,31 @@ final class PromptTranslationCoordinator: ObservableObject {
         #if canImport(Translation)
             guard #available(iOS 17.4, macOS 14.4, macCatalyst 26.0, *) else { return nil }
             return await withCheckedContinuation { continuation in
-                pendingRequest = TranslationRequest(
+                cancelPendingRequest()
+                pendingRequest = .prompts(TranslationRequest(
                     summary: summary,
                     chunk: chunk,
                     continuation: continuation
+                ))
+                configurationStorage = TranslationSession.Configuration(
+                    source: nil,
+                    target: Locale.Language(identifier: targetLanguageTag)
                 )
+            }
+        #else
+            return nil
+        #endif
+    }
+
+    func requestTextTranslation(
+        text: String,
+        targetLanguageTag: String
+    ) async -> String? {
+        #if canImport(Translation)
+            guard #available(iOS 17.4, macOS 14.4, macCatalyst 26.0, *) else { return nil }
+            return await withCheckedContinuation { continuation in
+                cancelPendingRequest()
+                pendingRequest = .text(TextTranslationRequest(text: text, continuation: continuation))
                 configurationStorage = TranslationSession.Configuration(
                     source: nil,
                     target: Locale.Language(identifier: targetLanguageTag)
@@ -48,13 +68,18 @@ final class PromptTranslationCoordinator: ObservableObject {
             pendingRequest = nil
 
             do {
-                let summaryText = try await translateIfNeeded(request.summary, with: session)
-                let chunkText = try await translateIfNeeded(request.chunk, with: session)
-                request.continuation.resume(
-                    returning: TranslationResult(summary: summaryText, chunk: chunkText)
-                )
+                switch request {
+                case let .prompts(request):
+                    let summaryText = try await translateIfNeeded(request.summary, with: session)
+                    let chunkText = try await translateIfNeeded(request.chunk, with: session)
+                    request.continuation.resume(
+                        returning: TranslationResult(summary: summaryText, chunk: chunkText)
+                    )
+                case let .text(request):
+                    request.continuation.resume(returning: try await translateIfNeeded(request.text, with: session))
+                }
             } catch {
-                request.continuation.resume(returning: nil)
+                resume(request, returning: nil)
             }
 
             configurationStorage = nil
@@ -64,10 +89,35 @@ final class PromptTranslationCoordinator: ObservableObject {
 
 @MainActor
 private extension PromptTranslationCoordinator {
+    enum PendingRequest {
+        case prompts(TranslationRequest)
+        case text(TextTranslationRequest)
+    }
+
     struct TranslationRequest {
         let summary: String
         let chunk: String
         let continuation: CheckedContinuation<TranslationResult?, Never>
+    }
+
+    struct TextTranslationRequest {
+        let text: String
+        let continuation: CheckedContinuation<String?, Never>
+    }
+
+    func cancelPendingRequest() {
+        guard let pendingRequest else { return }
+        self.pendingRequest = nil
+        resume(pendingRequest, returning: nil)
+    }
+
+    func resume(_ request: PendingRequest, returning value: Any?) {
+        switch request {
+        case let .prompts(request):
+            request.continuation.resume(returning: value as? TranslationResult)
+        case let .text(request):
+            request.continuation.resume(returning: value as? String)
+        }
     }
 
     #if canImport(Translation)

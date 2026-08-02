@@ -363,7 +363,11 @@ struct RawLibraryStore {
         tokenEstimator: String?,
         chunkTokenSize: Int?,
         routingThreshold: Int?,
-        isLongDocument: Bool?
+        isLongDocument: Bool?,
+        originalSummaryText: String? = nil,
+        translatedSummaryText: String? = nil,
+        originalLanguageTag: String? = nil,
+        translatedLanguageTag: String? = nil
     ) throws -> RawHistoryItem {
         let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedArticle = articleText?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -386,6 +390,10 @@ struct RawLibraryStore {
         item.chunkTokenSize = chunkTokenSize
         item.routingThreshold = routingThreshold
         item.isLongDocument = isLongDocument
+        item.originalSummaryText = originalSummaryText
+        item.translatedSummaryText = translatedSummaryText
+        item.originalLanguageTag = originalLanguageTag
+        item.translatedLanguageTag = translatedLanguageTag
         item.generationState = .completed
         item.generationError = nil
         try writeItem(item, to: fileURL)
@@ -411,6 +419,10 @@ struct RawLibraryStore {
                     chunkTokenSize: chunkTokenSize,
                     routingThreshold: routingThreshold,
                     isLongDocument: isLongDocument,
+                    originalSummaryText: originalSummaryText,
+                    translatedSummaryText: translatedSummaryText,
+                    originalLanguageTag: originalLanguageTag,
+                    translatedLanguageTag: translatedLanguageTag,
                     generationState: .completed,
                     generationError: nil
                 )
@@ -432,6 +444,10 @@ struct RawLibraryStore {
                     chunkTokenSize: chunkTokenSize,
                     routingThreshold: routingThreshold,
                     isLongDocument: isLongDocument,
+                    originalSummaryText: originalSummaryText,
+                    translatedSummaryText: translatedSummaryText,
+                    originalLanguageTag: originalLanguageTag,
+                    translatedLanguageTag: translatedLanguageTag,
                     generationState: .completed,
                     generationError: nil
                 )
@@ -720,6 +736,10 @@ struct RawLibraryStore {
         chunkTokenSize: Int?,
         routingThreshold: Int?,
         isLongDocument: Bool?,
+        originalSummaryText: String?,
+        translatedSummaryText: String?,
+        originalLanguageTag: String?,
+        translatedLanguageTag: String?,
         generationState: RawGenerationState,
         generationError: String?
     ) throws {
@@ -740,6 +760,10 @@ struct RawLibraryStore {
         item.chunkTokenSize = chunkTokenSize
         item.routingThreshold = routingThreshold
         item.isLongDocument = isLongDocument
+        item.originalSummaryText = originalSummaryText
+        item.translatedSummaryText = translatedSummaryText
+        item.originalLanguageTag = originalLanguageTag
+        item.translatedLanguageTag = translatedLanguageTag
         item.generationState = generationState
         item.generationError = normalizedGenerationError(generationError)
         try writeItem(item, to: fileURL)

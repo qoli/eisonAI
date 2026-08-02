@@ -195,6 +195,29 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 }
                 try NumericFidelityValidator.validate(summary: trimmed, source: normalized.text)
 
+                let originalLanguageTag = ContentLanguageResolver.dominantLanguageTag(for: normalized.text)
+                let targetLanguageTag = ModelLanguageStore().loadOrRecommended()
+                let translatedSummary: String?
+                if ContentLanguageResolver.representsSameLanguage(originalLanguageTag, targetLanguageTag) {
+                    translatedSummary = nil
+                } else {
+                    self.status = "Translating…"
+                    guard let translated = await PromptTranslationCoordinator.shared.requestTextTranslation(
+                        text: trimmed,
+                        targetLanguageTag: targetLanguageTag
+                    )?.trimmingCharacters(in: .whitespacesAndNewlines), !translated.isEmpty else {
+                        throw NSError(
+                            domain: "EisonAI.Translation",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: "Could not translate the generated result to \(ModelLanguage.displayName(forTag: targetLanguageTag))."]
+                        )
+                    }
+                    try NumericFidelityValidator.validate(summary: translated, source: normalized.text)
+                    translatedSummary = translated
+                    self.output = translated
+                }
+                let savedSummary = translatedSummary ?? trimmed
+
                 self.status = "Save…"
                 guard let savedFileURL = generationRecordURL else {
                     throw NSError(
@@ -209,7 +232,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         fileURL: savedFileURL,
                         title: normalized.title,
                         articleText: normalized.text,
-                        summaryText: trimmed,
+                        summaryText: savedSummary,
                         systemPrompt: result.systemPrompt,
                         userPrompt: result.userPrompt,
                         modelId: result.modelId,
@@ -218,7 +241,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
                         chunkTokenSize: effectiveChunkTokenSize ?? chunkTokenSize,
                         routingThreshold: routingThresholdForSave,
-                        isLongDocument: isLongDocument
+                        isLongDocument: isLongDocument,
+                        originalSummaryText: trimmed,
+                        translatedSummaryText: translatedSummary,
+                        originalLanguageTag: originalLanguageTag,
+                        translatedLanguageTag: translatedSummary == nil ? nil : targetLanguageTag
                     )
                 case let .updateExisting(fileURL, updateArticle, updateTitle):
                     let trimmedArticle = normalized.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -233,7 +260,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         fileURL: fileURL,
                         title: updateTitle ? normalized.title : nil,
                         articleText: updateArticle ? trimmedArticle : nil,
-                        summaryText: trimmed,
+                        summaryText: savedSummary,
                         systemPrompt: result.systemPrompt,
                         userPrompt: result.userPrompt,
                         modelId: result.modelId,
@@ -242,7 +269,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         tokenEstimator: tokenEstimatorSettings.selectedEncodingRawValue(),
                         chunkTokenSize: effectiveChunkTokenSize ?? chunkTokenSize,
                         routingThreshold: routingThresholdForSave,
-                        isLongDocument: isLongDocument
+                        isLongDocument: isLongDocument,
+                        originalSummaryText: trimmed,
+                        translatedSummaryText: translatedSummary,
+                        originalLanguageTag: originalLanguageTag,
+                        translatedLanguageTag: translatedSummary == nil ? nil : targetLanguageTag
                     )
                 }
 
@@ -528,7 +559,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
             readingAnchors.append(anchor)
         }
 
-        let summarySystemPrompt = SystemPromptStore().load()
+        let summarySystemPrompt = SystemPromptStore().loadMatchingSourceLanguage()
         let summaryUserPrompt = buildSummaryUserPrompt(from: readingAnchors)
         log("longdoc:summary-prompt systemCount=\(summarySystemPrompt.count) userCount=\(summaryUserPrompt.count)")
 
@@ -638,7 +669,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     func buildReadingAnchorSystemPrompt(chunkIndex: Int, chunkTotal: Int) -> String {
-        let base = ChunkPromptStore().loadWithLanguage().trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = ChunkPromptStore().loadMatchingSourceLanguage().trimmingCharacters(in: .whitespacesAndNewlines)
         let suffixTemplate = PromptTemplates.load(
             name: "reading_anchor_system_suffix",
             fallback: "- This is a paragraph from the source (chunk {{chunk_index}} of {{chunk_total}})"
@@ -768,7 +799,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     }
 
     private func loadKeyPointSystemPrompt() -> String {
-        SystemPromptStore().load()
+        SystemPromptStore().loadMatchingSourceLanguage()
     }
 
     private static func buildUserPrompt(title: String, text: String) -> String {

@@ -21,6 +21,7 @@ struct LibraryItemDetailView: View {
     @State private var regenerateRequest: RegenerateRequest?
     @State private var exportedPDFURL: URL?
     @State private var pdfExportTask: Task<Void, Never>?
+    @State private var showsOriginalSummary = false
 
     private let rawLibraryStore = RawLibraryStore()
 
@@ -423,10 +424,42 @@ struct LibraryItemDetailView: View {
             if item.resolvedGenerationState == .failed {
                 generationFailureSection(item)
             }
-            summarySection(item.summaryText)
+            if hasTranslatedSummary(item) {
+                Picker("Summary Language", selection: $showsOriginalSummary) {
+                    Text(originalSummaryLabel(item)).tag(true)
+                    Text(translatedSummaryLabel(item)).tag(false)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityLabel("Summary Language")
+            }
+            summarySection(displayedSummary(item))
             readingAnchorsSection(item.readingAnchors)
             articleSection(item.articleText)
         }
+    }
+
+    private func hasTranslatedSummary(_ item: RawHistoryItem) -> Bool {
+        guard let original = item.originalSummaryText?.trimmingCharacters(in: .whitespacesAndNewlines),
+              let translated = item.translatedSummaryText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        else { return false }
+        return !original.isEmpty && !translated.isEmpty && original != translated
+    }
+
+    private func displayedSummary(_ item: RawHistoryItem) -> String {
+        if showsOriginalSummary, hasTranslatedSummary(item) {
+            return item.originalSummaryText ?? item.summaryText
+        }
+        return item.translatedSummaryText ?? item.summaryText
+    }
+
+    private func originalSummaryLabel(_ item: RawHistoryItem) -> String {
+        guard let tag = item.originalLanguageTag, !tag.isEmpty else { return "Original" }
+        return "Original · \(Locale.current.localizedString(forIdentifier: tag) ?? tag)"
+    }
+
+    private func translatedSummaryLabel(_ item: RawHistoryItem) -> String {
+        guard let tag = item.translatedLanguageTag, !tag.isEmpty else { return "Translation" }
+        return "Translation · \(ModelLanguage.displayName(forTag: tag))"
     }
 
     @ViewBuilder

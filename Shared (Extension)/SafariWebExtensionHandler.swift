@@ -87,6 +87,10 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         var isLongDocument: Bool?
         var generationState: String?
         var generationError: String?
+        var originalSummaryText: String? = nil
+        var translatedSummaryText: String? = nil
+        var originalLanguageTag: String? = nil
+        var translatedLanguageTag: String? = nil
     }
 
     private struct ReadingAnchorChunk: Codable {

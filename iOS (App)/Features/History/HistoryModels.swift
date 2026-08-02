@@ -25,6 +25,10 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
     var tags: [String] = []
     var generationState: RawGenerationState?
     var generationError: String?
+    var originalSummaryText: String?
+    var translatedSummaryText: String?
+    var originalLanguageTag: String?
+    var translatedLanguageTag: String?
 
     var resolvedGenerationState: RawGenerationState {
         generationState ?? .legacy
@@ -41,6 +45,10 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
         case tags
         case generationState
         case generationError
+        case originalSummaryText
+        case translatedSummaryText
+        case originalLanguageTag
+        case translatedLanguageTag
     }
 
     init(from decoder: Decoder) throws {
@@ -55,6 +63,10 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
         tags = (try container.decodeIfPresent([String].self, forKey: .tags)) ?? []
         generationState = try container.decodeIfPresent(RawGenerationState.self, forKey: .generationState)
         generationError = try container.decodeIfPresent(String.self, forKey: .generationError)
+        originalSummaryText = try container.decodeIfPresent(String.self, forKey: .originalSummaryText)
+        translatedSummaryText = try container.decodeIfPresent(String.self, forKey: .translatedSummaryText)
+        originalLanguageTag = try container.decodeIfPresent(String.self, forKey: .originalLanguageTag)
+        translatedLanguageTag = try container.decodeIfPresent(String.self, forKey: .translatedLanguageTag)
     }
 }
 
@@ -88,6 +100,10 @@ struct RawHistoryItem: Codable, Identifiable {
     var isLongDocument: Bool?
     var generationState: RawGenerationState?
     var generationError: String?
+    var originalSummaryText: String?
+    var translatedSummaryText: String?
+    var originalLanguageTag: String?
+    var translatedLanguageTag: String?
 
     var resolvedGenerationState: RawGenerationState {
         generationState ?? .legacy
@@ -112,7 +128,11 @@ struct RawHistoryItem: Codable, Identifiable {
         routingThreshold: Int? = nil,
         isLongDocument: Bool? = nil,
         generationState: RawGenerationState?,
-        generationError: String? = nil
+        generationError: String? = nil,
+        originalSummaryText: String? = nil,
+        translatedSummaryText: String? = nil,
+        originalLanguageTag: String? = nil,
+        translatedLanguageTag: String? = nil
     ) {
         self.v = v
         self.id = id
@@ -133,6 +153,10 @@ struct RawHistoryItem: Codable, Identifiable {
         self.isLongDocument = isLongDocument
         self.generationState = generationState
         self.generationError = generationError
+        self.originalSummaryText = originalSummaryText
+        self.translatedSummaryText = translatedSummaryText
+        self.originalLanguageTag = originalLanguageTag
+        self.translatedLanguageTag = translatedLanguageTag
     }
 
     enum CodingKeys: String, CodingKey {
@@ -155,6 +179,10 @@ struct RawHistoryItem: Codable, Identifiable {
         case isLongDocument
         case generationState
         case generationError
+        case originalSummaryText
+        case translatedSummaryText
+        case originalLanguageTag
+        case translatedLanguageTag
     }
 
     init(from decoder: Decoder) throws {
@@ -178,6 +206,10 @@ struct RawHistoryItem: Codable, Identifiable {
         isLongDocument = try container.decodeIfPresent(Bool.self, forKey: .isLongDocument)
         generationState = try container.decodeIfPresent(RawGenerationState.self, forKey: .generationState)
         generationError = try container.decodeIfPresent(String.self, forKey: .generationError)
+        originalSummaryText = try container.decodeIfPresent(String.self, forKey: .originalSummaryText)
+        translatedSummaryText = try container.decodeIfPresent(String.self, forKey: .translatedSummaryText)
+        originalLanguageTag = try container.decodeIfPresent(String.self, forKey: .originalLanguageTag)
+        translatedLanguageTag = try container.decodeIfPresent(String.self, forKey: .translatedLanguageTag)
     }
 }
 
