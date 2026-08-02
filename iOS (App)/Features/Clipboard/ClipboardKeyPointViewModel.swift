@@ -29,6 +29,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
     @Published var shouldDismiss: Bool = false
     @Published var chunkStatus: String = ""
     @Published var errorMessage: String? = nil
+    @Published private(set) var completedFileURL: URL?
     /// 格式為：如果是長文 pipeline，就顯示為 1/3，如果不是長文 pipeline，就保持 ""；
     /// 如果正在處理 Chunk 2，就顯示文 2/3
 
@@ -57,6 +58,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
         chunkStatus = ""
         shouldDismiss = false
         errorMessage = nil
+        completedFileURL = nil
     }
 
     // KEYPOINT_CLIPBOARD_FLOW: main pipeline entry for clipboard/share inputs
@@ -256,6 +258,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 // 需要注入輸出內容檢查
 
                 self.status = "Done"
+                self.completedFileURL = savedFileURL
                 self.shouldDismiss = true
                 self.log("saved output, dismissing")
             } catch is CancellationError {

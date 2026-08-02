@@ -5,14 +5,17 @@ struct ClipboardKeyPointSheet: View {
     @StateObject private var model: ClipboardKeyPointViewModel
     @State private var showsTokenOverlay: Bool = true
     private let showsErrorAlert: Bool
+    private let onCompleted: ((URL) -> Void)?
 
     init(
         input: KeyPointInput,
         saveMode: ClipboardKeyPointViewModel.SaveMode = .createNew,
-        showsErrorAlert: Bool = false
+        showsErrorAlert: Bool = false,
+        onCompleted: ((URL) -> Void)? = nil
     ) {
         _model = StateObject(wrappedValue: ClipboardKeyPointViewModel(input: input, saveMode: saveMode))
         self.showsErrorAlert = showsErrorAlert
+        self.onCompleted = onCompleted
     }
 
     var body: some View {
@@ -67,6 +70,9 @@ struct ClipboardKeyPointSheet: View {
             }
             .onChange(of: model.shouldDismiss) { _, newValue in
                 if newValue {
+                    if let completedFileURL = model.completedFileURL {
+                        onCompleted?(completedFileURL)
+                    }
                     dismiss()
                 }
             }

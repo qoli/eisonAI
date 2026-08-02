@@ -14,6 +14,7 @@ struct LibraryRootView: View {
 
     @State private var segmentedTransitionEdge: Edge = .trailing
     @State private var activeKeyPointInput: KeyPointInput?
+    @State private var completedShareFileURL: URL?
     @State private var pollingTask: Task<Void, Never>?
     @State private var fullReloadToken = UUID()
     @Environment(\.scenePhase) private var scenePhase
@@ -107,9 +108,13 @@ struct LibraryRootView: View {
             }
             // KEYPOINT_CLIPBOARD_FLOW: sheet entry point for .clipboard/.share inputs
             .sheet(item: $activeKeyPointInput, onDismiss: {
-                viewModel.reload()
+                openCompletedShareResultIfNeeded()
             }) { input in
-                ClipboardKeyPointSheet(input: input)
+                ClipboardKeyPointSheet(input: input) { fileURL in
+                    if case .share = input {
+                        completedShareFileURL = fileURL
+                    }
+                }
             }
             .sheet(isPresented: $isSyncErrorSheetPresented) {
                 syncErrorSheet
@@ -516,6 +521,21 @@ struct LibraryRootView: View {
                     print("[SharePayload] Failed to load payload: \(error)")
                 #endif
             }
+        }
+    }
+
+    @MainActor
+    private func openCompletedShareResultIfNeeded() {
+        viewModel.reload()
+        guard let fileURL = completedShareFileURL else { return }
+        completedShareFileURL = nil
+        selection = LibraryMode.all.rawValue
+        selectedTag = nil
+        searchText = ""
+        if let entry = viewModel.entries.first(where: { $0.fileURL == fileURL }) {
+            navigationPath = [entry]
+        } else {
+            viewModel.errorMessage = "The generated result was saved but could not be opened."
         }
     }
 
