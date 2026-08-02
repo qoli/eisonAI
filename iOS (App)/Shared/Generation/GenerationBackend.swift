@@ -90,6 +90,20 @@ struct GenerationBackendSettingsStore {
         defaults?.set(backend.rawValue, forKey: AppConfig.appGenerationBackendKey)
     }
 
+    func validateSelectedBackendForGeneration() throws {
+        guard loadSelectedBackend() == .local else { return }
+        guard localModelAvailability().hasAnyLocal else {
+            throw NSError(
+                domain: "EisonAI.GenerationBackend",
+                code: 1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Local generation is selected, but no local model is available. Select or download a model in Settings."
+                ]
+            )
+        }
+    }
+
     func resolveExecutionBackendType(tokenCount: Int?) -> ExecutionBackendType {
         let selected = loadSelectedBackend()
         let availability = localModelAvailability()

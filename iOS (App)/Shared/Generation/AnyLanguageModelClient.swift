@@ -573,6 +573,11 @@ final class AnyLanguageModelClient {
                     guard let modelID, !modelID.isEmpty else {
                         throw ClientError.invalidConfiguration("Select an MLX model first.")
                     }
+                    guard Self.hasDownloadedLocalModelAssets(modelID: modelID) else {
+                        throw ClientError.unavailable(
+                            "The selected MLX model is not downloaded or is incomplete. Download it again in Settings."
+                        )
+                    }
                     return MLXLanguageModel(modelId: modelID)
                     #endif
                 #else

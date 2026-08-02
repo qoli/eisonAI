@@ -120,6 +120,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 self.tokenEstimate = tokenEstimate
+                try self.backendSettings.validateSelectedBackendForGeneration()
                 let executionType = self.backendSettings.resolveExecutionBackendType(tokenCount: tokenEstimate)
                 let backend = self.backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
                 var byokSettings: BYOKSettings?
@@ -190,6 +191,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         userInfo: [NSLocalizedDescriptionKey: "Generated summary is empty."]
                     )
                 }
+                try NumericFidelityValidator.validate(summary: trimmed, source: normalized.text)
 
                 self.status = "Save…"
                 guard let savedFileURL = generationRecordURL else {

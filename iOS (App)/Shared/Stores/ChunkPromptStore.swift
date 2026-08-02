@@ -58,6 +58,10 @@ struct ChunkPromptStore {
     }
 
     private func loadTranslatedPrompt() -> String? {
+        let currentLanguage = modelLanguageStore.loadOrRecommended()
+        guard defaults?.string(forKey: AppConfig.translatedPromptLanguageKey) == currentLanguage else {
+            return nil
+        }
         guard let stored = defaults?.string(forKey: AppConfig.translatedChunkPromptKey) else {
             return nil
         }

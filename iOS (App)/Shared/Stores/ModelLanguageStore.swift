@@ -143,11 +143,13 @@ struct ModelLanguageStore {
 
     func ensureTranslatedPromptsOnLaunch() {
         guard let defaults else { return }
+        let language = loadOrRecommended()
+        let translatedLanguage = defaults.string(forKey: AppConfig.translatedPromptLanguageKey) ?? ""
         let summary = defaults.string(forKey: AppConfig.translatedSummaryPromptKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let chunk = defaults.string(forKey: AppConfig.translatedChunkPromptKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if summary.isEmpty || chunk.isEmpty {
+        if summary.isEmpty || chunk.isEmpty || translatedLanguage != language {
             callTranslator()
         }
     }
@@ -156,11 +158,16 @@ struct ModelLanguageStore {
         guard let defaults else { return }
         let normalized = ModelLanguage.normalizeTag(tag)
         if normalized.isEmpty || !ModelLanguage.isSupportedTag(normalized) { return }
-        defaults.set(
-            ModelLanguage.supported.first(where: { $0.tag.caseInsensitiveCompare(normalized) == .orderedSame })?.tag ?? normalized,
-            forKey: AppConfig.modelLanguageKey
-        )
+        let canonical = ModelLanguage.supported.first(where: {
+            $0.tag.caseInsensitiveCompare(normalized) == .orderedSame
+        })?.tag ?? normalized
+        defaults.set(canonical, forKey: AppConfig.modelLanguageKey)
         if triggerTranslator {
+            // A translated prompt is a cache for one exact language. Invalidate it
+            // synchronously so generation can never observe the previous language.
+            defaults.removeObject(forKey: AppConfig.translatedSummaryPromptKey)
+            defaults.removeObject(forKey: AppConfig.translatedChunkPromptKey)
+            defaults.removeObject(forKey: AppConfig.translatedPromptLanguageKey)
             callTranslator()
         }
     }
@@ -181,8 +188,13 @@ struct ModelLanguageStore {
                 print("[ModelLanguageStore] translatePrompts failed")
                 return
             }
+            guard loadOrRecommended() == targetTag else {
+                print("[ModelLanguageStore] discarded stale translation target=\(targetTag)")
+                return
+            }
             defaults.set(result.summary, forKey: AppConfig.translatedSummaryPromptKey)
             defaults.set(result.chunk, forKey: AppConfig.translatedChunkPromptKey)
+            defaults.set(targetTag, forKey: AppConfig.translatedPromptLanguageKey)
             print("[ModelLanguageStore] translatePrompts saved summaryCount=\(result.summary.count) chunkCount=\(result.chunk.count)")
         #endif
     }

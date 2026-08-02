@@ -75,6 +75,10 @@ struct SystemPromptStore {
     }
 
     private func loadTranslatedPrompt() -> String? {
+        let currentLanguage = modelLanguageStore.loadOrRecommended()
+        guard defaults?.string(forKey: AppConfig.translatedPromptLanguageKey) == currentLanguage else {
+            return nil
+        }
         guard let stored = defaults?.string(forKey: AppConfig.translatedSummaryPromptKey) else {
             return nil
         }

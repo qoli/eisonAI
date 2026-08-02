@@ -618,6 +618,28 @@ function setRegenerateVisible(visible) {
   summarizeButton.textContent = "Regenerate";
 }
 
+function significantNumericFacts(text) {
+  const matches = String(text || "").match(/(?<![\p{L}\p{N}])[$€£¥]?[-+]?\d[\d,]*(?:\.\d+)?(?:%|‰|[kKmMbB])?(?![\p{L}\p{N}])/gu) || [];
+  return matches
+    .filter((value) => {
+      const digitCount = (value.match(/\d/g) || []).length;
+      return digitCount >= 2 || /[$€£¥%‰kKmMbB.]/.test(value);
+    })
+    .map((value) => value.replaceAll(",", "").replace(/^[$€£¥]/, "").toLowerCase());
+}
+
+function validateNumericFidelity(summary, source) {
+  const sourceFacts = new Set(significantNumericFacts(source));
+  const unsupported = [...new Set(significantNumericFacts(summary))]
+    .filter((value) => !sourceFacts.has(value))
+    .sort();
+  if (unsupported.length) {
+    throw new Error(
+      `Generated content introduced numeric facts not found in the source: ${unsupported.join(", ")}. Regenerate the result.`,
+    );
+  }
+}
+
 async function persistGenerationFailure(message) {
   if (!state.rawItemFilename) return;
   try {
@@ -1086,6 +1108,7 @@ async function startSummary() {
   if (!state.summary.trim()) {
     throw new Error("Empty summary.");
   }
+  validateNumericFidelity(state.summary, context.body);
 
   renderSummary(state.summary, true);
   setStatus("Saving…");

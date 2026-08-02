@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import WebKit
 
 @MainActor
@@ -14,6 +15,7 @@ final class ReadabilityWebExtractor: NSObject {
         case loadFailed(String)
         case jsFailed(String)
         case timeout
+        case offline
         case missingReadabilityScript
 
         var errorDescription: String? {
@@ -26,6 +28,8 @@ final class ReadabilityWebExtractor: NSObject {
                 return "Failed to extract article: \(msg)"
             case .timeout:
                 return "Timed out while loading/extracting."
+            case .offline:
+                return "No network connection. Reconnect and try again."
             case .missingReadabilityScript:
                 return "Missing Readability script: contentReadability.js"
             }
@@ -36,6 +40,8 @@ final class ReadabilityWebExtractor: NSObject {
     private var continuation: CheckedContinuation<Article, Error>?
     private var timeoutTask: Task<Void, Never>?
     private var currentURLString: String = ""
+    private let pathMonitor = NWPathMonitor()
+    private var networkStatus: NWPath.Status?
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -43,11 +49,27 @@ final class ReadabilityWebExtractor: NSObject {
         self.webView = WKWebView(frame: .zero, configuration: config)
         super.init()
         webView.navigationDelegate = self
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            Task { @MainActor in
+                self?.networkStatus = path.status
+                if path.status == .unsatisfied, self?.continuation != nil {
+                    self?.finish(with: .failure(ExtractError.offline))
+                }
+            }
+        }
+        pathMonitor.start(queue: DispatchQueue(label: "com.qoli.eisonAI.network-path"))
+    }
+
+    deinit {
+        pathMonitor.cancel()
     }
 
     func extract(from url: URL, timeoutSeconds: Double = 20) async throws -> Article {
         if continuation != nil {
             throw ExtractError.loadFailed("Extractor is busy.")
+        }
+        if networkStatus == .unsatisfied {
+            throw ExtractError.offline
         }
 
         currentURLString = url.absoluteString
@@ -70,6 +92,7 @@ final class ReadabilityWebExtractor: NSObject {
     }
 
     private func finish(with result: Result<Article, Error>) {
+        webView.stopLoading()
         timeoutTask?.cancel()
         timeoutTask = nil
 
