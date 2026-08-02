@@ -36,6 +36,7 @@ enum AppConfig {
     static let mlxDownloadDeepLinkAutoSelectQueryItem = "autoSelect"
     static let sharePollingEnabledKey = "eison.share.polling.enabled.v2"
     static let shareOpenAppAfterShareKey = "eison.share.openAppAfterShare"
+    static let macReadingTextScaleKey = "eison.mac.readingTextScale"
     static let tokenEstimatorEncodingKey = "eison.tokenEstimator.encoding"
     static let longDocumentChunkTokenSizeKey = "eison.longDocument.chunkTokenSize"
     static let longDocumentMaxChunkCountKey = "eison.longDocument.maxChunkCount"

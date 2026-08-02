@@ -9,6 +9,10 @@ struct GeneralSettingsView: View {
     @State private var sharePollingEnabled = true
     @State private var modelLanguageTag = ""
     @State private var didLoad = false
+    @AppStorage(
+        AppConfig.macReadingTextScaleKey,
+        store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+    ) private var macReadingTextScale = ReadingTextSizeOption.standard.rawValue
 
     var body: some View {
         Form {
@@ -22,6 +26,20 @@ struct GeneralSettingsView: View {
                 Text("Language of Thought")
             } footer: {
                 Text("Choose the language eisonAI uses to think and write.")
+            }
+
+            if platform == .macCatalyst {
+                Section {
+                    Picker("Reading Text Size", selection: $macReadingTextScale) {
+                        ForEach(ReadingTextSizeOption.allCases) { option in
+                            Text(option.title).tag(option.rawValue)
+                        }
+                    }
+                } header: {
+                    Text("Reading")
+                } footer: {
+                    Text("Adjust summary and article text without changing the rest of the interface.")
+                }
             }
 
             Section {

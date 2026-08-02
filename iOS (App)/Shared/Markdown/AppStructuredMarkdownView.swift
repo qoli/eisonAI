@@ -4,12 +4,20 @@ import Textual
 struct AppStructuredMarkdownView: View {
     let markdown: String
     var allowsSelection: Bool = false
+    @AppStorage(
+        AppConfig.macReadingTextScaleKey,
+        store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+    ) private var storedReadingScale = ReadingTextSizeOption.standard.rawValue
+
+    private var readingScale: CGFloat {
+        platform == .macCatalyst ? CGFloat(ReadingTextSizeStore.normalizedScale(storedReadingScale)) : 1
+    }
 
     @ViewBuilder
     var body: some View {
         let content = StructuredText(markdown: markdown)
-            .font(.system(size: AppMarkdownMetrics.rootFontSize))
-            .textual.structuredTextStyle(AppMarkdownStyle())
+            .font(.system(size: AppMarkdownMetrics.rootFontSize * readingScale))
+            .textual.structuredTextStyle(AppMarkdownStyle(scale: readingScale))
             .textual.listItemSpacing(.fontScaled(top: AppMarkdownMetrics.listItemTopSpacingEm))
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -76,11 +84,13 @@ private struct AppMarkdownStyle: StructuredText.Style {
     typealias TableCellStyle = StructuredText.DefaultTableCellStyle
     typealias ThematicBreakStyle = AppMarkdownThematicBreakStyle
 
+    let scale: CGFloat
+
     var inlineStyle: InlineStyle { .librarySummary }
-    var headingStyle: AppMarkdownHeadingStyle { .init() }
+    var headingStyle: AppMarkdownHeadingStyle { .init(scale: scale) }
     var paragraphStyle: AppMarkdownParagraphStyle { .init() }
     var blockQuoteStyle: AppMarkdownBlockQuoteStyle { .init() }
-    var codeBlockStyle: AppMarkdownCodeBlockStyle { .init() }
+    var codeBlockStyle: AppMarkdownCodeBlockStyle { .init(scale: scale) }
     var listItemStyle: StructuredText.DefaultListItemStyle {
         .default(markerSpacing: .fontScaled(AppMarkdownMetrics.listMarkerSpacingEm))
     }
@@ -112,6 +122,8 @@ private struct AppMarkdownStyle: StructuredText.Style {
 }
 
 private struct AppMarkdownHeadingStyle: StructuredText.HeadingStyle {
+    let scale: CGFloat
+
     @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
         let headingLevel = min(configuration.headingLevel, 6)
@@ -120,7 +132,7 @@ private struct AppMarkdownHeadingStyle: StructuredText.HeadingStyle {
         switch headingLevel {
         case 1...3:
             configuration.label
-                .font(.system(size: AppMarkdownMetrics.headingSizes[index]))
+                .font(.system(size: AppMarkdownMetrics.headingSizes[index] * scale))
                 .fontWeight(AppMarkdownMetrics.headingWeights[index])
                 .lineSpacing(AppMarkdownMetrics.headingLineSpacing[index] ?? 0)
                 .textual.blockSpacing(
@@ -132,7 +144,7 @@ private struct AppMarkdownHeadingStyle: StructuredText.HeadingStyle {
                 .foregroundStyle(.primary)
         default:
             configuration.label
-                .font(.system(size: AppMarkdownMetrics.headingSizes[index]))
+                .font(.system(size: AppMarkdownMetrics.headingSizes[index] * scale))
                 .fontWeight(AppMarkdownMetrics.headingWeights[index])
                 .textual.blockSpacing(
                     .init(
@@ -178,11 +190,13 @@ private struct AppMarkdownBlockQuoteStyle: StructuredText.BlockQuoteStyle {
 }
 
 private struct AppMarkdownCodeBlockStyle: StructuredText.CodeBlockStyle {
+    let scale: CGFloat
+
     func makeBody(configuration: Configuration) -> some View {
         Overflow {
             configuration.label
                 .fixedSize(horizontal: false, vertical: true)
-                .font(.system(size: AppMarkdownMetrics.codeFontSize))
+                .font(.system(size: AppMarkdownMetrics.codeFontSize * scale))
                 .lineSpacing(AppMarkdownMetrics.codeBlockLineSpacing)
                 .monospaced()
                 .padding(10)

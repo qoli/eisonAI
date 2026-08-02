@@ -626,6 +626,14 @@ private struct PlainTextSection: View {
     var title: String
     var text: String
     var lineLimit: Int? = 5
+    @AppStorage(
+        AppConfig.macReadingTextScaleKey,
+        store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+    ) private var storedReadingScale = ReadingTextSizeOption.standard.rawValue
+
+    private var readingScale: CGFloat {
+        platform == .macCatalyst ? CGFloat(ReadingTextSizeStore.normalizedScale(storedReadingScale)) : 1
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -642,7 +650,7 @@ private struct PlainTextSection: View {
 
             Text(text.removingBlankLines())
                 .padding()
-                .font(.body)
+                .font(.system(size: 17 * readingScale))
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .lineLimit(lineLimit)
@@ -682,12 +690,21 @@ private struct LibraryTextDetailView: View {
     private var copyableText: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+    @AppStorage(
+        AppConfig.macReadingTextScaleKey,
+        store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+    ) private var storedReadingScale = ReadingTextSizeOption.standard.rawValue
+
+    private var readingScale: CGFloat {
+        platform == .macCatalyst ? CGFloat(ReadingTextSizeStore.normalizedScale(storedReadingScale)) : 1
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if text.count > markdownLengthThreshold {
                     Text(text)
+                        .font(.system(size: 17 * readingScale))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
