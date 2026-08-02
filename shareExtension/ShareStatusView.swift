@@ -49,7 +49,6 @@ struct ShareStatusView: View {
             progress = 0
 
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                playEmbeddedAudio()
                 progress = 1
             }
 
@@ -59,15 +58,23 @@ struct ShareStatusView: View {
                 }
             }
         }
+        .onChange(of: viewModel.bounceTrigger) { _, _ in
+            playEmbeddedAudioRespectingSystemMode()
+        }
     }
 
-    private func playEmbeddedAudio() {
+    private func playEmbeddedAudioRespectingSystemMode() {
         guard let asset = NSDataAsset(name: "audio") else {
             print("Missing audio asset named \"audio\".")
             return
         }
 
         do {
+            let session = AVAudioSession.sharedInstance()
+            // Ambient audio follows the Ring/Silent switch and mixes with the
+            // user's current audio, matching normal system UI sound behavior.
+            try session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
             let player = try AVAudioPlayer(data: asset.data)
             player.prepareToPlay()
             player.play()
