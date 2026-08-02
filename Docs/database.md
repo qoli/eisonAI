@@ -72,6 +72,8 @@ AppGroup/
 - `articleText`：Readability 後正文（或你決定的原文）
 - `summaryText`：WebLLM 產出的摘要
 - `tags`：人工標籤（`[String]`，小寫去重、預設空陣列）
+- `generationState`：新記錄的生成生命週期，值為 `generating`、`completed` 或 `failed`
+- `generationError`：生成失敗原因；只有 `failed` 記錄需要保存
 
 建議可選欄位（未來用得到就加，不需要一次做完）：
 
@@ -80,7 +82,7 @@ AppGroup/
 - `pageHTML`（通常不建議，太大；真的需要再加）
 - `tokenEstimate` / `durationMs`
 
-> 你只要保留 `v`，未來要「從 Raw Library 建 cache 庫」或做格式升級就不會卡死。
+舊 JSON 沒有 `generationState` 時，App 會把它標示為明確的 `legacy` 狀態，不會推斷成新流程的 `completed`。
 
 ---
 
@@ -88,10 +90,11 @@ AppGroup/
 
 流程概念：
 
-1. `popup.js` 生成完摘要後 → `browser.runtime.sendNativeMessage({ command: "saveRawItem", payload: {...} })`
-2. `SafariWebExtensionHandler` 收到 → 組出 `RawItem` JSON（補 `id/createdAt/v`）
-3. 寫到 App Group `RawLibrary/Items/`（用 `.atomic`）
-4. 回傳 `{ ok: true, id }` 給 JS
+1. `popup.js` 完成 Readability 抽取後，先以 `generationState: "generating"` 建立記錄。
+2. `SafariWebExtensionHandler` 組出 `RawItem` JSON（補 `id/createdAt/v`），以原子寫入保存完整 `articleText`。
+3. 生成成功後，以回傳的 `filename` 更新同一筆記錄為 `completed` 並寫入摘要。
+4. 生成失敗或取消時，更新同一筆記錄為 `failed` 並保存 `generationError`。
+5. Native handler 回傳 `{ ok: true, id, filename }` 給 JS，後續更新必須帶回該 `filename`。
 
 注意：
 

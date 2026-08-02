@@ -172,6 +172,16 @@ struct ClipboardKeyPointSheet: View {
             IridescentOrbView()
         }
 
+        if model.errorMessage != nil, !model.isRunning {
+            ToolbarItem(placement: .bottomBar) {
+                Button {
+                    model.run()
+                } label: {
+                    Label("Regenerate", systemImage: "arrow.clockwise")
+                }
+            }
+        }
+
         ToolbarItem(placement: .bottomBar) {
             Spacer()
         }

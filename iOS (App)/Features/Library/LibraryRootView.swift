@@ -723,9 +723,21 @@ private struct LibraryItemRow: View {
                 Spacer(minLength: 0)
             }
 
-            Text(entry.metadata.summaryText.removingThinkTags().removingBlankLines())
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
+            if entry.metadata.resolvedGenerationState == .failed {
+                Label("Generation failed — tap to retry", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            } else if entry.metadata.resolvedGenerationState == .generating {
+                Label("Generating", systemImage: "hourglass")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !entry.metadata.summaryText.isEmpty {
+                Text(entry.metadata.summaryText.removingThinkTags().removingBlankLines())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.metadata.modelId.capitalized)

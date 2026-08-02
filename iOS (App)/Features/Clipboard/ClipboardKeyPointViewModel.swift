@@ -77,6 +77,7 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
         runTask = Task { [weak self] in
             guard let self else { return }
+            var generationRecordURL: URL?
 
             do {
                 let normalized: PreparedInput
@@ -99,6 +100,24 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 if Task.isCancelled { throw CancellationError() }
                 log("prepared input url=\(normalized.url.isEmpty ? "nil" : normalized.url) titleCount=\(normalized.title.count) textCount=\(normalized.text.count)")
 
+                switch self.saveMode {
+                case .createNew:
+                    let pending = try self.store.createPendingRawItem(
+                        url: normalized.url,
+                        title: normalized.title,
+                        articleText: normalized.text
+                    )
+                    generationRecordURL = pending.fileURL
+                    self.log("generation record created id=\(pending.id) file=\(pending.filename)")
+                case let .updateExisting(fileURL, _, _):
+                    _ = try self.store.updateGenerationState(
+                        fileURL: fileURL,
+                        state: .generating
+                    )
+                    generationRecordURL = fileURL
+                    self.log("generation record marked generating file=\(fileURL.lastPathComponent)")
+                }
+
                 let tokenEstimate = await self.tokenEstimator.estimateTokenCount(for: normalized.text)
                 self.tokenEstimate = tokenEstimate
                 let executionType = self.backendSettings.resolveExecutionBackendType(tokenCount: tokenEstimate)
@@ -107,10 +126,11 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 if backend == .byok {
                     let settings = self.byokSettingsStore.loadSettings()
                     if let error = self.byokSettingsStore.validationError(for: settings) {
-                        self.status = "Invalid BYOK"
-                        self.errorMessage = error.message
-                        self.isRunning = false
-                        return
+                        throw NSError(
+                            domain: "EisonAI.BYOK",
+                            code: 1,
+                            userInfo: [NSLocalizedDescriptionKey: error.message]
+                        )
                     }
                     byokSettings = settings
                 }
@@ -159,26 +179,30 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 }
 
                 if Task.isCancelled {
-                    self.status = "Canceled"
-                    self.isRunning = false
-                    return
+                    throw CancellationError()
                 }
 
                 let trimmed = result.summary.trimmingCharacters(in: .whitespacesAndNewlines)
                 if trimmed.isEmpty {
-                    self.status = "Empty"
-                    self.errorMessage = "Generated summary is empty."
-                    self.log("empty output")
-                    self.isRunning = false
-                    return
+                    throw NSError(
+                        domain: "EisonAI.KeyPoint",
+                        code: 11,
+                        userInfo: [NSLocalizedDescriptionKey: "Generated summary is empty."]
+                    )
                 }
 
                 self.status = "Save…"
-                let savedFileURL: URL
+                guard let savedFileURL = generationRecordURL else {
+                    throw NSError(
+                        domain: "EisonAI.RawLibrary",
+                        code: 21,
+                        userInfo: [NSLocalizedDescriptionKey: "Missing generation record after article extraction."]
+                    )
+                }
                 switch self.saveMode {
                 case .createNew:
-                    let saved = try self.store.saveRawItem(
-                        url: normalized.url,
+                    _ = try self.store.updateContent(
+                        fileURL: savedFileURL,
                         title: normalized.title,
                         articleText: normalized.text,
                         summaryText: trimmed,
@@ -192,7 +216,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         routingThreshold: routingThresholdForSave,
                         isLongDocument: isLongDocument
                     )
-                    savedFileURL = saved.fileURL
                 case let .updateExisting(fileURL, updateArticle, updateTitle):
                     let trimmedArticle = normalized.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     if updateArticle, trimmedArticle.isEmpty {
@@ -217,7 +240,6 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                         routingThreshold: routingThresholdForSave,
                         isLongDocument: isLongDocument
                     )
-                    savedFileURL = fileURL
                 }
 
                 self.status = "Title ..."
@@ -236,10 +258,33 @@ final class ClipboardKeyPointViewModel: ObservableObject {
                 self.log("saved output, dismissing")
             } catch is CancellationError {
                 self.status = "Canceled"
+                if let generationRecordURL {
+                    do {
+                        _ = try self.store.updateGenerationState(
+                            fileURL: generationRecordURL,
+                            state: .failed,
+                            error: "Generation canceled."
+                        )
+                    } catch {
+                        self.log("failed to persist canceled state file=\(generationRecordURL.lastPathComponent) error=\(error.localizedDescription)")
+                    }
+                }
                 self.log("canceled")
             } catch {
                 self.status = "Error: \(error.localizedDescription)"
                 self.errorMessage = error.localizedDescription
+                if let generationRecordURL {
+                    do {
+                        _ = try self.store.updateGenerationState(
+                            fileURL: generationRecordURL,
+                            state: .failed,
+                            error: error.localizedDescription
+                        )
+                        self.log("generation record marked failed file=\(generationRecordURL.lastPathComponent)")
+                    } catch {
+                        self.log("failed to persist generation error file=\(generationRecordURL.lastPathComponent) error=\(error.localizedDescription)")
+                    }
+                }
                 print(error)
                 let errorLine = "Error: \(error.localizedDescription)"
                 if self.output.isEmpty {

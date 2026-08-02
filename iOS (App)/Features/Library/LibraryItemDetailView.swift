@@ -420,10 +420,41 @@ struct LibraryItemDetailView: View {
     @ViewBuilder
     private func outputs(item: RawHistoryItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            if item.resolvedGenerationState == .failed {
+                generationFailureSection(item)
+            }
             summarySection(item.summaryText)
             readingAnchorsSection(item.readingAnchors)
             articleSection(item.articleText)
         }
+    }
+
+    @ViewBuilder
+    private func generationFailureSection(_ item: RawHistoryItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Generation Failed", systemImage: "exclamationmark.triangle.fill")
+                .font(.headline)
+                .foregroundStyle(.orange)
+
+            if let error = item.generationError, !error.isEmpty {
+                Text(error)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+
+            Button {
+                guard let request = makeRegenerateRequest() else { return }
+                regenerateRequest = request
+            } label: {
+                Label("Regenerate Summary", systemImage: "arrow.clockwise")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!canRegenerateSummary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     @ViewBuilder

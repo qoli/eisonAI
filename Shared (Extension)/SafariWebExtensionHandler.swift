@@ -85,6 +85,8 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         var chunkTokenSize: Int?
         var routingThreshold: Int?
         var isLongDocument: Bool?
+        var generationState: String?
+        var generationError: String?
     }
 
     private struct ReadingAnchorChunk: Codable {
@@ -184,7 +186,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         tokenEstimator: String? = nil,
         chunkTokenSize: Int? = nil,
         routingThreshold: Int? = nil,
-        isLongDocument: Bool? = nil
+        isLongDocument: Bool? = nil,
+        generationState: String = "completed",
+        generationError: String? = nil
     ) throws -> (id: String, filename: String) {
         let directoryURL = try rawLibraryItemsDirectoryURL()
         try FileManager.default.createDirectory(
@@ -239,7 +243,9 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             tokenEstimator: tokenEstimator,
             chunkTokenSize: chunkTokenSize,
             routingThreshold: routingThreshold,
-            isLongDocument: isLongDocument
+            isLongDocument: isLongDocument,
+            generationState: generationState,
+            generationError: generationError
         )
 
         let encoder = JSONEncoder()
@@ -261,6 +267,49 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             )
         }
         return (id, filename)
+    }
+
+    private func updateRawHistoryItem(
+        filename: String,
+        mutate: (inout RawHistoryItem) throws -> Void
+    ) throws -> RawHistoryItem {
+        guard filename == URL(fileURLWithPath: filename).lastPathComponent,
+              filename.lowercased().hasSuffix(".json") else {
+            throw NSError(
+                domain: "EisonAI.RawLibrary",
+                code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid Raw Library filename."]
+            )
+        }
+
+        let directoryURL = try rawLibraryItemsDirectoryURL()
+        let fileURL = directoryURL.appendingPathComponent(filename, isDirectory: false)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            throw NSError(
+                domain: "EisonAI.RawLibrary",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "Generation record does not exist."]
+            )
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+        var item = try decoder.decode(RawHistoryItem.self, from: data)
+        try mutate(&item)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(item).write(to: fileURL, options: [.atomic])
+        return item
+    }
+
+    private func normalizedGenerationError(_ error: String?) -> String? {
+        guard let error else { return nil }
+        let trimmed = error.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(1000))
     }
 
     private func loadSystemPrompt() -> String {
@@ -904,6 +953,7 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         case "saveRawItem":
             do {
                 let payload = dict["payload"] as? [String: Any]
+                let existingFilename = payload?["filename"] as? String
                 let url = (payload?["url"] as? String) ?? ""
                 let title = (payload?["title"] as? String) ?? ""
                 let articleText = (payload?["articleText"] as? String) ?? ""
@@ -916,6 +966,15 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 let chunkTokenSize = readInt(payload?["chunkTokenSize"])
                 let routingThreshold = readInt(payload?["routingThreshold"])
                 let isLongDocument = payload?["isLongDocument"] as? Bool
+                let generationState = (payload?["generationState"] as? String) ?? "completed"
+                let generationError = payload?["generationError"] as? String
+                guard ["generating", "completed", "failed"].contains(generationState) else {
+                    throw NSError(
+                        domain: "EisonAI.RawLibrary",
+                        code: 5,
+                        userInfo: [NSLocalizedDescriptionKey: "Invalid generation state."]
+                    )
+                }
                 let readingAnchors: [ReadingAnchorChunk]? = (payload?["readingAnchors"] as? [[String: Any]])?.compactMap { item in
                     guard let index = readInt(item["index"]),
                           let tokenCount = readInt(item["tokenCount"]),
@@ -935,10 +994,12 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
                 let urlHash = sha256Hex(url)
                 os_log(
-                    "[Eison-Native] saveRawItem requested (profile: %{public}@) urlHash=%{public}@ urlLen=%d titleLen=%d articleLen=%d summaryLen=%d model=%{public}@",
+                    "[Eison-Native] saveRawItem requested (profile: %{public}@) state=%{public}@ existing=%{public}@ urlHash=%{public}@ urlLen=%d titleLen=%d articleLen=%d summaryLen=%d model=%{public}@",
                     log: Self.rawLibraryLog,
                     type: .info,
                     profile?.uuidString ?? "none",
+                    generationState,
+                    existingFilename ?? "none",
                     urlHash,
                     url.count,
                     title.count,
@@ -947,11 +1008,20 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                     modelId
                 )
 
-                if summaryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if generationState == "completed",
+                   summaryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     throw NSError(
                         domain: "EisonAI.RawLibrary",
                         code: 2,
                         userInfo: [NSLocalizedDescriptionKey: "summaryText is required."]
+                    )
+                }
+                if existingFilename == nil,
+                   articleText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    throw NSError(
+                        domain: "EisonAI.RawLibrary",
+                        code: 6,
+                        userInfo: [NSLocalizedDescriptionKey: "articleText is required when creating a generation record."]
                     )
                 }
 
@@ -974,21 +1044,48 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                     throw error
                 }
 
-                let result = try saveRawHistoryItem(
-                    url: url,
-                    title: title,
-                    articleText: articleText,
-                    summaryText: summaryText,
-                    systemPrompt: systemPrompt,
-                    userPrompt: userPrompt,
-                    modelId: modelId,
-                    readingAnchors: readingAnchors,
-                    tokenEstimate: tokenEstimate,
-                    tokenEstimator: tokenEstimator,
-                    chunkTokenSize: chunkTokenSize,
-                    routingThreshold: routingThreshold,
-                    isLongDocument: isLongDocument
-                )
+                let result: (id: String, filename: String)
+                if let existingFilename {
+                    let item = try updateRawHistoryItem(filename: existingFilename) { item in
+                        item.generationState = generationState
+                        item.generationError = normalizedGenerationError(generationError)
+                        if generationState == "completed" {
+                            item.url = url
+                            item.title = title
+                            item.articleText = articleText
+                            item.summaryText = summaryText
+                            item.systemPrompt = systemPrompt
+                            item.userPrompt = userPrompt
+                            item.modelId = modelId
+                            item.readingAnchors = readingAnchors
+                            item.tokenEstimate = tokenEstimate
+                            item.tokenEstimator = tokenEstimator
+                            item.chunkTokenSize = chunkTokenSize
+                            item.routingThreshold = routingThreshold
+                            item.isLongDocument = isLongDocument
+                            item.generationError = nil
+                        }
+                    }
+                    result = (item.id, existingFilename)
+                } else {
+                    result = try saveRawHistoryItem(
+                        url: url,
+                        title: title,
+                        articleText: articleText,
+                        summaryText: summaryText,
+                        systemPrompt: systemPrompt,
+                        userPrompt: userPrompt,
+                        modelId: modelId,
+                        readingAnchors: readingAnchors,
+                        tokenEstimate: tokenEstimate,
+                        tokenEstimator: tokenEstimator,
+                        chunkTokenSize: chunkTokenSize,
+                        routingThreshold: routingThreshold,
+                        isLongDocument: isLongDocument,
+                        generationState: generationState,
+                        generationError: normalizedGenerationError(generationError)
+                    )
+                }
 
                 do {
                     let savedURL = directoryURL.appendingPathComponent(result.filename)

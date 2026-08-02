@@ -7,6 +7,13 @@
 
 import Foundation
 
+enum RawGenerationState: String, Codable {
+    case legacy
+    case generating
+    case completed
+    case failed
+}
+
 struct RawHistoryItemMetadata: Codable, Identifiable {
     var v: Int
     var id: String
@@ -16,6 +23,12 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
     var summaryText: String
     var modelId: String
     var tags: [String] = []
+    var generationState: RawGenerationState?
+    var generationError: String?
+
+    var resolvedGenerationState: RawGenerationState {
+        generationState ?? .legacy
+    }
 
     enum CodingKeys: String, CodingKey {
         case v
@@ -26,6 +39,8 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
         case summaryText
         case modelId
         case tags
+        case generationState
+        case generationError
     }
 
     init(from decoder: Decoder) throws {
@@ -38,6 +53,8 @@ struct RawHistoryItemMetadata: Codable, Identifiable {
         summaryText = try container.decode(String.self, forKey: .summaryText)
         modelId = try container.decode(String.self, forKey: .modelId)
         tags = (try container.decodeIfPresent([String].self, forKey: .tags)) ?? []
+        generationState = try container.decodeIfPresent(RawGenerationState.self, forKey: .generationState)
+        generationError = try container.decodeIfPresent(String.self, forKey: .generationError)
     }
 }
 
@@ -69,6 +86,12 @@ struct RawHistoryItem: Codable, Identifiable {
     var chunkTokenSize: Int?
     var routingThreshold: Int?
     var isLongDocument: Bool?
+    var generationState: RawGenerationState?
+    var generationError: String?
+
+    var resolvedGenerationState: RawGenerationState {
+        generationState ?? .legacy
+    }
 
     init(
         v: Int,
@@ -87,7 +110,9 @@ struct RawHistoryItem: Codable, Identifiable {
         tokenEstimator: String? = nil,
         chunkTokenSize: Int? = nil,
         routingThreshold: Int? = nil,
-        isLongDocument: Bool? = nil
+        isLongDocument: Bool? = nil,
+        generationState: RawGenerationState?,
+        generationError: String? = nil
     ) {
         self.v = v
         self.id = id
@@ -106,6 +131,8 @@ struct RawHistoryItem: Codable, Identifiable {
         self.chunkTokenSize = chunkTokenSize
         self.routingThreshold = routingThreshold
         self.isLongDocument = isLongDocument
+        self.generationState = generationState
+        self.generationError = generationError
     }
 
     enum CodingKeys: String, CodingKey {
@@ -126,6 +153,8 @@ struct RawHistoryItem: Codable, Identifiable {
         case chunkTokenSize
         case routingThreshold
         case isLongDocument
+        case generationState
+        case generationError
     }
 
     init(from decoder: Decoder) throws {
@@ -147,6 +176,8 @@ struct RawHistoryItem: Codable, Identifiable {
         chunkTokenSize = try container.decodeIfPresent(Int.self, forKey: .chunkTokenSize)
         routingThreshold = try container.decodeIfPresent(Int.self, forKey: .routingThreshold)
         isLongDocument = try container.decodeIfPresent(Bool.self, forKey: .isLongDocument)
+        generationState = try container.decodeIfPresent(RawGenerationState.self, forKey: .generationState)
+        generationError = try container.decodeIfPresent(String.self, forKey: .generationError)
     }
 }
 

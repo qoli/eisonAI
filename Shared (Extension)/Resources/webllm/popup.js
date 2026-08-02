@@ -67,6 +67,7 @@ const state = {
   cursor: 0,
   isRunning: false,
   cancelRequested: false,
+  rawItemFilename: "",
 };
 const tokenizerInstances = new Map();
 
@@ -611,6 +612,31 @@ function setStatus(message) {
   statusEl.textContent = message;
 }
 
+function setRegenerateVisible(visible) {
+  if (!summarizeButton) return;
+  summarizeButton.hidden = !visible;
+  summarizeButton.textContent = "Regenerate";
+}
+
+async function persistGenerationFailure(message) {
+  if (!state.rawItemFilename) return;
+  try {
+    await sendNative("saveRawItem", {
+      filename: state.rawItemFilename,
+      generationState: "failed",
+      generationError: String(message || "Generation failed."),
+    });
+    logPopupEvent("summary.record.failed", {
+      filename: state.rawItemFilename,
+    });
+  } catch (persistenceError) {
+    logPopupEvent("summary.record.failurePersistenceError", {
+      filename: state.rawItemFilename,
+      error: describeError(persistenceError),
+    });
+  }
+}
+
 function setProgressState(stateName, breathing = false) {
   if (!progressDotEl) return;
   progressDotEl.classList.remove(
@@ -931,6 +957,8 @@ async function startSummary() {
     return;
   }
 
+  state.rawItemFilename = "";
+  setRegenerateVisible(false);
   await refreshConfiguration();
   setStatus("Reading tab…");
   setProgressState("reading", true);
@@ -946,6 +974,27 @@ async function startSummary() {
   state.readingAnchors = [];
   state.effectiveChunkTokenSize = 0;
   updateBackendBadge();
+
+  const generationRecord = await sendNative("saveRawItem", {
+    url: context.url,
+    title: context.title,
+    articleText: context.body,
+    summaryText: "",
+    systemPrompt: "",
+    userPrompt: "",
+    modelId: resolvedModelId(),
+    generationState: "generating",
+  });
+  state.rawItemFilename = generationRecord.filename || "";
+  if (!state.rawItemFilename) {
+    throw new Error("Native storage did not return a generation record filename.");
+  }
+  logPopupEvent("summary.record.created", {
+    id: generationRecord.id || "",
+    filename: state.rawItemFilename,
+    articleChars: context.body.length,
+  });
+
   logPopupEvent("summary.context", {
     backendSelection: state.backendSelection,
     executionBackend: state.executionBackend,
@@ -1042,6 +1091,7 @@ async function startSummary() {
   setStatus("Saving…");
 
   await sendNative("saveRawItem", {
+    filename: state.rawItemFilename,
     url: context.url,
     title: context.title,
     articleText: context.body,
@@ -1055,23 +1105,28 @@ async function startSummary() {
     chunkTokenSize: state.isLongDocument ? state.effectiveChunkTokenSize : undefined,
     routingThreshold: state.longDocumentRoutingThreshold,
     isLongDocument: state.isLongDocument,
+    generationState: "completed",
   });
 
   setStatus("Done");
   setProgressState("ready");
+  setRegenerateVisible(false);
 }
 
 async function cancelSummary() {
   state.cancelRequested = true;
   if (!state.jobId) {
+    await persistGenerationFailure("Generation canceled.");
     state.isRunning = false;
     setStatus("Canceled");
     setProgressState("stopped");
+    setRegenerateVisible(true);
     return;
   }
   try {
     await sendNative("fm.stream.cancel", { jobId: state.jobId });
   } finally {
+    await persistGenerationFailure("Generation canceled.");
     state.isRunning = false;
     state.jobId = null;
     state.cursor = 0;
@@ -1080,6 +1135,7 @@ async function cancelSummary() {
     }
     setStatus("Canceled");
     setProgressState("stopped");
+    setRegenerateVisible(true);
   }
 }
 
@@ -1099,6 +1155,7 @@ async function handleSummarize() {
     }
     setStatus("Error");
     setProgressState("error");
+    await persistGenerationFailure(error?.message || String(error));
     logPopupEvent("summary.error", {
       error: describeError(error),
       backendSelection: state.backendSelection,
@@ -1110,13 +1167,11 @@ async function handleSummarize() {
       effectiveChunkTokenSize: state.effectiveChunkTokenSize,
     });
     renderSummary(`Error: ${error?.message || String(error)}`);
+    setRegenerateVisible(true);
   } finally {
     state.isRunning = false;
     state.jobId = null;
     state.cursor = 0;
-    if (summarizeButton) {
-      summarizeButton.textContent = "Summarize Tab";
-    }
   }
 }
 
@@ -1171,6 +1226,7 @@ async function boot() {
     setStatus("Error");
     setProgressState("error");
     renderSummary(`Error: ${error?.message || String(error)}`);
+    setRegenerateVisible(true);
   }
 }
 

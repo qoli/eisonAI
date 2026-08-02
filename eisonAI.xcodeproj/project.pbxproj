@@ -11,6 +11,7 @@
 		0CF6E99791912B97F1975260 /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = E1B8F3DD4832B58FA919FD61 /* OrderedCollections */; };
 		2BDA4184F6F345EA88F54044 /* Base in Resources */ = {isa = PBXBuildFile; fileRef = EA77263B2BC5B6B3005A194D /* Base */; };
 		3217618FF4110B1C4BD86D3E /* LongDocumentFallbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04FE8C648BD191A244BDF99A /* LongDocumentFallbackTests.swift */; };
+		4C62CDA12FA1000100E15001 /* RawGenerationStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C62CDA02FA1000100E15001 /* RawGenerationStateTests.swift */; };
 		7BFD95E39EF0D521CA339B30 /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		7FD1EA87400136DB1B190D3E /* AnyLanguageModel in Frameworks */ = {isa = PBXBuildFile; productRef = 371150D3FE8FFDA40696F57E /* AnyLanguageModel */; };
 		9F3C30D0F51B3881139A7055 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D3110499DD03E86D955EEA0 /* XCTest.framework */; };
@@ -88,6 +89,7 @@
 		2C8AC6E9CF5F42E5A0B2AE27 /* libmlc_llm.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libmlc_llm.xcframework; sourceTree = "<group>"; };
 		3ED18AB1ECB446138B75791D /* libtokenizers_cpp.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtokenizers_cpp.xcframework; sourceTree = "<group>"; };
 		4A02892B81249D6EA6AE7F8B /* GPTTokenEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPTTokenEstimatorTests.swift; sourceTree = "<group>"; };
+		4C62CDA02FA1000100E15001 /* RawGenerationStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawGenerationStateTests.swift; sourceTree = "<group>"; };
 		4D3110499DD03E86D955EEA0 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = System/Library/Frameworks/XCTest.framework; sourceTree = SDKROOT; };
 		508D1F9017184EBC982A2470 /* libmodel_iphone.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libmodel_iphone.xcframework; sourceTree = "<group>"; };
 		6916C7E9CB6E4CFF98865E40 /* libtvm_runtime.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = libtvm_runtime.xcframework; sourceTree = "<group>"; };
@@ -225,6 +227,7 @@
 			isa = PBXGroup;
 			children = (
 				02C58F38B79BFBAADD38B0A5 /* LongDocumentSettingsStoreTests.swift */,
+				4C62CDA02FA1000100E15001 /* RawGenerationStateTests.swift */,
 				4A02892B81249D6EA6AE7F8B /* GPTTokenEstimatorTests.swift */,
 				1D97AD928B421BA1E948E413 /* LongDocumentPromptBuilderTests.swift */,
 				04FE8C648BD191A244BDF99A /* LongDocumentFallbackTests.swift */,
@@ -574,6 +577,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A992C7988F21F97D541F39A4 /* LongDocumentSettingsStoreTests.swift in Sources */,
+				4C62CDA12FA1000100E15001 /* RawGenerationStateTests.swift in Sources */,
 				B7A96ECC5457200A45D8F26B /* GPTTokenEstimatorTests.swift in Sources */,
 				EFDE86CE86262B564D06DBBA /* LongDocumentPromptBuilderTests.swift in Sources */,
 				3217618FF4110B1C4BD86D3E /* LongDocumentFallbackTests.swift in Sources */,

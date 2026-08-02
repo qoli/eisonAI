@@ -314,6 +314,22 @@ progress::-webkit-progress-value {
   margin: 6px 12px;
 }
 
+.regenerate-button {
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--link);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  padding: 4px 9px;
+}
+
+.regenerate-button:hover {
+  background: rgba(127, 127, 127, 0.1);
+}
+
 .legacy-hidden {
   display: none !important;
 }

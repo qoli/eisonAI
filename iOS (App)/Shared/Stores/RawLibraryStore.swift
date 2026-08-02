@@ -386,6 +386,8 @@ struct RawLibraryStore {
         item.chunkTokenSize = chunkTokenSize
         item.routingThreshold = routingThreshold
         item.isLongDocument = isLongDocument
+        item.generationState = .completed
+        item.generationError = nil
         try writeItem(item, to: fileURL)
 
         let filename = fileURL.lastPathComponent
@@ -408,7 +410,9 @@ struct RawLibraryStore {
                     tokenEstimator: tokenEstimator,
                     chunkTokenSize: chunkTokenSize,
                     routingThreshold: routingThreshold,
-                    isLongDocument: isLongDocument
+                    isLongDocument: isLongDocument,
+                    generationState: .completed,
+                    generationError: nil
                 )
             }
         } else if fileURL.deletingLastPathComponent().standardizedFileURL == favoritesDir.standardizedFileURL {
@@ -427,7 +431,9 @@ struct RawLibraryStore {
                     tokenEstimator: tokenEstimator,
                     chunkTokenSize: chunkTokenSize,
                     routingThreshold: routingThreshold,
-                    isLongDocument: isLongDocument
+                    isLongDocument: isLongDocument,
+                    generationState: .completed,
+                    generationError: nil
                 )
             }
         }
@@ -536,7 +542,9 @@ struct RawLibraryStore {
         tokenEstimator: String? = nil,
         chunkTokenSize: Int? = nil,
         routingThreshold: Int? = nil,
-        isLongDocument: Bool? = nil
+        isLongDocument: Bool? = nil,
+        generationState: RawGenerationState = .completed,
+        generationError: String? = nil
     ) throws -> (id: String, filename: String, fileURL: URL) {
         let directoryURL = try itemsDirectoryURL()
 
@@ -587,7 +595,9 @@ struct RawLibraryStore {
             tokenEstimator: tokenEstimator,
             chunkTokenSize: chunkTokenSize,
             routingThreshold: routingThreshold,
-            isLongDocument: isLongDocument
+            isLongDocument: isLongDocument,
+            generationState: generationState,
+            generationError: generationError
         )
 
         let encoder = JSONEncoder()
@@ -600,6 +610,62 @@ struct RawLibraryStore {
 
         _ = try enforceRawLibraryLimit(in: directoryURL)
         return (id, filename, fileURL)
+    }
+
+    @discardableResult
+    func createPendingRawItem(
+        url: String,
+        title: String,
+        articleText: String
+    ) throws -> (id: String, filename: String, fileURL: URL) {
+        let normalizedArticle = articleText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedArticle.isEmpty else {
+            throw NSError(
+                domain: "EisonAI.RawLibrary",
+                code: 20,
+                userInfo: [NSLocalizedDescriptionKey: "Cannot create a generation record without article text."]
+            )
+        }
+
+        return try saveRawItem(
+            url: url,
+            title: title,
+            articleText: normalizedArticle,
+            summaryText: "",
+            systemPrompt: "",
+            userPrompt: "",
+            modelId: "",
+            generationState: .generating
+        )
+    }
+
+    @discardableResult
+    func updateGenerationState(
+        fileURL: URL,
+        state: RawGenerationState,
+        error: String? = nil
+    ) throws -> RawHistoryItem {
+        var item = try loadItem(fileURL: fileURL)
+        item.generationState = state
+        item.generationError = normalizedGenerationError(error)
+        try writeItem(item, to: fileURL)
+
+        let filename = fileURL.lastPathComponent
+        let itemsDir = try itemsDirectoryURL()
+        let favoritesDir = try favoriteItemsDirectoryURL()
+        if fileURL.deletingLastPathComponent().standardizedFileURL == itemsDir.standardizedFileURL {
+            let favoriteURL = favoritesDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: fileSystemPath(for: favoriteURL)) {
+                try updateGenerationStateOnly(fileURL: favoriteURL, state: state, error: error)
+            }
+        } else if fileURL.deletingLastPathComponent().standardizedFileURL == favoritesDir.standardizedFileURL {
+            let itemURL = itemsDir.appendingPathComponent(filename)
+            if fileManager.fileExists(atPath: fileSystemPath(for: itemURL)) {
+                try updateGenerationStateOnly(fileURL: itemURL, state: state, error: error)
+            }
+        }
+
+        return item
     }
 
     func clearAll() throws {
@@ -653,7 +719,9 @@ struct RawLibraryStore {
         tokenEstimator: String?,
         chunkTokenSize: Int?,
         routingThreshold: Int?,
-        isLongDocument: Bool?
+        isLongDocument: Bool?,
+        generationState: RawGenerationState,
+        generationError: String?
     ) throws {
         var item = try loadItem(fileURL: fileURL)
         if let title {
@@ -672,7 +740,27 @@ struct RawLibraryStore {
         item.chunkTokenSize = chunkTokenSize
         item.routingThreshold = routingThreshold
         item.isLongDocument = isLongDocument
+        item.generationState = generationState
+        item.generationError = normalizedGenerationError(generationError)
         try writeItem(item, to: fileURL)
+    }
+
+    private func updateGenerationStateOnly(
+        fileURL: URL,
+        state: RawGenerationState,
+        error: String?
+    ) throws {
+        var item = try loadItem(fileURL: fileURL)
+        item.generationState = state
+        item.generationError = normalizedGenerationError(error)
+        try writeItem(item, to: fileURL)
+    }
+
+    private func normalizedGenerationError(_ error: String?) -> String? {
+        guard let error else { return nil }
+        let trimmed = error.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(1000))
     }
 
     private func collectUsedTags() throws -> Set<String> {
