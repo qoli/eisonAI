@@ -1,0 +1,17 @@
+Directly call the Notion MCP/tool to read page `2e2c1b36c40180849002d41f8892a5c7`. Do not check tool lists first.
+
+Find pure version headings in the main page body only: `## x.y`.
+Select the numerically largest version. It must equal this release version: `${version}`.
+Extract only that heading through the content before the next pure version heading. Do not include page-header child pages, explanatory text, or older versions.
+
+Overwrite these two files:
+- `${fastlane_changelog}`: English plain text, keep exactly one `## ${version}` heading, no HTML, no Chinese/Japanese/Korean text.
+- `${telegram_changelog}`: Chinese Telegram markdown, keep exactly one `## ${version}` heading, do not translate it into English.
+
+The parent directories already exist. Write the full paths directly; do not use shell heredocs or bash file creation.
+
+After writing, call only the `translation-validator` agent for read-only validation. The validator may read only these two output files; it must not read Notion, web, browser, or curl.
+Validation requirements: both files non-empty, each has exactly one `## x.y` heading, versions match `${version}`, English file has no HTML/CJK text, Telegram file contains Chinese, no old version headings.
+Call the validator with name `translation-validator` and wait synchronously. Do not use background/read_agent. If the validator returns FAIL, the main agent must fix the files and validate again. Only call task_complete after validator PASS. Do not call web/browser/HTML tools or any other agent/subtask.
+
+Final response only: SUCCESS/FAIL, version: `${version}`, validator: PASS/FAIL, files: written.

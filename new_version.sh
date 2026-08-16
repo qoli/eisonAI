@@ -9,8 +9,12 @@ project_xcode="$project_path/eisonAI.xcodeproj"
 copilot_wrapper="/Volumes/Data/Github/macOSAgentBot/callCopilot.sh"
 copilot_home_seed="$HOME/.copilot"
 copilot_run_root="$project_path/logs/new_version_copilot"
-copilot_task_complete_grace_period=10
+copilot_task_complete_grace_period="${COPILOT_TASK_COMPLETE_GRACE_PERIOD:-10}"
 copilot_max_autopilot_continues="${COPILOT_MAX_AUTOPILOT_CONTINUES:-10}"
+copilot_last_run_dir=""
+copilot_last_events_file=""
+copilot_last_completion_status="missing_task_complete"
+copilot_last_validator_status="FAIL"
 
 usage() {
     echo "使用方式: ./new_version.sh <version> [platform] [method]"
@@ -152,6 +156,12 @@ validate_changelog_outputs() {
         return 1
     fi
 
+    if [ "$english_version" != "$new_version" ]; then
+        validation_error="changelog 版本 heading 必須等於發佈版本 $new_version，目前是 $english_version。"
+        echo "$validation_error" >&2
+        return 1
+    fi
+
     if ! grep -q '[一-龥]' "$telegram_changelog"; then
         validation_error="telegram/changelog.md 必須保留中文內容，不能是純英文翻譯版。"
         echo "$validation_error" >&2
@@ -179,13 +189,34 @@ seed_copilot_home() {
     fi
 }
 
+find_copilot_events_file() {
+    local copilot_home="$1"
+
+    find "$copilot_home/session-state" -mindepth 2 -maxdepth 2 -name events.jsonl -print -quit 2>/dev/null || true
+}
+
+copilot_task_complete_succeeded() {
+    local events_file="$1"
+
+    [ -n "$events_file" ] || return 1
+    rg -q '"type":"session\.task_complete".*"success":true' "$events_file"
+}
+
+copilot_validator_passed() {
+    local events_file="$1"
+
+    [ -n "$events_file" ] || return 1
+    rg -q '"agentName":"translation-validator"' "$events_file" || return 1
+    rg -q 'status.*PASS' "$events_file"
+}
+
 monitor_copilot_task_complete() {
     local session_name="$1"
     local copilot_home="$2"
     local events_file=""
 
     while tmux has-session -t "$session_name" 2>/dev/null; do
-        events_file="$(find "$copilot_home/session-state" -mindepth 2 -maxdepth 2 -name events.jsonl -print -quit 2>/dev/null || true)"
+        events_file="$(find_copilot_events_file "$copilot_home")"
         if [ -n "$events_file" ]; then
             break
         fi
@@ -199,7 +230,7 @@ monitor_copilot_task_complete() {
     echo "監控 Copilot session 事件：$events_file"
 
     while tmux has-session -t "$session_name" 2>/dev/null; do
-        if rg -q '"type":"session\.task_complete".*"success":true' "$events_file"; then
+        if copilot_task_complete_succeeded "$events_file"; then
             echo "偵測到 session.task_complete，${copilot_task_complete_grace_period} 秒後自動關閉 tmux session：$session_name"
             sleep "$copilot_task_complete_grace_period"
 
@@ -210,6 +241,38 @@ monitor_copilot_task_complete() {
         fi
         sleep 1
     done
+
+    return 0
+}
+
+record_copilot_session_status() {
+    local copilot_home="$1"
+
+    copilot_last_events_file="$(find_copilot_events_file "$copilot_home")"
+    copilot_last_completion_status="missing_task_complete"
+    copilot_last_validator_status="FAIL"
+
+    if copilot_task_complete_succeeded "$copilot_last_events_file"; then
+        copilot_last_completion_status="task_complete"
+    fi
+
+    if copilot_validator_passed "$copilot_last_events_file"; then
+        copilot_last_validator_status="PASS"
+    fi
+}
+
+validate_copilot_session_status() {
+    if [ "$copilot_last_completion_status" != "task_complete" ]; then
+        validation_error="Copilot session 未在 events.jsonl 記錄 session.task_complete success=true。run_dir=$copilot_last_run_dir events=${copilot_last_events_file:-missing}"
+        echo "$validation_error" >&2
+        return 1
+    fi
+
+    if [ "$copilot_last_validator_status" != "PASS" ]; then
+        validation_error="Copilot session 未記錄 translation-validator PASS。run_dir=$copilot_last_run_dir events=${copilot_last_events_file:-missing}"
+        echo "$validation_error" >&2
+        return 1
+    fi
 
     return 0
 }
@@ -233,6 +296,7 @@ run_copilot_prompt() {
 
     seed_copilot_home "$copilot_home"
     printf '%s' "$prompt_text" > "$prompt_file"
+    copilot_last_run_dir="$run_dir"
 
     {
         echo '#!/bin/bash'
@@ -270,6 +334,9 @@ run_copilot_prompt() {
     if [ "$attach_status" -ne 0 ] && tmux has-session -t "$session_name" 2>/dev/null; then
         return "$attach_status"
     fi
+
+    record_copilot_session_status "$copilot_home"
+    echo "Copilot session 狀態：completion=$copilot_last_completion_status validator=$copilot_last_validator_status events=${copilot_last_events_file:-missing}"
 }
 
 generate_changelog_with_retry() {
@@ -279,12 +346,16 @@ generate_changelog_with_retry() {
 
     while [ "$attempt" -le "$max_attempts" ]; do
         echo "生成 changelog，第 $attempt/$max_attempts 次嘗試..."
-        run_copilot_prompt "$prompt_text"
-
-        if validate_changelog_outputs; then
+        if ! run_copilot_prompt "$prompt_text"; then
+            validation_error="Copilot CLI 執行失敗。run_dir=$copilot_last_run_dir"
+        elif ! validate_copilot_session_status; then
+            :
+        elif validate_changelog_outputs; then
             echo "changelog 驗證通過。"
             return 0
         fi
+
+        echo "changelog 驗證失敗：$validation_error" >&2
 
         if [ "$attempt" -ge "$max_attempts" ]; then
             echo "changelog 驗證失敗，已達最大重試次數：$validation_error" >&2
@@ -299,6 +370,7 @@ $validation_error
 
 請直接覆寫 $project_path/fastlane/changelog.txt 與 $project_path/telegram/changelog.md。
 兩個檔案都必須剛好包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。
+版本 heading 必須等於本次發佈版本：## $new_version。
 telegram/changelog.md 必須保留中文，不可改寫成英文版。
 不要使用 ## 未發佈 - 日期、不要省略版本 heading、不要只輸出條列內容。
 仍需使用 translation-validator agent 做唯讀驗證；不要呼叫其他 agent/subtask。
@@ -371,9 +443,14 @@ if ! command -v tmux >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! command -v rg >/dev/null 2>&1; then
+    echo "找不到 rg，請先安裝 ripgrep。" >&2
+    exit 1
+fi
+
 copilot_prompt=$(cat <<EOF
 直接呼叫 Notion MCP 讀取 page 2e2c1b36c40180849002d41f8892a5c7，不要先檢查工具列表。只從主頁正文找純版本 heading：## x.y。
-選數值最大的版本，只取該 heading 到下一個純版本 heading 前的內容；不要混入頁首子頁、說明文字或舊版本。
+選數值最大的版本；該版本必須等於本次發佈版本 $new_version。只取該 heading 到下一個純版本 heading 前的內容；不要混入頁首子頁、說明文字或舊版本。
 
 覆寫這兩個文件：
 - ${project_path}/fastlane/changelog.txt：英文 plain text，保留同一行 ## x.y 版本 heading，不要 HTML 或中文。

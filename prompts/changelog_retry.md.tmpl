@@ -1,0 +1,14 @@
+${base_prompt}
+
+The previous output failed local validation. You must restart the task and overwrite both files.
+
+Failure reason:
+${previous_error}
+
+Correction requirements:
+- Re-read the Notion main page body and select the latest pure `## x.y` heading.
+- The version heading must equal `## ${version}`.
+- `${fastlane_changelog}` must be English and must not contain HTML, Chinese, Japanese, Korean, old versions, or extra `##` headings.
+- `${telegram_changelog}` must be Chinese Telegram markdown and must not contain old versions or extra `##` headings.
+- Do not use `## 未發佈 - 日期`, do not omit the version heading, and do not output only bullet points.
+- Still call only the `translation-validator` agent for read-only validation.
