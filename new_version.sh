@@ -151,13 +151,13 @@ validate_changelog_outputs() {
     fi
 
     if [ "$english_version" != "$telegram_version" ]; then
-        validation_error="兩個 changelog 的版本 heading 不一致：fastlane=$english_version, telegram=$telegram_version。"
+        validation_error="兩個 changelog 的版本 heading 不一致：fastlane=${english_version}, telegram=${telegram_version}。"
         echo "$validation_error" >&2
         return 1
     fi
 
     if [ "$english_version" != "$new_version" ]; then
-        validation_error="changelog 版本 heading 必須等於發佈版本 $new_version，目前是 $english_version。"
+        validation_error="changelog 版本 heading 必須等於發佈版本 ${new_version}，目前是 ${english_version}。"
         echo "$validation_error" >&2
         return 1
     fi
@@ -370,7 +370,7 @@ $validation_error
 
 請直接覆寫 $project_path/fastlane/changelog.txt 與 $project_path/telegram/changelog.md。
 兩個檔案都必須剛好包含一行完全符合 ## x.y 的版本 heading，例如 ## 1.4。
-版本 heading 必須等於本次發佈版本：## $new_version。
+版本 heading 必須等於本次發佈版本：## ${new_version}。
 telegram/changelog.md 必須保留中文，不可改寫成英文版。
 不要使用 ## 未發佈 - 日期、不要省略版本 heading、不要只輸出條列內容。
 仍需使用 translation-validator agent 做唯讀驗證；不要呼叫其他 agent/subtask。
@@ -450,7 +450,7 @@ fi
 
 copilot_prompt=$(cat <<EOF
 直接呼叫 Notion MCP 讀取 page 2e2c1b36c40180849002d41f8892a5c7，不要先檢查工具列表。只從主頁正文找純版本 heading：## x.y。
-選數值最大的版本；該版本必須等於本次發佈版本 $new_version。只取該 heading 到下一個純版本 heading 前的內容；不要混入頁首子頁、說明文字或舊版本。
+選數值最大的版本；該版本必須等於本次發佈版本 ${new_version}。只取該 heading 到下一個純版本 heading 前的內容；不要混入頁首子頁、說明文字或舊版本。
 
 覆寫這兩個文件：
 - ${project_path}/fastlane/changelog.txt：英文 plain text，保留同一行 ## x.y 版本 heading，不要 HTML 或中文。
