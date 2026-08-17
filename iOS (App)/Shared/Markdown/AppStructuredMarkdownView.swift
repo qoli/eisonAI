@@ -15,56 +15,16 @@ struct AppStructuredMarkdownView: View {
 
     @ViewBuilder
     var body: some View {
+        let content = StructuredText(markdown: markdown)
+            .font(.system(size: AppMarkdownMetrics.rootFontSize * readingScale))
+            .textual.structuredTextStyle(AppMarkdownStyle(scale: readingScale))
+            .textual.listItemSpacing(.fontScaled(top: AppMarkdownMetrics.listItemTopSpacingEm))
+            .frame(maxWidth: .infinity, alignment: .leading)
+
         if allowsSelection {
-            SystemSelectableMarkdownView(
-                markdown: markdown,
-                readingScale: readingScale
-            )
+            content.textual.textSelection(.enabled)
         } else {
-            StructuredText(markdown: markdown)
-                .font(.system(size: AppMarkdownMetrics.rootFontSize * readingScale))
-                .textual.structuredTextStyle(AppMarkdownStyle(scale: readingScale))
-                .textual.listItemSpacing(.fontScaled(top: AppMarkdownMetrics.listItemTopSpacingEm))
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
-/// Uses the platform text-selection responder so standard edit-menu actions such as
-/// Translate and Look Up remain available. Textual's selection overlay intentionally
-/// limits its responder actions to Copy and Share.
-private struct SystemSelectableMarkdownView: View {
-    let readingScale: CGFloat
-    private let content: Result<AttributedString, Error>
-
-    init(markdown: String, readingScale: CGFloat) {
-        self.readingScale = readingScale
-        content = Result {
-            try AttributedString(
-                markdown: markdown,
-                options: .init(
-                    interpretedSyntax: .full,
-                    failurePolicy: .returnPartiallyParsedIfPossible
-                )
-            )
-        }
-    }
-
-    @ViewBuilder
-    var body: some View {
-        switch content {
-        case let .success(attributedText):
-            Text(attributedText)
-                .font(.system(size: AppMarkdownMetrics.rootFontSize * readingScale))
-                .lineSpacing(AppMarkdownMetrics.paragraphLineSpacing)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        case let .failure(error):
-            ContentUnavailableView(
-                "Unable to Display Content",
-                systemImage: "doc.text.magnifyingglass",
-                description: Text(error.localizedDescription)
-            )
+            content
         }
     }
 }
