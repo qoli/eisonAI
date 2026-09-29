@@ -61,6 +61,7 @@ struct AppConfigDebugView: View {
             DefaultsEntry(name: "chunkPromptKey", key: AppConfig.chunkPromptKey),
             DefaultsEntry(name: "translatedSummaryPromptKey", key: AppConfig.translatedSummaryPromptKey),
             DefaultsEntry(name: "translatedChunkPromptKey", key: AppConfig.translatedChunkPromptKey),
+            DefaultsEntry(name: "resultTranslationEnabledKey", key: AppConfig.resultTranslationEnabledKey),
             DefaultsEntry(name: "titlePromptKey", key: AppConfig.titlePromptKey),
             DefaultsEntry(name: "legacyGenerationBackendKey", key: AppConfig.legacyGenerationBackendKey),
             DefaultsEntry(name: "appGenerationBackendKey", key: AppConfig.appGenerationBackendKey),

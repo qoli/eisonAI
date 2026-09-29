@@ -197,8 +197,17 @@ final class ClipboardKeyPointViewModel: ObservableObject {
 
                 let originalLanguageTag = ContentLanguageResolver.dominantLanguageTag(for: normalized.text)
                 let targetLanguageTag = ModelLanguageStore().loadOrRecommended()
+                let resultTranslationEnabled = UserDefaults(
+                    suiteName: AppConfig.appGroupIdentifier
+                )?.bool(forKey: AppConfig.resultTranslationEnabledKey) ?? false
+                let shouldTranslateResult = resultTranslationEnabled
+                    && !ContentLanguageResolver.representsSameLanguage(originalLanguageTag, targetLanguageTag)
+                let detectedLanguageTag = originalLanguageTag ?? "unknown"
+                self.log(
+                    "result-translation enabled=\(resultTranslationEnabled) source=\(detectedLanguageTag) target=\(targetLanguageTag) shouldTranslate=\(shouldTranslateResult)"
+                )
                 let translatedSummary: String?
-                if ContentLanguageResolver.representsSameLanguage(originalLanguageTag, targetLanguageTag) {
+                if !shouldTranslateResult {
                     translatedSummary = nil
                 } else {
                     self.status = "Translating…"

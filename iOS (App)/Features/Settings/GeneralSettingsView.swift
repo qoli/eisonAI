@@ -13,6 +13,10 @@ struct GeneralSettingsView: View {
         AppConfig.macReadingTextScaleKey,
         store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
     ) private var macReadingTextScale = ReadingTextSizeOption.standard.rawValue
+    @AppStorage(
+        AppConfig.resultTranslationEnabledKey,
+        store: UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+    ) private var resultTranslationEnabled = false
 
     var body: some View {
         Form {
@@ -26,6 +30,14 @@ struct GeneralSettingsView: View {
                 Text("Language of Thought")
             } footer: {
                 Text("Choose the language eisonAI uses to think and write.")
+            }
+
+            Section {
+                Toggle("Translate Generated Results", isOn: $resultTranslationEnabled)
+            } header: {
+                Text("Result Translation")
+            } footer: {
+                Text("When enabled, eisonAI translates generated results into the selected language and saves both the original and translated versions.")
             }
 
             if platform == .macCatalyst {
