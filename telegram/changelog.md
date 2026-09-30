@@ -1,7 +1,10 @@
-## 2.11
+## 2.12
+
+### 新增
+- 新增「結果翻譯」設定開關，預設關閉。啟用後，eisonAI 會將生成結果翻譯成所選語言，並保留原文與譯文以供切換查看。
 
 ### 修正
-- 修正 Library 詳情頁因錯誤切換至系統文字 renderer 而失去 Markdown 標題、清單與段落佈局的問題。
+- App 與 Safari Extension 的生成路徑統一為 Apple Intelligence 或 BYOK。Auto 可在 Apple Intelligence 不可用時選用 BYOK；明確選擇 Apple Intelligence 時則會停止並顯示錯誤，不會靜默將內容送往外部服務。
 
 ### 移除
-- 移除未能實際提供文字選取、翻譯與查詢功能的系統文字渲染繞過，恢復由 Textual 統一渲染 Markdown。
+- 移除可下載的 MLX 本地模型、模型目錄、模型管理介面與背景下載流程。

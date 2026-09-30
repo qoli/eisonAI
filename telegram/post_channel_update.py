@@ -24,6 +24,7 @@ import uuid
 
 CAPTION_LIMIT = 1024
 MESSAGE_LIMIT = 4096
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def read_text(path: str) -> str:
@@ -206,11 +207,15 @@ def chunk_text(text: str, limit: int) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Post a photo + combined text to a Telegram channel.")
     parser.add_argument("--token", default=None, help="Bot token (overrides env and .token file)")
-    parser.add_argument("--token-file", default="/Volumes/Data/Github/eisonAI/telegram/.token", help="Path to .token file")
+    parser.add_argument(
+        "--token-file",
+        default=os.path.join(SCRIPT_DIR, ".token"),
+        help="Path to .token file",
+    )
     parser.add_argument("--chat-id", default="@RonnieAppsChannel", help="Channel username or chat ID")
-    parser.add_argument("--image", default="/Volumes/Data/Github/eisonAI/telegram/VersionUpdate.png")
-    parser.add_argument("--top", default="/Volumes/Data/Github/eisonAI/telegram/top.md")
-    parser.add_argument("--changelog", default="/Volumes/Data/Github/eisonAI/telegram/changelog.md")
+    parser.add_argument("--image", default=os.path.join(SCRIPT_DIR, "VersionUpdate.png"))
+    parser.add_argument("--top", default=os.path.join(SCRIPT_DIR, "top.md"))
+    parser.add_argument("--changelog", default=os.path.join(SCRIPT_DIR, "changelog.md"))
     parser.add_argument("--parse-mode", default="Markdown", help="Markdown, MarkdownV2, or HTML (default: Markdown)")
     parser.add_argument("--no-parse-mode", action="store_true", help="Disable parse mode (send plain text)")
     parser.add_argument(
