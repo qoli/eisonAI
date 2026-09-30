@@ -61,7 +61,6 @@ struct UnevenRoundedRectangle: Shape {
 struct OnboardingView: View {
     let onGetLifetimeAccess: () -> Void
     let dismissOnCompletion: Bool
-    let ramGiBOverride: Double?
     private struct BionicLine: Equatable {
         let text: String
         let boldParts: [String]
@@ -71,12 +70,6 @@ struct OnboardingView: View {
         let line1: BionicLine
         let line2: BionicLine
         let line3: BionicLine
-    }
-
-    private enum RamTier {
-        case insufficient
-        case limited
-        case sufficient
     }
 
     private let onboardingCopies: [OnboardingCopy] = [
@@ -181,23 +174,6 @@ struct OnboardingView: View {
         onboardingCopy(for: selectedPage)
     }
 
-    private var ramGiB: Double {
-        if let override = ramGiBOverride {
-            return override
-        }
-        return Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
-    }
-
-    private var ramTier: RamTier {
-        if ramGiB < 6 {
-            return .insufficient
-        }
-        if ramGiB <= 8 {
-            return .limited
-        }
-        return .sufficient
-    }
-
     private var appleAvailable: Bool {
         AppleIntelligenceAvailability.currentStatus() == .available
     }
@@ -206,13 +182,9 @@ struct OnboardingView: View {
         appleAvailable ? .local : .byok
     }
 
-    private var hasConfiguredMLXModel: Bool {
-        MLXModelStore().hasConfiguredModel()
-    }
-
     private var ramBackendOptions: [GenerationBackend] {
         var options: [GenerationBackend] = [.auto]
-        if appleAvailable || (hasConfiguredMLXModel && ramTier != .insufficient) {
+        if appleAvailable {
             options.append(.local)
         }
         options.append(.byok)
@@ -222,14 +194,12 @@ struct OnboardingView: View {
     init(
         defaultPage: Int = 0,
         dismissOnCompletion: Bool = false,
-        ramGiBOverride: Double? = nil,
         onGetLifetimeAccess: @escaping () -> Void = {}
     ) {
         let clamped = max(0, min(defaultPage, onboardingCopies.count - 1))
         _selectedPage = State(initialValue: clamped)
         self.onGetLifetimeAccess = onGetLifetimeAccess
         self.dismissOnCompletion = dismissOnCompletion
-        self.ramGiBOverride = ramGiBOverride
     }
 
     var body: some View {
@@ -790,9 +760,9 @@ struct OnboardingView: View {
                     color: .yellow
                 ),
                 ProductChecklistItem(
-                    title: "Local-First",
-                    text: "On-device privacy",
-                    description: "Read privately, even on sensitive content.",
+                    title: "Model Choice",
+                    text: "Apple Intelligence or BYOK",
+                    description: "Choose on-device processing or your own provider.",
                     symbolName: "lock.square",
                     color: .green
                 ),
@@ -1591,19 +1561,19 @@ private struct BorderedTintButtonStyle: ButtonStyle {
 }
 
 #Preview("RAM 4 GiB") {
-    OnboardingView(defaultPage: 3, ramGiBOverride: 4)
+    OnboardingView(defaultPage: 3)
         .environment(\.locale, .init(identifier: "en"))
         .environment(\.layoutDirection, .leftToRight)
 }
 
 #Preview("RAM 7 GiB") {
-    OnboardingView(defaultPage: 3, ramGiBOverride: 7)
+    OnboardingView(defaultPage: 3)
         .environment(\.locale, .init(identifier: "en"))
         .environment(\.layoutDirection, .leftToRight)
 }
 
 #Preview("RAM 10 GiB") {
-    OnboardingView(defaultPage: 3, ramGiBOverride: 10)
+    OnboardingView(defaultPage: 3)
         .environment(\.locale, .init(identifier: "en"))
         .environment(\.layoutDirection, .leftToRight)
 }

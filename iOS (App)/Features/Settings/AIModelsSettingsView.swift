@@ -1,54 +1,22 @@
 import Foundation
-import OSLog
 import SwiftUI
 
 struct AIModelsSettingsView: View {
-    private static let logger = Logger(subsystem: "com.qoli.eisonAI", category: "AIModelsSettingsView")
     private let appBackendStore = GenerationBackendSettingsStore()
     private let extensionBackendStore = ExtensionGenerationBackendSettingsStore()
     private let byokStore = BYOKSettingsStore()
-    private let autoStrategyStore = AutoStrategySettingsStore.shared
     private let longDocumentSettingsStore = LongDocumentSettingsStore.shared
-    private let catalogService = MLXModelCatalogService()
-    private let modelStore = MLXModelStore()
     private let client = AnyLanguageModelClient()
-    @ObservedObject private var downloadCoordinator = MLXDownloadCoordinator.shared
-    @StateObject private var downloadsPresentation = MLXDownloadsPresentationController.shared
-    private let debugAutomationRequest: MLXDebugAutomationRequest?
-    private let startInMLXManagement: Bool
     private let longDocumentChunkSizeOptions: [Int] = LongDocumentDefaults.allowedChunkSizes
     private let longDocumentMaxChunkOptions: [Int] = LongDocumentDefaults.allowedMaxChunkCounts
     private static let modelPickerPlaceholderTag = "__byok_model_placeholder__"
     private static let modelPickerCustomTag = "__byok_model_custom__"
-    private static let fileSizeFormatter: ByteCountFormatter = {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useGB, .useMB, .useKB]
-        formatter.countStyle = .file
-        formatter.includesUnit = true
-        formatter.isAdaptive = true
-        return formatter
-    }()
 
     @State private var didLoad = false
     @State private var appBackend: GenerationBackend = .local
     @State private var extensionBackend: ExtensionGenerationBackendSelection = .auto
-    @State private var autoLocalPreference: AutoStrategySettingsStore.LocalModelPreference = .appleIntelligence
     @State private var longDocumentChunkTokenSize = LongDocumentDefaults.fallbackChunkSize
     @State private var longDocumentMaxChunkCount = LongDocumentDefaults.fallbackMaxChunkCount
-
-    @State private var installedModels: [InstalledMLXModel] = []
-    @State private var selectedMLXModelID: String?
-    @State private var catalogModels: [MLXCatalogModel] = []
-    @State private var curatedGroups: [MLXCuratedModelGroup] = MLXCuratedModelGroupsLoader.load()
-    @State private var isRefreshingCatalog = false
-    @State private var catalogError = ""
-    @State private var showAllCatalogModels = false
-    @State private var showCustomRepoSection = false
-    @State private var modelOperationMessage = ""
-    @State private var modelOperationIsError = false
-    @State private var activeModelOperationIDs = Set<String>()
-    @State private var customRepoDraft = ""
-    @State private var didRunDebugAutomation = false
 
     @State private var byokProvider: BYOKProvider = .openAIChat
     @State private var byokProviderOptionID = ""
@@ -73,21 +41,8 @@ struct AIModelsSettingsView: View {
     @State private var byokPingError = ""
     @State private var byokPingTask: Task<Void, Never>?
 
-    init(
-        debugAutomationRequest: MLXDebugAutomationRequest? = nil,
-        startInMLXManagement: Bool = false
-    ) {
-        self.debugAutomationRequest = debugAutomationRequest
-        self.startInMLXManagement = startInMLXManagement
-        self._downloadCoordinator = ObservedObject(wrappedValue: MLXDownloadCoordinator.shared)
-    }
-
     private var aiStatus: AppleIntelligenceAvailability.Status {
         AppleIntelligenceAvailability.currentStatus()
-    }
-
-    private var localAvailability: LocalModelAvailability {
-        appBackendStore.localModelAvailability()
     }
 
     private var selectedProviderOption: BYOKProvider.ProviderOption? {
@@ -139,7 +94,7 @@ struct AIModelsSettingsView: View {
     }
 
     var body: some View {
-        displayedPage
+        settingsForm
             .navigationTitle("Models")
             .alert("Replace API URL?", isPresented: $showOverwriteAPIAlert) {
                 Button("Replace", role: .destructive) {
@@ -172,52 +127,9 @@ struct AIModelsSettingsView: View {
             } message: {
                 Text("Use a custom model ID that isn't in the list.")
             }
-            .sheet(isPresented: $showCustomRepoSection) {
-                NavigationStack {
-                    Form {
-                        Section {
-                            HStack(spacing: 12) {
-                                TextField("mlx-community/Qwen3-1.7B-4bit", text: $customRepoDraft)
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-
-                                Button("Install") {
-                                    installCustomRepo()
-                                }
-                                .disabled(
-                                    customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                        activeDownloadJob != nil
-                                )
-                            }
-
-                            if let customDownloadJob,
-                               customDownloadJob.source == .custom {
-                                MLXDownloadJobStatusView(
-                                    job: customDownloadJob,
-                                    onCancel: cancelCurrentDownloadJob,
-                                    onDismiss: dismissCurrentDownloadJob
-                                )
-                            }
-                        } header: {
-                            Text("Custom MLX Repo")
-                        } footer: {
-                            Text("Only Hugging Face MLX repos are supported. GGUF and llama.cpp models are not supported.")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .navigationTitle("Custom Repo")
-                    .toolbar {
-                        ToolbarItem(placement: .topBarTrailing) {
-                            Button("Done") {
-                                showCustomRepoSection = false
-                            }
-                        }
-                    }
-                }
+            .task {
+                loadStateIfNeeded()
             }
-        .task {
-            loadStateIfNeeded()
-        }
             .onChange(of: appBackend) { _, newValue in
                 guard didLoad else { return }
                 appBackendStore.saveSelectedBackend(newValue)
@@ -226,10 +138,6 @@ struct AIModelsSettingsView: View {
             .onChange(of: extensionBackend) { _, newValue in
                 guard didLoad else { return }
                 extensionBackendStore.saveSelectedBackend(newValue)
-            }
-            .onChange(of: autoLocalPreference) { _, newValue in
-                guard didLoad else { return }
-                autoStrategyStore.setLocalModelPreference(newValue)
             }
             .onChange(of: longDocumentChunkTokenSize) { _, newValue in
                 guard didLoad else { return }
@@ -289,28 +197,8 @@ struct AIModelsSettingsView: View {
             }
     }
 
-    @ViewBuilder
-    private var displayedPage: some View {
-        if startInMLXManagement {
-            mlxManagementPage
-        } else {
-            settingsForm
-        }
-    }
-
     private var settingsForm: some View {
         Form {
-            Section {
-                InstalledMemoryView()
-                    .listRowInsets(EdgeInsets())
-                    .padding(.vertical, 4)
-            } header: {
-                Text("Installed Memory")
-            } footer: {
-                Text("On-device model availability depends on usable memory and what you have already installed.")
-                    .foregroundStyle(.secondary)
-            }
-
             Section {
                 Picker("In-App Model", selection: $appBackend) {
                     ForEach(GenerationBackend.allCases, id: \.self) { backend in
@@ -327,30 +215,6 @@ struct AIModelsSettingsView: View {
                 Text("Where Models Run")
             } footer: {
                 Text(backendFooterText)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Picker("Preferred", selection: $autoLocalPreference) {
-                    Text("Apple Intelligence").tag(AutoStrategySettingsStore.LocalModelPreference.appleIntelligence)
-                    Text("Local Models").tag(AutoStrategySettingsStore.LocalModelPreference.mlx)
-                }
-                .pickerStyle(.menu)
-
-                NavigationLink {
-                    mlxManagementPage
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Manage Models")
-//                        Text(mlxManagementSummary)
-//                            .font(.footnote)
-//                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("Local Routing")
-            } footer: {
-                Text("The app can use Apple Intelligence or your selected local MLX model. Auto still switches to BYOK for long inputs.")
                     .foregroundStyle(.secondary)
             }
 
@@ -391,7 +255,7 @@ struct AIModelsSettingsView: View {
             } header: {
                 Text("Advanced")
             } footer: {
-                Text("Advanced options for local routing, including chunking for long inputs.")
+                Text("Advanced options for Apple Intelligence, including chunking for long inputs.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -519,7 +383,7 @@ struct AIModelsSettingsView: View {
                     }
                 }
             } footer: {
-                Text("These settings control how long inputs are split on the app's local path before routing falls back to BYOK when needed.")
+                Text("These settings control how long inputs are split for Apple Intelligence before routing falls back to BYOK when needed.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -537,18 +401,8 @@ struct AIModelsSettingsView: View {
             lines.append("Apple Intelligence is unavailable: \(reason)")
         }
 
-        if let selectedMLXModelID {
-            lines.append("Local model: \(selectedMLXModelID)")
-        } else {
-            lines.append("Local model: not selected.")
-        }
-
-        lines.append("Safari uses Apple Intelligence or BYOK. Local MLX models run only in the app.")
+        lines.append("Downloaded local models are no longer supported. The app and Safari use Apple Intelligence or BYOK.")
         return lines.joined(separator: "\n")
-    }
-
-    private var mlxManagementSummary: String {
-        selectedMLXModelID == nil ? "None selected" : "Selected"
     }
 
     private var byokSectionSummary: String {
@@ -577,289 +431,7 @@ struct AIModelsSettingsView: View {
     }
 
     private var longDocumentSummary: String {
-        "Chunking and limits for local routing"
-    }
-
-    private var deviceRAMGiB: Double {
-        Double(ProcessInfo.processInfo.physicalMemory) / 1024 / 1024 / 1024
-    }
-
-    private var filteredCatalogModels: [MLXCatalogModel] {
-        guard !showAllCatalogModels else { return catalogModels }
-        return catalogModels.filter { model in
-            model.recommendation(forRAMGiB: deviceRAMGiB) != .likelyTooLarge
-        }
-    }
-
-    private var hiddenCatalogModelCount: Int {
-        max(catalogModels.count - filteredCatalogModels.count, 0)
-    }
-
-    private var currentDownloadJob: MLXDownloadJob? {
-        downloadCoordinator.currentJob
-    }
-
-    private var activeDownloadJob: MLXDownloadJob? {
-        guard let currentDownloadJob, currentDownloadJob.isActive else { return nil }
-        return currentDownloadJob
-    }
-
-    private var hasCuratedGroups: Bool {
-        !curatedGroups.isEmpty
-    }
-
-    private var mlxCommunityFooterText: String {
-        var parts: [String] = [
-            "Catalog items come from `mlx-community` and include `text-generation`, `image-text-to-text`, and `any-to-any`.",
-        ]
-
-        if hiddenCatalogModelCount > 0 {
-            parts.append(
-                showAllCatalogModels
-                    ? "Showing all models, including \(hiddenCatalogModelCount) likely too large for this device."
-                    : "\(hiddenCatalogModelCount) likely too large models are hidden. Use the toolbar to reveal them."
-            )
-        }
-
-        return parts.joined(separator: " ")
-    }
-
-    private func curatedGroupInstalledCount(_ group: MLXCuratedModelGroup) -> Int {
-        group.models.reduce(into: 0) { count, model in
-            if installedModels.contains(where: { $0.id == model.repoID }) {
-                count += 1
-            }
-        }
-    }
-
-    private func catalogModel(for repoID: String) -> MLXCatalogModel? {
-        catalogModels.first(where: { $0.id == repoID })
-    }
-
-    private var mlxManagementPage: some View {
-        Form {
-            Section {
-                NavigationLink {
-                    installedModelsPage
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Installed")
-                            .foregroundStyle(.primary)
-
-                        Text(installedModelsPageSummary)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("Installed Models")
-            } footer: {
-                if !modelOperationMessage.isEmpty {
-                    Text(modelOperationMessage)
-                        .foregroundStyle(modelOperationIsError ? .red : .secondary)
-                }
-            }
-
-            Section {
-                if hasCuratedGroups {
-                    ForEach(curatedGroups) { group in
-                        NavigationLink {
-                            MLXCuratedGroupDetailPage(
-                                group: group,
-                                selectedModelID: selectedMLXModelID,
-                                rows: curatedRows(for: group)
-                            )
-                        } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(group.title)
-                                    .foregroundStyle(.primary)
-
-                                Text(curatedGroupSummary(group))
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                } else {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("No curated model families available.")
-                            .foregroundStyle(.primary)
-
-                        Text("The curated model index could not be loaded.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("Models")
-            } footer: {
-                if !catalogError.isEmpty {
-                    Text(catalogError)
-                        .foregroundStyle(.red)
-                } else {
-                    Text("Choose a model family first. The next page shows the actual models in that family.")
-                }
-            }
-        }
-        .navigationTitle("Manage Models")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if isRefreshingCatalog {
-                    ProgressView()
-                }
-
-                Button {
-                    refreshCatalog()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .disabled(isRefreshingCatalog)
-
-                Menu {
-                    Button {
-                        downloadsPresentation.present()
-                    } label: {
-                        Label("Downloads", systemImage: "arrow.down.circle")
-                    }
-
-                    Toggle(isOn: $showCustomRepoSection) {
-                        Label("Custom Repo", systemImage: "text.cursor")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
-            }
-        }
-        .task {
-            downloadCoordinator.refreshState()
-            if curatedGroups.isEmpty {
-                curatedGroups = MLXCuratedModelGroupsLoader.load()
-            }
-            if catalogModels.isEmpty {
-                refreshCatalog()
-            }
-            logMLXUIState("mlxManagementPage.task")
-            await runDebugAutomationIfNeeded()
-        }
-        .onReceive(downloadCoordinator.$currentJob) { job in
-            installedModels = modelStore.loadInstalledModels()
-            selectedMLXModelID = modelStore.loadSelectedModelID()
-            logMLXUIState(
-                "downloadCoordinator.currentJob=\(job?.state.rawValue ?? "nil")",
-                observedJob: job
-            )
-
-            guard let job else { return }
-            guard !job.isActive else { return }
-        }
-    }
-
-    private var installedModelsPage: some View {
-        Form {
-            if installedModels.isEmpty {
-                Section {
-                    Text("No models installed yet.")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Section {
-                    ForEach(installedModels) { model in
-                        let isBusy = activeModelOperationIDs.contains(model.id)
-                        MLXInstalledModelRow(
-                            model: model,
-                            metadataLine: installedMetadataLine(model),
-                            isSelected: selectedMLXModelID == model.id,
-                            isBusy: isBusy,
-                            onSelect: { selectInstalledModel(id: model.id) }
-                        )
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if !isBusy {
-                                Button("Delete", role: .destructive) {
-                                    deleteInstalledModel(id: model.id)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .navigationTitle("Installed Models")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private var installedModelsPageSummary: String {
-        if installedModels.isEmpty {
-            return "No models installed"
-        }
-
-        if selectedMLXModelID == nil {
-            return "\(installedModels.count) installed"
-        }
-
-        return "\(installedModels.count) installed · Selected"
-    }
-
-    private func curatedGroupSummary(_ group: MLXCuratedModelGroup) -> String {
-        let modelCount = "\(group.models.count) model" + (group.models.count == 1 ? "" : "s")
-        let installedCount = curatedGroupInstalledCount(group)
-        var parts = [group.summary, modelCount]
-
-        if installedCount > 0 {
-            parts.append("\(installedCount) installed")
-        }
-
-        if let selectedMLXModelID,
-           group.models.contains(where: { $0.repoID == selectedMLXModelID }) {
-            parts.append("Selected")
-        }
-
-        return parts.joined(separator: " · ")
-    }
-
-    private func installedMetadataLine(_ model: InstalledMLXModel) -> String {
-        let params = model.estimatedParameterCount.map { parameterLabel($0) } ?? "Unknown size"
-        let date = model.lastModified.map { Self.relativeDateFormatter.localizedString(for: $0, relativeTo: .now) } ?? "unknown date"
-        return [model.pipelineTag, params, date].joined(separator: " · ")
-    }
-
-    private func catalogMetadataLine(_ model: MLXCatalogModel) -> String {
-        let params = model.estimatedParameterLabel
-        let size = model.rawSafeTensorTotal.map { Self.fileSizeFormatter.string(fromByteCount: $0) }
-        let base = model.baseModel?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let date = model.lastModified.map { Self.relativeDateFormatter.localizedString(for: $0, relativeTo: .now) } ?? "unknown date"
-        let fields: [String] = [model.pipelineTag, size, params, base, date].compactMap { value in
-            guard let value else { return nil }
-            return value.isEmpty ? nil : value
-        }
-        return fields.joined(separator: " · ")
-    }
-
-    private func parameterLabel(_ value: Double) -> String {
-        let billion = value / 1_000_000_000
-        if billion >= 1 {
-            return String(format: "~%.1fB", billion)
-        }
-        return String(format: "~%.0fM", value / 1_000_000)
-    }
-
-    private func curatedRows(for group: MLXCuratedModelGroup) -> [MLXCuratedModelRowContext] {
-        group.models.map { curated in
-            let liveModel = catalogModel(for: curated.repoID)
-            return MLXCuratedModelRowContext(
-                curatedModel: curated,
-                metadataLine: liveModel.map(catalogMetadataLine),
-                recommendation: liveModel?.recommendation(forRAMGiB: deviceRAMGiB),
-                isInstalled: installedModels.contains(where: { $0.id == curated.repoID }),
-                isSelected: selectedMLXModelID == curated.repoID,
-                job: downloadJob(for: curated.repoID),
-                isInstallDisabled: activeDownloadJob != nil,
-                onSelect: { selectInstalledModel(id: curated.repoID) },
-                onInstall: { installCuratedModel(repoID: curated.repoID) },
-                onCancelDownload: cancelCurrentDownloadJob,
-                onDismissJob: dismissCurrentDownloadJob
-            )
-        }
+        "Chunking and limits for Apple Intelligence"
     }
 
     private func loadStateIfNeeded() {
@@ -868,12 +440,8 @@ struct AIModelsSettingsView: View {
 
         appBackend = appBackendStore.loadSelectedBackend()
         extensionBackend = extensionBackendStore.loadSelectedBackend()
-        autoLocalPreference = autoStrategyStore.localModelPreference()
         longDocumentChunkTokenSize = longDocumentSettingsStore.chunkTokenSize()
         longDocumentMaxChunkCount = longDocumentSettingsStore.maxChunkCount()
-        installedModels = modelStore.loadInstalledModels()
-        selectedMLXModelID = modelStore.loadSelectedModelID()
-        downloadCoordinator.refreshState()
 
         let byokSettings = byokStore.loadSettings()
         byokProvider = byokSettings.provider
@@ -889,274 +457,6 @@ struct AIModelsSettingsView: View {
 
         validateBYOK()
         scheduleByokConnectionTest()
-        logMLXUIState("loadStateIfNeeded")
-    }
-
-    private func refreshCatalog() {
-        guard !isRefreshingCatalog else { return }
-        isRefreshingCatalog = true
-        catalogError = ""
-
-        Task {
-            do {
-                let models = try await catalogService.fetchCatalog(limit: 100)
-                await MainActor.run {
-                    catalogModels = models
-                    isRefreshingCatalog = false
-                }
-            } catch {
-                await MainActor.run {
-                    catalogError = error.localizedDescription
-                    isRefreshingCatalog = false
-                }
-            }
-        }
-    }
-
-    private func installCatalogModel(_ model: MLXCatalogModel) {
-        Task {
-            do {
-                try await downloadCoordinator.startInstall(
-                    model: model,
-                    source: .catalog,
-                    autoSelect: true
-                )
-                await MainActor.run {
-                    modelOperationMessage = "Downloading \(model.id)…"
-                    modelOperationIsError = false
-                }
-            } catch {
-                await MainActor.run {
-                    modelOperationMessage = error.localizedDescription
-                    modelOperationIsError = true
-                }
-            }
-        }
-    }
-
-    private func installCuratedModel(repoID: String) {
-        Task {
-            do {
-                let model = try await catalogService.fetchModel(repoID: repoID)
-                try await downloadCoordinator.startInstall(
-                    model: model,
-                    source: .catalog,
-                    autoSelect: true
-                )
-                await MainActor.run {
-                    modelOperationMessage = "Downloading \(model.id)…"
-                    modelOperationIsError = false
-                }
-            } catch {
-                await MainActor.run {
-                    modelOperationMessage = error.localizedDescription
-                    modelOperationIsError = true
-                }
-            }
-        }
-    }
-
-    @MainActor
-    private func runDebugAutomationIfNeeded() async {
-        guard let request = debugAutomationRequest else { return }
-        guard !didRunDebugAutomation else { return }
-        didRunDebugAutomation = true
-
-        Self.logger.xcodeNotice(
-            "mlxUI automation start repo=\(request.repoID) source=\(request.source.rawValue) autoSelect=\(request.autoSelect) purgeExisting=\(request.purgeExisting)"
-        )
-
-        showAllCatalogModels = true
-        if request.source == .custom {
-            showCustomRepoSection = true
-            customRepoDraft = request.repoID
-        }
-
-        if request.purgeExisting {
-            await purgeDebugAutomationArtifacts(for: request.repoID)
-        }
-
-        do {
-            let model = try await catalogService.fetchModel(repoID: request.repoID)
-            if !catalogModels.contains(where: { $0.id == model.id }) {
-                catalogModels.insert(model, at: 0)
-            }
-
-            switch request.source {
-            case .catalog:
-                installCatalogModel(model)
-            case .custom:
-                customRepoDraft = model.id
-                installCustomRepo()
-            }
-        } catch {
-            modelOperationMessage = "Automation failed for \(request.repoID): \(error.localizedDescription)"
-            modelOperationIsError = true
-            Self.logger.xcodeError(
-                "mlxUI automation failed repo=\(request.repoID) error=\(error.localizedDescription)"
-            )
-        }
-    }
-
-    @MainActor
-    private func purgeDebugAutomationArtifacts(for repoID: String) async {
-        if let currentJob = currentDownloadJob, currentJob.modelID == repoID {
-            if currentJob.isActive {
-                await downloadCoordinator.cancelCurrentJob()
-            }
-            if let refreshedJob = downloadCoordinator.currentJob,
-               refreshedJob.modelID == repoID,
-               !refreshedJob.isActive {
-                downloadCoordinator.dismissCurrentJob()
-            }
-        }
-
-        do {
-            try await client.deleteLocalModel(modelID: repoID)
-        } catch {
-            Self.logger.xcodeWarning(
-                "mlxUI automation purge deleteLocalModel warning repo=\(repoID) error=\(error.localizedDescription)"
-            )
-        }
-
-        modelStore.removeInstalledModel(id: repoID)
-        installedModels = modelStore.loadInstalledModels()
-        selectedMLXModelID = modelStore.loadSelectedModelID()
-        downloadCoordinator.refreshState()
-        Self.logger.xcodeNotice(
-            "mlxUI automation purge completed repo=\(repoID) installedNow=\(installedModels.map { $0.id }.sorted()) selectedNow=\(selectedMLXModelID ?? "nil")"
-        )
-    }
-
-    private func installCustomRepo() {
-        let repoID = customRepoDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !repoID.isEmpty else { return }
-
-        Task {
-            do {
-                let model = try await catalogService.fetchModel(repoID: repoID)
-                try await downloadCoordinator.startInstall(
-                    model: model,
-                    source: .custom,
-                    autoSelect: true
-                )
-                await MainActor.run {
-                    customRepoDraft = ""
-                    modelOperationMessage = "Downloading \(model.id)…"
-                    modelOperationIsError = false
-                }
-            } catch {
-                await MainActor.run {
-                    modelOperationMessage = error.localizedDescription
-                    modelOperationIsError = true
-                }
-            }
-        }
-    }
-
-    private func selectInstalledModel(id: String) {
-        modelStore.saveSelectedModelID(id)
-        selectedMLXModelID = id
-        modelOperationMessage = "Selected \(id)."
-        modelOperationIsError = false
-        logMLXUIState("selectInstalledModel id=\(id)")
-    }
-
-    private func deleteInstalledModel(id: String) {
-        Self.logger.xcodeNotice(
-            "deleteInstalledModel requested id=\(id) activeBefore=\(activeModelOperationIDs.sorted()) installed=\(installedModels.map { $0.id }.sorted()) selected=\(selectedMLXModelID ?? "nil")"
-        )
-        startModelOperation(for: id)
-        Task {
-            do {
-                try await client.deleteLocalModel(modelID: id)
-                await MainActor.run {
-                    modelStore.removeInstalledModel(id: id)
-                    installedModels = modelStore.loadInstalledModels()
-                    selectedMLXModelID = modelStore.loadSelectedModelID()
-                    modelOperationMessage = "Deleted \(id)."
-                    modelOperationIsError = false
-                    Self.logger.xcodeNotice(
-                        "deleteInstalledModel succeeded id=\(id) installedNow=\(installedModels.map { $0.id }.sorted()) selectedNow=\(selectedMLXModelID ?? "nil")"
-                    )
-                    finishModelOperation(for: id)
-                }
-            } catch {
-                await MainActor.run {
-                    modelOperationMessage = "Failed to delete \(id): \(error.localizedDescription)"
-                    modelOperationIsError = true
-                    Self.logger.xcodeError(
-                        "deleteInstalledModel failed id=\(id) error=\(error.localizedDescription) activeNow=\(activeModelOperationIDs.sorted())"
-                    )
-                    finishModelOperation(for: id)
-                }
-            }
-        }
-    }
-
-    private func startModelOperation(for id: String) {
-        activeModelOperationIDs.insert(id)
-        Self.logger.xcodeNotice(
-            "startModelOperation id=\(id) activeModelOperationIDs=\(activeModelOperationIDs.sorted())"
-        )
-    }
-
-    private func finishModelOperation(for id: String) {
-        activeModelOperationIDs.remove(id)
-        Self.logger.xcodeNotice(
-            "finishModelOperation id=\(id) activeModelOperationIDs=\(activeModelOperationIDs.sorted())"
-        )
-    }
-
-    private func cancelCurrentDownloadJob() {
-        Self.logger.xcodeNotice("cancelCurrentDownloadJob tapped currentJob=\(downloadCoordinator.currentJobLogSummary)")
-        Task {
-            await downloadCoordinator.cancelCurrentJob()
-            await MainActor.run {
-                modelOperationMessage = "Cancelling MLX download…"
-                modelOperationIsError = false
-            }
-        }
-    }
-
-    private func dismissCurrentDownloadJob() {
-        Self.logger.xcodeNotice("dismissCurrentDownloadJob tapped currentJob=\(downloadCoordinator.currentJobLogSummary)")
-        downloadCoordinator.dismissCurrentJob()
-        modelOperationMessage = ""
-        modelOperationIsError = false
-    }
-
-    private func downloadJob(for modelID: String) -> MLXDownloadJob? {
-        guard let currentDownloadJob else { return nil }
-        guard currentDownloadJob.modelID == modelID else { return nil }
-        guard currentDownloadJob.isActive || currentDownloadJob.state == .failed || currentDownloadJob.state == .cancelled else { return nil }
-        return currentDownloadJob
-    }
-
-    private var customDownloadJob: MLXDownloadJob? {
-        guard let currentDownloadJob else { return nil }
-        guard currentDownloadJob.source == .custom else { return nil }
-        guard currentDownloadJob.isActive || currentDownloadJob.state == .failed || currentDownloadJob.state == .cancelled else { return nil }
-        guard !installedModels.contains(where: { $0.id == currentDownloadJob.modelID }) else { return nil }
-        return currentDownloadJob
-    }
-
-    private func logInstalledRowState(_ model: InstalledMLXModel, context: String) {
-        let isSelected = selectedMLXModelID == model.id
-        let isActive = activeModelOperationIDs.contains(model.id)
-        let visibleTrailingControl = isActive ? "progress" : "delete"
-        Self.logger.xcodeNotice(
-            "installedRow context=\(context) id=\(model.id) selected=\(isSelected) active=\(isActive) visibleTrailingControl=\(visibleTrailingControl) activeModelOperationIDs=\(activeModelOperationIDs.sorted())"
-        )
-    }
-
-    private func logMLXUIState(_ context: String, observedJob: MLXDownloadJob? = nil) {
-        let jobSummary = observedJob.map { job in
-            "id=\(job.jobID) task=\(job.taskIdentifier) model=\(job.modelID) state=\(job.state.rawValue) completed=\(job.completedUnitCount) total=\(job.totalUnitCount) fraction=\(String(format: "%.3f", job.fractionCompleted)) source=\(job.source.rawValue) autoSelect=\(job.autoSelectOnCompletion) error=\(job.errorMessage ?? "nil")"
-        } ?? downloadCoordinator.currentJobLogSummary
-        Self.logger.xcodeNotice(
-            "mlxUI context=\(context) installed=\(installedModels.map { $0.id }.sorted()) selected=\(selectedMLXModelID ?? "nil") activeModelOperationIDs=\(activeModelOperationIDs.sorted()) currentDownloadJob=\(jobSummary)"
-        )
     }
 
     private func validateBYOK() {
@@ -1497,11 +797,5 @@ private enum BYOKPingStatus {
 #Preview("Models") {
     NavigationStack {
         AIModelsSettingsView()
-    }
-}
-
-#Preview("Manage Models") {
-    NavigationStack {
-        AIModelsSettingsView(startInMLXManagement: true)
     }
 }

@@ -15,9 +15,8 @@
 專案目前已經整併為一套基於 **AnyLanguageModel** 的推理架構：
 
 - **Safari 彈出視窗** 只使用 **Apple Intelligence** 或 **BYOK**
-- **App 端** 可使用 **Apple Intelligence**、**BYOK**，或從 Hugging Face 下載的 **MLX** 模型
-- 本地模型管理入口位於 **Settings → AI Models → MLX Models**
-- 下載型本地模型目前只支援 **MLX** repo，不支援 **GGUF / llama.cpp**
+- **App 端** 同樣只使用 **Apple Intelligence** 或 **BYOK**
+- 2.12 已移除可下載的本地模型 runtime 與模型管理功能
 
 ---
 
@@ -39,11 +38,10 @@
 ## 🚀 功能概覽
 
 - **Safari Extension**：在 Safari 內直接生成摘要與結構化重點，無需離開瀏覽器
-- **統一推理路由**：在 Apple Intelligence、MLX 與 BYOK 之間切換本地與雲端執行路徑
-- **MLX 模型庫**：瀏覽 `mlx-community`、預設隱藏明顯過大的模型，並可安裝自訂 Hugging Face MLX repo
+- **統一推理路由**：在 Apple Intelligence 與 BYOK 之間切換，不再維護可下載的本地 runtime
 - **BYOK Providers**：可設定自己的 OpenAI-compatible、Anthropic、Gemini 或 Ollama 端點與模型
 - **Cognitive Index™**：以結構化輸出呈現關鍵點，協助快速定位「意義生成」的區段
-- **長文件支援**：長文分段處理，並支援 local path 與 BYOK overflow 的路由策略
+- **長文件支援**：以 Apple Intelligence 分段處理長文，並支援 BYOK overflow 路由
 - **CloudKit 同步**：跨裝置同步 Library
 - **Library & Tags**：收藏、標籤化與檢索已處理內容
 - **語言自由切換**：可隨時調整模型輸出語言
@@ -106,7 +104,6 @@ EisonAI 想維持的是這個循環：
 - **作業系統**：iOS / iPadOS 18.0+
 - **Safari extension target**：iPhone / iPad 實機
 - **Apple Intelligence 路徑**：需要受支援裝置，且 app target 可用目前的 Foundation Models runtime
-- **下載型本地模型**：僅支援 Hugging Face **MLX** repo
 
 ## 🔧 開發與建置
 
@@ -121,7 +118,7 @@ Github/
   AnyLanguageModel/
 ```
 
-[`Packages/EisonAIModelKit/Package.swift`](Packages/EisonAIModelKit/Package.swift) 會透過這個 sibling checkout 啟用 `AnyLanguageModel` 的 `MLX` trait。
+Xcode 專案會直接連結這個 sibling checkout，而且不啟用任何本地模型 trait。
 
 3. 用 Xcode 開啟 `eisonAI.xcodeproj`
 4. 按需求選擇 scheme：
@@ -154,9 +151,8 @@ Scripts/export_xcode_console.sh
 ## 🧩 執行時說明
 
 - Safari extension 已移除 WebLLM / WebGPU 的本地執行路徑
-- Popup 現在透過 native bridge 使用 **Apple Intelligence** 或 **BYOK**
-- App 端的 MLX 模型改為執行時從 Hugging Face 下載，而不是把模型資產打包進 extension
-- 內建的 MLX catalog 會查詢 `mlx-community` 的 `text-generation`、`image-text-to-text`、`any-to-any`，再依 `lastModified` 合併排序
+- Popup 與 App 現在都透過 native bridge 使用 **Apple Intelligence** 或 **BYOK**
+- eisonAI 2.x 不再包含可下載的 MLX 模型、catalog 或背景下載生命週期
 
 ## 📄 授權協議
 

@@ -8,7 +8,7 @@
 
 ### 核心功能
 *   **Safari 擴充功能**：在瀏覽器內直接生成摘要與結構化重點 (Structured Highlights)。
-*   **完全隱私 (Local-First)**：使用 WebLLM (WebGPU) 與 MLCSwift，所有 AI 推理皆在設備端完成，無需上傳數據。
+*   **模型選擇透明**：支援 Apple Intelligence 裝置端處理，或透過 BYOK 連接使用者自行選擇的供應商。
 *   **非線性閱讀**：不必從頭讀到尾，透過結構化索引快速定位高價值內容。
 
 ---

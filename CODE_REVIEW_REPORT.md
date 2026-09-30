@@ -1,5 +1,7 @@
 # eisonAI 项目代码审查报告（已验证版）
 
+> **历史快照**：本报告审查的是已经退役的 WebLLM/MLC 架构，不代表目前的 Apple Intelligence/BYOK runtime。
+
 > **生成日期**: 2026-01-02
 > **审查范围**: 全项目 (59 Swift + 10 JavaScript 文件)
 > **验证方式**: 多轮代理交叉验证

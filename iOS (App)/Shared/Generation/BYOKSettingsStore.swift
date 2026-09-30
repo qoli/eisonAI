@@ -7,8 +7,6 @@ enum BYOKProvider: String, CaseIterable, Codable {
     case openAIChat = "openai.chat"
     case openAIResponses = "openai.responses"
     // case appleIntelligence = "apple" // Non-HTTP provider (handled via backend)
-    // case mlx = "mlx" // Hidden for now
-
     var displayName: String {
         switch self {
         case .ollama:

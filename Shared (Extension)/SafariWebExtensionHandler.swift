@@ -365,13 +365,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         LongDocumentDefaults.autoStrategyThresholdValue
     }
 
-    private func loadAutoLocalPreference() -> String {
-        guard let stored = sharedDefaults()?.string(forKey: AppConfig.autoLocalModelPreferenceKey) else {
-            return "appleIntelligence"
-        }
-        return stored == "qwen3" ? "mlx" : stored
-    }
-
     private func loadLongDocumentMaxChunks() -> Int {
         let fallback = LongDocumentDefaults.fallbackMaxChunkCount
         let allowed = LongDocumentDefaults.allowedMaxChunkCountSet
@@ -754,8 +747,6 @@ final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                     "name": "autoStrategySettings",
                     "payload": [
                         "strategyThreshold": loadAutoStrategyThreshold(),
-                        "localPreference": loadAutoLocalPreference(),
-                        "qwenEnabled": false,
                         "appleAvailability": applePayload,
                     ],
                 ])

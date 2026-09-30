@@ -4,6 +4,5 @@ eisonAI 是一個以 Apple Intelligence 作為優先開發的，提供結構化�
 *可用的運行模式：*
 - Apple Intelligence （預設、推薦）
 - BYOK
-- MLX 本地模型
 
 其中，macOS 版本是 iOS 的「克隆版本」，並不會優先支持。

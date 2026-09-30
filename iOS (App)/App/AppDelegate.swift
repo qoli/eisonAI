@@ -10,7 +10,6 @@ import UIKit
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     private static let startupLogger = Logger(subsystem: "com.qoli.eisonAI", category: "StartupProbe")
-    private static let lifecycleLogger = Logger(subsystem: "com.qoli.eisonAI", category: "AppLifecycle")
 
     #if targetEnvironment(macCatalyst)
         private var sceneObserverTokens: [NSObjectProtocol] = []
@@ -27,12 +26,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         emitStartupLogProbe()
         emitAppDirectoryPaths()
-        if MLXDebugAutomation.current.shouldDirectDownloadOnLaunch {
-            MLXDownloadDeepLinkHandler.shared.handleDebugStartupTriggerIfPresent(origin: "debugStartup")
-        }
-        if let launchURL = launchOptions?[.url] as? URL {
-            _ = handleIncomingURL(launchURL, origin: "launchOptions")
-        }
         #if !targetEnvironment(macCatalyst)
             if ProcessInfo.processInfo.isiOSAppOnMac {
                 DispatchQueue.main.async { [weak self] in
@@ -70,14 +63,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
-    func application(
-        _ application: UIApplication,
-        open url: URL,
-        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
-    ) -> Bool {
-        handleIncomingURL(url, origin: "openURL")
-    }
-
     private func emitStartupLogProbe() {
         let timestamp = Date().ISO8601Format()
         let process = ProcessInfo.processInfo.processName
@@ -106,14 +91,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         print("[AppStartup] current working directory: \(currentDirectory)")
     }
 
-    private func handleIncomingURL(_ url: URL, origin: String) -> Bool {
-        MLXDownloadDeepLinkHandler.shared.handle(url, origin: origin)
-    }
-
     func applicationDidBecomeActive(_ application: UIApplication) {
-        Self.lifecycleLogger.xcodeNotice(
-            "[AppLifecycle] didBecomeActive job=\(MLXDownloadCoordinator.shared.currentJobLogSummary)"
-        )
         #if !targetEnvironment(macCatalyst)
             if ProcessInfo.processInfo.isiOSAppOnMac {
                 configureIOSAppOnMacWindowTitles(for: application)
@@ -122,24 +100,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         #if targetEnvironment(macCatalyst)
             configureMacCatalystTitlebars(for: application)
         #endif
-    }
-
-    func applicationWillResignActive(_ application: UIApplication) {
-        Self.lifecycleLogger.xcodeNotice(
-            "[AppLifecycle] willResignActive job=\(MLXDownloadCoordinator.shared.currentJobLogSummary)"
-        )
-    }
-
-    func applicationDidEnterBackground(_ application: UIApplication) {
-        Self.lifecycleLogger.xcodeNotice(
-            "[AppLifecycle] didEnterBackground job=\(MLXDownloadCoordinator.shared.currentJobLogSummary)"
-        )
-    }
-
-    func applicationWillTerminate(_ application: UIApplication) {
-        Self.lifecycleLogger.xcodeNotice(
-            "[AppLifecycle] willTerminate job=\(MLXDownloadCoordinator.shared.currentJobLogSummary)"
-        )
     }
 
     #if !targetEnvironment(macCatalyst)

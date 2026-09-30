@@ -12,8 +12,8 @@
     "512": "images/icon-512.png"
   },
   "content_security_policy": {
-    "extension_page": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; object-src 'self';",
-    "extension_pages": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data:; connect-src 'self' blob:; object-src 'self';"
+    "extension_page": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'self';",
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'self';"
   },
   "content_scripts": [
     {

@@ -7,7 +7,6 @@ final class GenerationService {
     private let defaultAnyLanguageModels = AnyLanguageModelClient()
     private let backendSettings = GenerationBackendSettingsStore()
     private let byokSettingsStore = BYOKSettingsStore()
-    private let mlxStore = MLXModelStore()
     private let tokenEstimator = GPTTokenEstimator.shared
 
     private let rawLibraryStore = RawLibraryStore()
@@ -44,15 +43,6 @@ final class GenerationService {
             let backend = backendSettings.resolveExecutionBackend(tokenCount: tokenEstimate)
             log("title generation backend=\(backend.rawValue) tokenEstimate=\(tokenEstimate)")
             switch backend {
-            case .mlx:
-                stream = try await anyLanguageModels.streamChat(
-                    systemPrompt: systemPrompt,
-                    userPrompt: userPrompt,
-                    temperature: 0.2,
-                    maximumResponseTokens: 128,
-                    backend: backend,
-                    mlxModelID: mlxStore.loadSelectedModelID()
-                )
             case .appleIntelligence:
                 let prefix = clampText(userPrompt, maxChars: 800)
                 log("title generation appleIntelligence prefix=\(describePrompt(prefix))")

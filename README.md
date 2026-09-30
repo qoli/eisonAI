@@ -15,9 +15,8 @@
 The project now uses a unified inference stack built on **AnyLanguageModel**:
 
 - The **Safari popup** runs through **Apple Intelligence** or **BYOK** only.
-- The **app** can run with **Apple Intelligence**, **BYOK**, or downloaded **MLX** models from Hugging Face.
-- Local model management lives in **Settings → AI Models → MLX Models**.
-- Only **MLX** repos are supported for downloaded local models. **GGUF / llama.cpp** are not supported.
+- The **app** also runs through **Apple Intelligence** or **BYOK** only.
+- Downloaded local-model runtimes and model management were removed in 2.12.
 
 ---
 
@@ -39,11 +38,10 @@ The project now uses a unified inference stack built on **AnyLanguageModel**:
 ## 🚀 Feature Overview
 
 - **Safari Extension**: Generate summaries and structured highlights inside Safari without leaving the browser.
-- **Unified Inference Routing**: Route between local and cloud paths using Apple Intelligence, MLX, and BYOK.
-- **MLX Model Library**: Browse `mlx-community`, hide obviously oversized models by default, and install custom Hugging Face MLX repos.
+- **Unified Inference Routing**: Route between Apple Intelligence and BYOK without maintaining a downloadable local runtime.
 - **BYOK Providers**: Configure your own OpenAI-compatible, Anthropic, Gemini, or Ollama endpoint and model.
 - **Cognitive Index™**: Structured output surfaces key points to help you quickly locate meaning-dense sections.
-- **Long-Document Support**: Chunked processing for long content, with local routing and BYOK overflow handling.
+- **Long-Document Support**: Chunked processing for Apple Intelligence with BYOK overflow handling.
 - **CloudKit Sync**: Sync your Library across devices.
 - **Library & Tags**: Save, tag, and search processed articles.
 - **Language of Thought**: Adjust the model’s output language at any time.
@@ -105,7 +103,6 @@ The goal is to reduce the organizational drag around reading and note capture so
 - **OS**: iOS / iPadOS 18.0+
 - **Safari extension target**: iPhone / iPad devices
 - **Apple Intelligence path**: requires a supported device and the current Foundation Models runtime available to the app target
-- **Downloaded local models**: Hugging Face **MLX** repos only
 
 ## 🔧 Development Setup
 
@@ -120,7 +117,7 @@ Github/
   AnyLanguageModel/
 ```
 
-The local package shim in [`Packages/EisonAIModelKit/Package.swift`](Packages/EisonAIModelKit/Package.swift) enables the `MLX` trait from that sibling checkout.
+The Xcode project links the sibling checkout directly with no local-model trait enabled.
 
 3. Open `eisonAI.xcodeproj` in Xcode.
 4. Use the appropriate scheme:
@@ -153,9 +150,8 @@ See [Docs/xcode-automation.md](Docs/xcode-automation.md) for usage details, prer
 ## 🧩 Runtime Notes
 
 - Safari extension local execution through WebLLM / WebGPU has been removed.
-- The popup now uses **Apple Intelligence** or **BYOK** through the native bridge.
-- The app downloads MLX models at runtime from Hugging Face instead of bundling local model assets into the extension.
-- The built-in MLX catalog queries `mlx-community` across `text-generation`, `image-text-to-text`, and `any-to-any`, then merges and ranks the results by `lastModified`.
+- The popup and app use **Apple Intelligence** or **BYOK** through the native bridge.
+- Downloadable MLX models, their catalog, and their background download lifecycle are no longer part of eisonAI 2.x.
 
 ## 📄 License
 

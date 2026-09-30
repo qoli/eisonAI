@@ -21,8 +21,6 @@ struct LibraryRootView: View {
     @AppStorage(AppConfig.sharePollingEnabledKey, store: UserDefaults(suiteName: AppConfig.appGroupIdentifier))
     private var sharePollingEnabled = true
     @State private var isSyncErrorSheetPresented = false
-    @State private var isDebugMLXModelsPresented = false
-    @State private var didTriggerDebugMLXNavigation = false
 
     private let sharePayloadStore = SharePayloadStore()
 
@@ -151,19 +149,10 @@ struct LibraryRootView: View {
                     entry: entry
                 )
             }
-            .navigationDestination(isPresented: $isDebugMLXModelsPresented) {
-                AIModelsSettingsView(
-                    debugAutomationRequest: MLXDebugAutomation.current.request,
-                    startInMLXManagement: true
-                )
-            }
             .onChange(of: viewModel.entries) { _, newEntries in
                 if let selectedTag, !newEntries.contains(where: { $0.metadata.tags.contains(selectedTag) }) {
                     self.selectedTag = nil
                 }
-            }
-            .onAppear {
-                triggerDebugMLXNavigationIfNeeded()
             }
     }
 
@@ -537,13 +526,6 @@ struct LibraryRootView: View {
         } else {
             viewModel.errorMessage = "The generated result was saved but could not be opened."
         }
-    }
-
-    private func triggerDebugMLXNavigationIfNeeded() {
-        guard MLXDebugAutomation.current.shouldPresentMLXModelsPage else { return }
-        guard !didTriggerDebugMLXNavigation else { return }
-        didTriggerDebugMLXNavigation = true
-        isDebugMLXModelsPresented = true
     }
 
     private func handleNoteURL(_ url: URL) {

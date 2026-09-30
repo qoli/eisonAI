@@ -22,33 +22,34 @@ final class LongDocumentSettingsStoreTests: XCTestCase {
 
     func testRoutingThresholdIsFixed() {
         let store = LongDocumentSettingsStore(defaults: defaults)
-        XCTAssertEqual(store.routingThreshold(), 2600)
+        XCTAssertEqual(store.routingThreshold(), LongDocumentDefaults.routingThresholdValue)
     }
 
     func testChunkTokenSizeFallsBackWhenInvalid() {
         defaults?.set(1234, forKey: AppConfig.longDocumentChunkTokenSizeKey)
         let store = LongDocumentSettingsStore(defaults: defaults)
-        XCTAssertEqual(store.chunkTokenSize(), 2000)
+        XCTAssertEqual(store.chunkTokenSize(), LongDocumentDefaults.fallbackChunkSize)
     }
 
     func testSetChunkTokenSizeClampsToAllowedValues() {
         let store = LongDocumentSettingsStore(defaults: defaults)
-        store.setChunkTokenSize(2200)
-        XCTAssertEqual(store.chunkTokenSize(), 2200)
+        let allowedValue = LongDocumentDefaults.allowedChunkSizes.first!
+        store.setChunkTokenSize(allowedValue)
+        XCTAssertEqual(store.chunkTokenSize(), allowedValue)
 
         store.setChunkTokenSize(9999)
-        XCTAssertEqual(store.chunkTokenSize(), 2000)
+        XCTAssertEqual(store.chunkTokenSize(), LongDocumentDefaults.fallbackChunkSize)
     }
 
     func testMaxChunkCountFallbackAndClamp() {
         defaults?.set(1, forKey: AppConfig.longDocumentMaxChunkCountKey)
         let store = LongDocumentSettingsStore(defaults: defaults)
-        XCTAssertEqual(store.maxChunkCount(), 5)
+        XCTAssertEqual(store.maxChunkCount(), LongDocumentDefaults.fallbackMaxChunkCount)
 
         store.setMaxChunkCount(6)
         XCTAssertEqual(store.maxChunkCount(), 6)
 
         store.setMaxChunkCount(99)
-        XCTAssertEqual(store.maxChunkCount(), 5)
+        XCTAssertEqual(store.maxChunkCount(), LongDocumentDefaults.fallbackMaxChunkCount)
     }
 }

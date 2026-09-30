@@ -21,5 +21,5 @@
 | File | Status | Summary |
 | --- | --- | --- |
 | `browser-integration-learning-assistant.md` | `draft` | Integrate browser capabilities and reposition eisonAI as a local AI, information organization, and learning assistant. |
-| `inference-backend-consolidation-any-language-model.md` | `draft` | Evaluate dropping the MLC/MLC Swift path and consolidating app inference around Apple Intelligence and BYOK with AnyLanguageModel. |
+| `inference-backend-consolidation-any-language-model.md` | `landed` | App and extension inference now use Apple Intelligence or BYOK through AnyLanguageModel; downloadable local runtimes are retired. |
 | `macos-cli-agent-helper.md` | `draft` | Explore a macOS CLI helper so agent runtimes can access eisonAI data and operations through a stable local interface. |

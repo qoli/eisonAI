@@ -253,8 +253,8 @@ private struct HighlightsListView: View {
         )
         highlightRow(
             symbol: "lock.square",
-            title: "Local-First",
-            subtitle: "On-device by default."
+            title: "Model Choice",
+            subtitle: "Apple Intelligence or your provider."
         )
         highlightRow(
             symbol: "checkmark.seal",

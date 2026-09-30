@@ -70,7 +70,7 @@ AppGroup/
 - `createdAt`：ISO8601（UTC）
 - `url` / `title`
 - `articleText`：Readability 後正文（或你決定的原文）
-- `summaryText`：WebLLM 產出的摘要
+- `summaryText`：目前所選生成後端產出的摘要
 - `originalSummaryText`：以原文語言生成的摘要
 - `translatedSummaryText`：啟用結果翻譯時，翻譯到用戶目標語言的摘要；設定關閉、語言相同或沒有翻譯時省略
 - `originalLanguageTag` / `translatedLanguageTag`：兩份摘要對應的 BCP-47 語言標籤
@@ -81,7 +81,7 @@ AppGroup/
 建議可選欄位（未來用得到就加，不需要一次做完）：
 
 - `systemPrompt` / `userPrompt`
-- `modelId` / `wasm` / `webllmVersion`
+- `modelId` / provider metadata
 - `pageHTML`（通常不建議，太大；真的需要再加）
 - `tokenEstimate` / `durationMs`
 

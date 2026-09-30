@@ -40,14 +40,11 @@ enum ExecutionBackendType: String {
 }
 
 enum ExecutionBackend: String {
-    case mlx = "mlx"
     case appleIntelligence = "apple"
     case byok = "byok"
 
     var displayName: String {
         switch self {
-        case .mlx:
-            return "MLX"
         case .appleIntelligence:
             return "Apple Intelligence"
         case .byok:
@@ -56,17 +53,23 @@ enum ExecutionBackend: String {
     }
 }
 
-struct LocalModelAvailability {
-    let isMLXAvailable: Bool
-    let isAppleAvailable: Bool
-
-    var hasAnyLocal: Bool {
-        isMLXAvailable || isAppleAvailable
-    }
-}
-
 struct GenerationBackendSettingsStore {
-    private let defaults = UserDefaults(suiteName: AppConfig.appGroupIdentifier)
+    private let defaults: UserDefaults?
+    private let appleAvailability: () -> AppleIntelligenceAvailability.Status
+
+    init(
+        defaults: UserDefaults? = UserDefaults(suiteName: AppConfig.appGroupIdentifier),
+        appleAvailability: @escaping () -> AppleIntelligenceAvailability.Status = {
+            AppleIntelligenceAvailability.currentStatus()
+        }
+    ) {
+        self.defaults = defaults
+        self.appleAvailability = appleAvailability
+    }
+
+    private var isAppleAvailable: Bool {
+        appleAvailability() == .available
+    }
 
     func loadSelectedBackend() -> GenerationBackend {
         guard let raw = defaults?.string(forKey: AppConfig.appGenerationBackendKey)
@@ -77,7 +80,7 @@ struct GenerationBackendSettingsStore {
         if let backend = GenerationBackend(rawValue: raw) {
             return backend
         }
-        if raw == ExecutionBackend.mlx.rawValue || raw == ExecutionBackend.appleIntelligence.rawValue {
+        if raw == "mlx" || raw == ExecutionBackend.appleIntelligence.rawValue {
             return .local
         }
         if raw == ExecutionBackend.byok.rawValue {
@@ -92,13 +95,13 @@ struct GenerationBackendSettingsStore {
 
     func validateSelectedBackendForGeneration() throws {
         guard loadSelectedBackend() == .local else { return }
-        guard localModelAvailability().hasAnyLocal else {
+        guard isAppleAvailable else {
             throw NSError(
                 domain: "EisonAI.GenerationBackend",
                 code: 1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "Local generation is selected, but no local model is available. Select or download a model in Settings."
+                        "Apple Intelligence is selected but unavailable. Enable it or choose BYOK in Settings."
                 ]
             )
         }
@@ -106,15 +109,15 @@ struct GenerationBackendSettingsStore {
 
     func resolveExecutionBackendType(tokenCount: Int?) -> ExecutionBackendType {
         let selected = loadSelectedBackend()
-        let availability = localModelAvailability()
+        let appleAvailable = isAppleAvailable
         switch selected {
         case .auto:
             let threshold = AutoStrategySettingsStore.shared.strategyThreshold()
             let count = max(0, tokenCount ?? 0)
             let type: ExecutionBackendType = count <= threshold ? .local : .byok
-            return type == .local && !availability.hasAnyLocal ? .byok : type
+            return type == .local && !appleAvailable ? .byok : type
         case .local:
-            return availability.hasAnyLocal ? .local : .byok
+            return .local
         case .byok:
             return .byok
         }
@@ -126,34 +129,8 @@ struct GenerationBackendSettingsStore {
         case .byok:
             return .byok
         case .local:
-            if let local = preferredLocalBackend() {
-                return local
-            }
-            return .byok
+            return .appleIntelligence
         }
-    }
-
-    func localModelAvailability() -> LocalModelAvailability {
-        let mlxConfigured = MLXModelStore().hasConfiguredModel()
-        let appleAvailable = AppleIntelligenceAvailability.currentStatus() == .available
-        return LocalModelAvailability(
-            isMLXAvailable: mlxConfigured,
-            isAppleAvailable: appleAvailable
-        )
-    }
-
-    func preferredLocalBackend() -> ExecutionBackend? {
-        let availability = localModelAvailability()
-        let preference = AutoStrategySettingsStore.shared.localModelPreference()
-        switch preference {
-        case .appleIntelligence:
-            if availability.isAppleAvailable { return .appleIntelligence }
-            if availability.isMLXAvailable { return .mlx }
-        case .mlx:
-            if availability.isMLXAvailable { return .mlx }
-            if availability.isAppleAvailable { return .appleIntelligence }
-        }
-        return nil
     }
 }
 

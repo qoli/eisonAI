@@ -1,10 +1,10 @@
 # Product Hunt Launch Material
 
 ## 🏷️ Tagline
-The Cognitive Index™ for your brain. Turn web articles into structured knowledge with Local AI.
+The Cognitive Index™ for your brain. Turn web articles into structured knowledge with AI.
 
 ## 📝 Description (Short)
-eisonAI transforms linear reading into a structured experience. Using on-device AI (WebLLM), it extracts summaries, key points, and logical skeletons from web pages, allowing you to navigate content non-linearly. Private, offline, and open-source.
+eisonAI transforms linear reading into a structured experience. Using Apple Intelligence or your own provider, it extracts summaries, key points, and logical skeletons from web pages so you can navigate content non-linearly.
 
 ## 📄 Main Post (Maker's Comment)
 
@@ -18,24 +18,20 @@ I built **eisonAI** to solve this by changing *how* we read.
 
 ### 🧠 The Core Concept: Cognitive Indexing™
 Most tools just save the *content*. eisonAI extracts the **structure**.
-Before you dive into a 5,000-word article, eisonAI uses local LLMs to generate a map of the content:
+Before you dive into a 5,000-word article, eisonAI uses your selected model to generate a map of the content:
 *   **Summaries**: Get the gist instantly.
 *   **Key Points**: See the main arguments at a glance.
 *   **Logical Skeleton**: Jump to the sections that matter most to you.
 
 This enables **Non-linear Reading**. You don't have to follow the author's linear path. You can explore the ideas based on your own curiosity and questions.
 
-### 🔒 Why Local AI?
-Privacy isn't a feature; it's a requirement for a "second brain."
-eisonAI runs 100% on your device (iPhone, iPad, Mac) using **WebGPU** and **MLCSwift**.
-*   No data sent to the cloud.
-*   Works offline.
-*   Zero subscription fees for API usage.
+### 🔒 Your Model Choice
+Use Apple Intelligence for on-device processing on eligible devices, or connect a provider you control through BYOK. The app makes this boundary visible instead of hiding where generation happens.
 
 ### 📱 Tech Stack (For the Geeks)
 *   **Native App**: 100% SwiftUI.
-*   **Safari Extension**: Vanilla JS + WebAssembly.
-*   **Inference**: WebLLM (Qwen2/Llama3 quantized) running in the browser + MLCSwift for the native app.
+*   **Safari Extension**: Vanilla JS + native messaging.
+*   **Inference**: Apple Intelligence or BYOK through AnyLanguageModel.
 *   **Sync**: CloudKit for seamless Apple ecosystem integration.
 
 I’d love to hear your feedback! What’s the biggest friction point in your reading workflow?
@@ -47,7 +43,7 @@ Happy reading! 🚀
 ## 🖼️ Gallery / Screenshots Checklist
 - [ ] **Hero Image**: A clean shot of the Safari Extension showing the "Cognitive Index" sidebar next to a complex article.
 - [ ] **Feature 1**: "Structure First" - showing the summary and key points extraction.
-- [ ] **Feature 2**: "Local AI" - a visual showing the "On-Device" indicator or privacy shield.
+- [ ] **Feature 2**: "Model Choice" - a visual showing Apple Intelligence and BYOK options.
 - [ ] **Feature 3**: "Non-linear Navigation" - showing a user tapping a key point to jump to that section.
 
 ## 🔗 Links

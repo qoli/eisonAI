@@ -1,22 +1,64 @@
-import AnyLanguageModel
 import XCTest
 @testable import eisonAI
 
 @MainActor
 final class LongDocumentFallbackTests: XCTestCase {
-    func testIsContextWindowExceededDirectError() {
-        let viewModel = ClipboardKeyPointViewModel()
-        let context = LanguageModelSession.GenerationError.Context(debugDescription: "test")
-        let error = LanguageModelSession.GenerationError.exceededContextWindowSize(context)
-        XCTAssertTrue(viewModel.isContextWindowExceeded(error))
+    func testLegacyMLXBackendMigratesToAppleLocalSelection() {
+        let suiteName = "GenerationBackendTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("mlx", forKey: AppConfig.legacyGenerationBackendKey)
+
+        let store = GenerationBackendSettingsStore(
+            defaults: defaults,
+            appleAvailability: { .available }
+        )
+
+        XCTAssertEqual(store.loadSelectedBackend(), .local)
+        XCTAssertEqual(store.resolveExecutionBackend(tokenCount: 100), .appleIntelligence)
     }
 
-    func testIsContextWindowExceededFromUnderlyingError() {
-        let viewModel = ClipboardKeyPointViewModel()
-        let context = LanguageModelSession.GenerationError.Context(debugDescription: "test")
-        let underlying = LanguageModelSession.GenerationError.exceededContextWindowSize(context)
-        let error = NSError(domain: "test", code: 1, userInfo: [NSUnderlyingErrorKey: underlying])
-        XCTAssertTrue(viewModel.isContextWindowExceeded(error))
+    func testAutoUsesBYOKWhenAppleIntelligenceIsUnavailable() {
+        let suiteName = "GenerationBackendTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = GenerationBackendSettingsStore(
+            defaults: defaults,
+            appleAvailability: { .unavailable("Unavailable for test") }
+        )
+        store.saveSelectedBackend(.auto)
+
+        XCTAssertEqual(store.resolveExecutionBackend(tokenCount: 100), .byok)
+    }
+
+    func testAutoUsesAppleIntelligenceForShortInputWhenAvailable() {
+        let suiteName = "GenerationBackendTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = GenerationBackendSettingsStore(
+            defaults: defaults,
+            appleAvailability: { .available }
+        )
+        store.saveSelectedBackend(.auto)
+
+        XCTAssertEqual(store.resolveExecutionBackend(tokenCount: 100), .appleIntelligence)
+    }
+
+    func testExplicitLocalDoesNotFallBackToBYOKWhenAppleIntelligenceIsUnavailable() {
+        let suiteName = "GenerationBackendTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let store = GenerationBackendSettingsStore(
+            defaults: defaults,
+            appleAvailability: { .unavailable("Unavailable for test") }
+        )
+        store.saveSelectedBackend(.local)
+
+        XCTAssertEqual(store.resolveExecutionBackend(tokenCount: 100), .appleIntelligence)
+        XCTAssertThrowsError(try store.validateSelectedBackendForGeneration())
     }
 
     func testIsContextWindowExceededFalseForOtherErrors() {

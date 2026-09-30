@@ -23,8 +23,8 @@ We use information to:
 - Provide customer support and respond to requests.
 - Comply with legal obligations.
 
-## 3. On-Device Processing and Optional Sync
-By default, content is processed locally on your device. If you enable optional sync features (such as iCloud/CloudKit sync), your data may be stored in your private iCloud database associated with your Apple ID. Apple’s policies govern their handling of that data.
+## 3. Model Processing and Optional Sync
+When Apple Intelligence is selected and available, model processing happens on your device. If you configure BYOK, content sent for generation is transmitted to the provider and endpoint you selected, subject to that provider’s policies. If you enable optional sync features (such as iCloud/CloudKit sync), your data may be stored in your private iCloud database associated with your Apple ID. Apple’s policies govern their handling of that data.
 
 ## 4. Sharing of Information
 We do not sell your personal information. We may share information:
@@ -50,4 +50,3 @@ We may update this Policy from time to time. We will post the updated Policy wit
 ## 10. Contact
 If you have questions about this Policy, contact us at:
 - Email: [llqoli@gmail.com]
-
